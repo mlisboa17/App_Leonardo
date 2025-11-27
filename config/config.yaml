@@ -1,0 +1,36 @@
+exchange:
+  name: binance
+  testnet: true
+trading:
+  symbol: BTC/USDT
+  timeframe: 1m
+  amount_per_trade: 10.0
+  max_positions: 1
+safety:
+  max_daily_loss: 100.0
+  max_drawdown: 20.0
+  price_deviation_limit: 30.0
+indicators:
+  rsi:
+    period: 14
+    oversold: 30
+    overbought: 70
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+  sma:
+    periods:
+    - 20
+    - 50
+    - 200
+logging:
+  level: INFO
+  file: logs/trading_bot.log
+data:
+  cache_enabled: true
+  cache_dir: data/cache
+  csv_reports: data/reports
+execution:
+  interval_seconds: 60
+  dry_run: false

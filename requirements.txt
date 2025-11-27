@@ -1,0 +1,44 @@
+# Dependências do Bot de Trading Leonardo
+
+# APIs e Exchanges
+ccxt>=4.0.0
+
+# Análise de Dados
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Indicadores Técnicos
+# pandas-ta>=0.4.67b0  # Não suporta Python 3.14 ainda (depende de numba)
+# TA-Lib também requer compilação complexa no Windows
+# Usaremos cálculos nativos com pandas/numpy (implementado em technical_indicators.py)
+
+# Backtesting (opcional - instalar quando necessário)
+# backtrader>=1.9.76
+# zipline-reloaded>=2.4.0
+
+# Configurações
+python-dotenv>=1.0.0
+PyYAML>=6.0
+
+# Logs e Utilidades
+requests>=2.31.0
+
+# WebSocket (para dados em tempo real)
+websocket-client>=1.6.0
+
+# Notificações (opcional)
+# python-telegram-bot>=20.0
+
+# Interface Visual
+rich>=13.7.0
+colorama>=0.4.6
+
+# Web Interface
+django>=5.0.0
+channels>=4.0.0
+daphne>=4.0.0
+whitenoise>=6.6.0
+
+# Testes
+pytest>=7.4.0
+pytest-cov>=4.1.0

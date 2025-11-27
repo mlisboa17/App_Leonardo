@@ -1,0 +1,319 @@
+# BOT DE TRADING LEONARDO - REGISTRO DE DESENVOLVIMENTO
+# Data: 27 de Novembro de 2025
+================================================================================
+
+## ✅ PROGRESSO ATUAL
+
+### 1. Estrutura do Projeto - CONCLUÍDO ✅
+- [x] Pastas criadas (src/, config/, logs/, data/, tests/)
+- [x] Módulos principais implementados:
+  - [x] src/core/exchange_client.py - Conexão com exchanges
+  - [x] src/safety/safety_manager.py - Sistema anti-alucinação
+  - [x] src/indicators/technical_indicators.py - Indicadores técnicos
+  - [x] src/strategies/simple_strategies.py - Estratégias de trading
+  - [x] main.py - Arquivo principal
+  - [x] configure_bot.py - Configurador interativo
+
+### 2. Dependências - CONCLUÍDO ✅
+- [x] Ambiente virtual criado (venv/)
+- [x] Todas as bibliotecas instaladas:
+  - [x] ccxt 4.5.22 (API para exchanges)
+  - [x] pandas 2.3.3 (Manipulação de dados)
+  - [x] numpy 2.3.4 (Cálculos matemáticos)
+  - [x] python-dotenv 1.2.1 (Credenciais)
+  - [x] PyYAML 6.0.3 (Configurações)
+  - [x] websocket-client 1.9.0 (Dados em tempo real)
+  - [x] pytest + pytest-cov (Testes)
+- [x] Indicadores implementados com cálculos nativos (compatível Python 3.14)
+
+### 3. Credenciais - CONCLUÍDO ✅
+- [x] Arquivo .env configurado
+- [x] API Keys da Binance Testnet inseridas
+- [x] Conexão testada e funcionando
+- [x] Saldo testnet confirmado: $10,000 USDT
+
+### 4. Configuração - CONCLUÍDO ✅
+- [x] Configurador interativo criado (configure_bot.py)
+- [x] Configurações salvas em config/config.yaml:
+  - Exchange: Binance Testnet ✅
+  - Par: BTC/USDT
+  - Timeframe: 1 minuto
+  - Valor por trade: $10 USDT
+  - Max posições: 1
+  - Perda máxima diária: $100 USDT
+  - Drawdown máximo: 20%
+  - Intervalo de análise: 60 segundos
+
+### 5. Testes - CONCLUÍDO ✅
+- [x] test_installation.py - Todos os testes passaram
+- [x] test_connection.py - Conexão com Binance Testnet OK
+- [x] Preço BTC atual obtido: $91,370.01
+
+================================================================================
+
+## 📋 PRÓXIMOS PASSOS
+
+### OPÇÃO 1: Executar Bot Imediatamente
+```bash
+venv\Scripts\activate.bat
+python main.py
+```
+⚠️ Executará trades reais no Testnet (dinheiro virtual)
+
+### OPÇÃO 2: Ativar Modo DRY RUN (Recomendado)
+Editar config/config.yaml:
+```yaml
+execution:
+  dry_run: true  # Mudar para true
+```
+Depois executar:
+```bash
+python main.py
+```
+✅ Apenas simula, não executa ordens
+
+### OPÇÃO 3: Executar Configurador Novamente
+```bash
+python configure_bot.py
+```
+Para ajustar qualquer parâmetro
+
+================================================================================
+
+## 🔄 MELHORIAS FUTURAS (Backlog)
+
+### Curto Prazo
+- [ ] Implementar modo DRY RUN com relatório de simulação
+- [ ] Criar dashboard em tempo real (terminal)
+- [ ] Adicionar mais estratégias (SMA Cross, MACD, Bollinger)
+- [ ] Sistema de backtesting básico
+- [ ] Relatórios CSV de operações
+
+### Médio Prazo
+- [ ] WebSocket para dados em tempo real (mais rápido)
+- [ ] Notificações via Telegram
+- [ ] Interface web (dashboard HTML)
+- [ ] Múltiplos pares simultâneos
+- [ ] Stop Loss e Take Profit dinâmicos
+- [ ] Machine Learning para otimização de parâmetros
+
+### Longo Prazo
+- [ ] Deploy em VPS (AWS/DigitalOCean)
+- [ ] API REST para controle remoto
+- [ ] Banco de dados para histórico
+- [ ] Backtesting avançado com Zipline/Backtrader
+- [ ] Grid Trading e Dollar Cost Averaging
+- [ ] Suporte a múltiplas exchanges simultâneas
+
+================================================================================
+
+## 📊 ARQUITETURA TÉCNICA IMPLEMENTADA
+
+### ✅ Componentes Prontos
+
+1. **CCXT** - API normalizada para exchanges ✅
+2. **Pandas** - Manipulação de dados OHLCV ✅
+3. **Indicadores Técnicos** - RSI, MACD, SMA (nativos) ✅
+4. **WebSocket Client** - Preparado (não implementado ainda)
+5. **Logging** - Sistema completo de logs ✅
+6. **Kill Switch** - Parada automática por perda/drawdown ✅
+7. **Validação de Preços** - Anti-spike de preços ✅
+8. **Confirmação de Ordens** - Verifica status após execução ✅
+9. **Testnet** - Modo seguro de testes ✅
+
+### 🔧 Arquivos Principais
+
+```
+App_Leonardo/
+├── main.py                    # Executor principal do bot
+├── configure_bot.py           # Configurador interativo
+├── test_installation.py       # Testa instalação
+├── test_connection.py         # Testa conexão exchange
+├── requirements.txt           # Dependências
+├── README.md                  # Documentação
+│
+├── config/
+│   ├── config.yaml           # ⚙️ CONFIGURAÇÕES PRINCIPAIS
+│   ├── .env                  # 🔐 CREDENCIAIS (não commitar!)
+│   └── .env.example          # Exemplo de credenciais
+│
+├── src/
+│   ├── core/
+│   │   ├── exchange_client.py    # Conexão com exchanges
+│   │   └── utils.py              # Funções auxiliares
+│   ├── safety/
+│   │   └── safety_manager.py     # Sistema de segurança
+│   ├── strategies/
+│   │   └── simple_strategies.py  # Estratégias de trading
+│   ├── indicators/
+│   │   └── technical_indicators.py # Cálculo de indicadores
+│   └── backtest/                 # (futuro)
+│
+├── logs/
+│   └── trading_bot.log          # Logs de operações
+│
+└── data/
+    ├── cache/                   # Cache de dados
+    └── reports/                 # Relatórios CSV
+```
+
+================================================================================
+
+## 🎯 DECISÕES A TOMAR
+
+### 1. Modo de Execução
+[ ] Executar com DRY RUN (apenas simula)
+[ ] Executar no Testnet (dinheiro virtual)
+[ ] Aguardar mais implementações
+
+### 2. Estratégia
+[ ] Usar estratégia RSI atual
+[ ] Implementar estratégia combinada (RSI + SMA)
+[ ] Implementar estratégia MACD
+[ ] Criar estratégia customizada
+
+### 3. Timeframe
+Atual: 1 minuto (muito rápido, pode gerar muitos trades)
+[ ] Manter 1m
+[ ] Mudar para 5m (mais estável)
+[ ] Mudar para 15m ou 1h (mais conservador)
+
+### 4. Valor por Trade
+Atual: $10 USDT
+[ ] Manter $10
+[ ] Aumentar para $50
+[ ] Aumentar para $100
+
+================================================================================
+
+## ❓ PERGUNTAS FREQUENTES
+
+### Como rodar o bot?
+```bash
+# Ativar ambiente virtual
+venv\Scripts\activate.bat
+
+# Executar bot
+python main.py
+
+# Parar bot
+Pressione Ctrl+C
+```
+
+### Como ver os logs?
+```bash
+# Em outro terminal
+type logs\trading_bot.log
+
+# Ou monitorar em tempo real (PowerShell)
+Get-Content logs\trading_bot.log -Wait -Tail 50
+```
+
+### Como reconfigurar?
+```bash
+python configure_bot.py
+```
+
+### Como testar conexão?
+```bash
+python test_connection.py
+```
+
+### Como mudar para DRY RUN?
+Edite `config/config.yaml`:
+```yaml
+execution:
+  dry_run: true
+```
+
+### Onde estão minhas credenciais?
+`config/.env` - ⚠️ Nunca compartilhe este arquivo!
+
+================================================================================
+
+## 🛡️ SEGURANÇA - CHECKLIST
+
+- [x] Modo TESTNET ativado (não usa dinheiro real)
+- [x] Kill Switch configurado (perda máxima: $100)
+- [x] Drawdown máximo: 20%
+- [x] Validação de preços ativa
+- [x] Confirmação de ordens implementada
+- [x] Logs completos habilitados
+- [x] .gitignore configurado (.env protegido)
+- [ ] Modo DRY RUN testado
+- [ ] Backtesting executado
+- [ ] Estratégia validada com dados históricos
+
+⚠️ NUNCA execute em modo REAL sem testar extensivamente no TESTNET!
+
+================================================================================
+
+## 📞 COMANDOS RÁPIDOS
+
+### Ativar ambiente
+```bash
+venv\Scripts\activate.bat
+```
+
+### Executar bot
+```bash
+python main.py
+```
+
+### Reconfigurar
+```bash
+python configure_bot.py
+```
+
+### Testar conexão
+```bash
+python test_connection.py
+```
+
+### Ver logs (PowerShell)
+```bash
+Get-Content logs\trading_bot.log -Wait -Tail 50
+```
+
+### Instalar/Atualizar dependências
+```bash
+pip install -r requirements.txt
+```
+
+================================================================================
+
+## 📝 NOTAS TÉCNICAS
+
+### Indicadores Implementados (Cálculo Nativo)
+- ✅ RSI (Relative Strength Index)
+- ✅ MACD (Moving Average Convergence Divergence)
+- ✅ SMA (Simple Moving Average)
+- ✅ EMA (Exponential Moving Average)
+- ✅ Bollinger Bands
+
+### Por que não pandas-ta/TA-Lib?
+- pandas-ta requer numba que não suporta Python 3.14 ainda
+- TA-Lib requer compilação C++ complexa no Windows
+- Solução: Implementação nativa com pandas/numpy (mais controle)
+
+### Compatibilidade
+- ✅ Python 3.14.0
+- ✅ Windows
+- ✅ Todas as exchanges suportadas pelo CCXT
+- ✅ Testnet/Paper Trading
+
+================================================================================
+
+ÚLTIMA ATUALIZAÇÃO: 27/11/2025 18:15
+STATUS: ✅ Pronto para executar
+PRÓXIMA AÇÃO: Escolher modo de execução (DRY RUN ou Testnet real)
+
+ele pode fazer menor do que 1minuto o timeframe ?? se sim de quanto em qunto tempo
+
+kill switch em cima do percentual da minha carteira 
+
+% de queda do pico do saldo para parar tudo , explique melhor esse kill switch ?? 
+
+Rejeita preços que variarem mais que isso em 1 tick (anti-spike)
+➤ Limite de variação de preço suspeita (%) [5]: -> adicionar uma condicao para que acima de X fazer uma nova consulta e se confirmar agir
+

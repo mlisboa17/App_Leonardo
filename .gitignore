@@ -1,0 +1,63 @@
+# Credenciais e segredos
+.env
+config/.env
+config/credentials.yaml
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+
+# Logs
+logs/*.log
+logs/*.txt
+
+# Dados
+data/cache/*
+data/reports/*
+data/*.csv
+data/*.json
+!data/cache/.gitkeep
+!data/reports/.gitkeep
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Backtest results
+backtest_results/
