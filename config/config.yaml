@@ -2,10 +2,14 @@ exchange:
   name: binance
   testnet: true
 trading:
-  symbol: BTC/USDT
+  symbols:
+    - BTC/USDT
+    - ETH/USDT
+    - SOL/USDT
+    - POL/USDT
   timeframe: 1m
   amount_per_trade: 10.0
-  max_positions: 1
+  max_positions: 4
 safety:
   max_daily_loss: 100.0
   max_drawdown: 20.0
@@ -13,8 +17,8 @@ safety:
 indicators:
   rsi:
     period: 14
-    oversold: 30
-    overbought: 70
+    oversold: 47
+    overbought: 56
   macd:
     fast: 12
     slow: 26
@@ -32,5 +36,5 @@ data:
   cache_dir: data/cache
   csv_reports: data/reports
 execution:
-  interval_seconds: 60
+  interval_seconds: 5
   dry_run: false

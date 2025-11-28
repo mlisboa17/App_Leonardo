@@ -1,0 +1,47 @@
+{
+  "status": "Operando",
+  "balance": 105286.3327404,
+  "daily_pnl": 0.0,
+  "total_pnl": 0.0,
+  "current_price": 140.23,
+  "position": "LONG",
+  "trades_count": 37,
+  "wins": 0,
+  "losses": 0,
+  "last_signal": "SELL: RSI em zona de sobrecompra (68.37)",
+  "rsi": 67.36842105263095,
+  "macd": 0.06960692417058567,
+  "macd_signal": 0.06552280936385785,
+  "sma_20": 140.12,
+  "sma_50": 140.01940000000002,
+  "sma_200": 139.54815,
+  "kill_switch_active": false,
+  "timestamp": 1764306949584,
+  "crypto_balances": {
+    "BTC/USDT": {
+      "free": 0.0,
+      "total": 0.0
+    },
+    "ETH/USDT": {
+      "free": 0.0,
+      "total": 0.0
+    },
+    "SOL/USDT": {
+      "free": 0.0,
+      "total": 0.0
+    },
+    "MATIC/USDT": {
+      "free": 0,
+      "total": 0
+    }
+  },
+  "all_symbols_data": {
+    "BTC/USDT": {
+      "price": 91495.55,
+      "rsi": 68.37205875129088,
+      "macd": 22.739411704373197,
+      "macd_signal": 11.137431941028623,
+      "sma_20": 91428.03300000001,
+      "sma_50": 91431.01039999998,
+      "sma_200": 91142.38175,
+      "df": 

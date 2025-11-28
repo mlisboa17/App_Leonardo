@@ -65,28 +65,32 @@ class PriceValidator:
     
     def __init__(self, max_deviation_pct: float = 5.0):
         self.max_deviation_pct = max_deviation_pct
-        self.last_price = None
+        self.last_prices = {}  # Dicionário para armazenar último preço de cada símbolo
         
     def validate_price(self, new_price: float, symbol: str) -> bool:
         """
         Valida se o preço é sano (não variou drasticamente)
         Retorna True se válido, False se suspeito
         """
-        if self.last_price is None:
-            self.last_price = new_price
+        # Primeira vez que vemos este símbolo
+        if symbol not in self.last_prices:
+            self.last_prices[symbol] = new_price
             return True
-            
-        deviation_pct = abs((new_price - self.last_price) / self.last_price * 100)
+        
+        # Obtém último preço DESTE símbolo específico
+        last_price = self.last_prices[symbol]
+        deviation_pct = abs((new_price - last_price) / last_price * 100)
         
         if deviation_pct > self.max_deviation_pct:
             logger.warning(
                 f"⚠️ PREÇO SUSPEITO para {symbol}: "
                 f"Variação de {deviation_pct:.2f}% "
-                f"({self.last_price:.2f} → {new_price:.2f})"
+                f"({last_price:.2f} → {new_price:.2f})"
             )
             return False
-            
-        self.last_price = new_price
+        
+        # Atualiza último preço deste símbolo
+        self.last_prices[symbol] = new_price
         return True
 
 

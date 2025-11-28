@@ -279,7 +279,7 @@ class TradingDashboard:
         footer_text.append(" | ", style="dim")
         footer_text.append(f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", style="cyan")
         footer_text.append(" | ", style="dim")
-        footer_text.append("💻 Bot Leonardo v1.0", style="dim")
+        footer_text.append("💻 KriptoScan v1.0", style="dim")
         
         return Panel(
             footer_text,

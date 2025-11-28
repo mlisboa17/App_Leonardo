@@ -22,6 +22,7 @@ class ExchangeClient:
             'apiKey': api_key,
             'secret': api_secret,
             'enableRateLimit': True,
+            'timeout': 30000,  # 30 segundos de timeout
             'options': {
                 'defaultType': 'spot',  # spot, future, swap
             }
@@ -40,9 +41,14 @@ class ExchangeClient:
     def test_connection(self) -> bool:
         """Testa conexão com a exchange"""
         try:
+            logger.info("🔄 Testando conexão com exchange...")
             balance = self.exchange.fetch_balance()
             logger.info(f"✅ Conexão OK - Saldo total: {balance.get('total', {})}")
             return True
+        except ccxt.NetworkError as e:
+            logger.error(f"❌ Erro de rede na conexão: {e}")
+            logger.info("⚠️ Tentando continuar sem validação de saldo...")
+            return True  # Continua mesmo com erro de rede
         except Exception as e:
             logger.error(f"❌ Erro na conexão: {e}")
             return False

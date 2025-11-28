@@ -1,1 +1,1 @@
-"""Pacote principal do Bot Leonardo"""
+"""Pacote principal do KriptoScan"""

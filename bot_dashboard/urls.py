@@ -7,7 +7,9 @@ from . import views
 app_name = 'bot_dashboard'
 
 urlpatterns = [
-    path('', views.index, name='index'),
+    path('', views.live, name='live'),
+    path('old/', views.dashboard_old, name='dashboard_old'),
+    path('test/', views.test, name='test'),
     path('api/status/', views.get_bot_status, name='get_bot_status'),
     path('api/config/', views.get_config, name='get_config'),
     path('api/config/update/', views.update_config, name='update_config'),

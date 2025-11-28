@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>App Leonardo - Dashboard Trading Bot</title>
     
     <!-- Bootstrap CSS -->
@@ -166,21 +170,21 @@
             <div class="col-md-3">
                 <div class="card stat-card">
                     <div class="stat-label">Saldo Atual</div>
-                    <div id="balance" class="stat-value">$0.00</div>
+                    <div id="balance" class="stat-value">${{ bot_data.balance|floatformat:2 }}</div>
                     <small class="text-muted">USDT</small>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card stat-card">
                     <div class="stat-label">PnL Diário</div>
-                    <div id="daily-pnl" class="stat-value">$0.00</div>
+                    <div id="daily-pnl" class="stat-value">${{ bot_data.daily_pnl|floatformat:2 }}</div>
                     <small id="daily-pnl-percent" class="text-muted">0.00%</small>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card stat-card">
                     <div class="stat-label">PnL Total</div>
-                    <div id="total-pnl" class="stat-value">$0.00</div>
+                    <div id="total-pnl" class="stat-value">${{ bot_data.total_pnl|floatformat:2 }}</div>
                     <small id="total-pnl-percent" class="text-muted">0.00%</small>
                 </div>
             </div>
@@ -218,12 +222,12 @@
                         <div class="row text-center">
                             <div class="col-md-6">
                                 <div class="stat-label">Preço Atual</div>
-                                <div id="current-price" class="stat-value text-primary">$0.00</div>
+                                <div id="current-price" class="stat-value text-primary">${{ bot_data.current_price|floatformat:2 }}</div>
                             </div>
                             <div class="col-md-6">
                                 <div class="stat-label">Posição</div>
                                 <div id="position" class="stat-value">
-                                    <span class="badge bg-secondary">AGUARDANDO</span>
+                                    <span class="badge bg-secondary">{{ bot_data.position }}</span>
                                 </div>
                             </div>
                         </div>
@@ -430,27 +434,40 @@
 
         // Atualiza dados do dashboard
         function updateDashboard() {
-            fetch('/api/status/')
-                .then(response => response.json())
+            console.log('Atualizando dashboard...', new Date().toLocaleTimeString());
+            fetch('/api/status/?t=' + Date.now())
+                .then(response => {
+                    console.log('Response recebida:', response.status);
+                    if (!response.ok) {
+                        throw new Error('Erro na resposta: ' + response.status);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Dados recebidos:', data);
                     // Atualiza status
                     const statusBadge = document.getElementById('bot-status-badge');
                     statusBadge.innerHTML = `<i class="fas fa-circle"></i> ${data.status}`;
                     statusBadge.className = data.status === 'Operando' ? 'badge bg-success badge-status pulse' : 'badge bg-danger badge-status';
                     
                     // Atualiza saldo e PnL
-                    document.getElementById('balance').textContent = `$${data.balance.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    const balance = data.balance || 0;
+                    const dailyPnlValue = data.daily_pnl || 0;
+                    const totalPnlValue = data.total_pnl || 0;
+                    const currentPrice = data.current_price || 0;
+                    
+                    document.getElementById('balance').textContent = `$${balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     
                     const dailyPnl = document.getElementById('daily-pnl');
-                    dailyPnl.textContent = `$${data.daily_pnl.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    dailyPnl.className = data.daily_pnl >= 0 ? 'stat-value positive' : 'stat-value negative';
+                    dailyPnl.textContent = `$${dailyPnlValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    dailyPnl.className = dailyPnlValue >= 0 ? 'stat-value positive' : 'stat-value negative';
                     
                     const totalPnl = document.getElementById('total-pnl');
-                    totalPnl.textContent = `$${data.total_pnl.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    totalPnl.className = data.total_pnl >= 0 ? 'stat-value positive' : 'stat-value negative';
+                    totalPnl.textContent = `$${totalPnlValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    totalPnl.className = totalPnlValue >= 0 ? 'stat-value positive' : 'stat-value negative';
                     
                     // Atualiza preço e posição
-                    document.getElementById('current-price').textContent = `$${data.current_price.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    document.getElementById('current-price').textContent = `$${currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     
                     const positionBadge = document.getElementById('position');
                     let badgeClass = 'bg-secondary';
@@ -467,10 +484,16 @@
                     document.getElementById('trades-count').textContent = `${data.trades_count} trades (${data.wins}W / ${data.losses}L)`;
                     
                     // Atualiza indicadores
-                    const rsi = data.rsi;
+                    const rsi = data.rsi || 0;
+                    const macd = data.macd || 0;
+                    const macdSignal = data.macd_signal || 0;
+                    const sma20 = data.sma_20 || 0;
+                    const sma50 = data.sma_50 || 0;
+                    const sma200 = data.sma_200 || 0;
+                    
                     document.getElementById('rsi-value').textContent = rsi.toFixed(2);
                     const rsiBar = document.getElementById('rsi-bar');
-                    rsiBar.style.width = `${rsi}%`;
+                    rsiBar.style.width = `${Math.min(rsi, 100)}%`;
                     if (rsi < 30) {
                         rsiBar.className = 'progress-bar bg-success';
                     } else if (rsi > 70) {
@@ -479,12 +502,12 @@
                         rsiBar.className = 'progress-bar bg-primary';
                     }
                     
-                    document.getElementById('macd-value').textContent = data.macd.toFixed(2);
-                    document.getElementById('macd-signal').textContent = data.macd_signal.toFixed(2);
+                    document.getElementById('macd-value').textContent = macd.toFixed(2);
+                    document.getElementById('macd-signal').textContent = macdSignal.toFixed(2);
                     
-                    document.getElementById('sma-20-value').textContent = `$${data.sma_20.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    document.getElementById('sma-50-value').textContent = `$${data.sma_50.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                    document.getElementById('sma-200-value').textContent = `$${data.sma_200.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    document.getElementById('sma-20-value').textContent = `$${sma20.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    document.getElementById('sma-50-value').textContent = `$${sma50.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    document.getElementById('sma-200-value').textContent = `$${sma200.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     
                     // Atualiza gráfico com novo preço
                     updateChart(data.current_price, data.timestamp);

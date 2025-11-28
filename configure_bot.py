@@ -1,5 +1,5 @@
 """
-Configurador Interativo do Bot Leonardo
+Configurador Interativo do KriptoScan
 Interface de terminal para configurar o bot de trading
 """
 import os

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KriptoScan - Ao Vivo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #10b981;
+            color: white;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .crypto-section {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .crypto-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .crypto-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .crypto-price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .crypto-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .mini-card {
+            text-align: center;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+        }
+
+        .mini-label {
+            color: #666;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .mini-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .card-label {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+
+        .card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .card-value-small {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .old-balance {
+            font-size: 16px;
+            color: #999;
+            text-decoration: line-through;
+            margin-top: 5px;
+        }
+
+        .value-green { color: #10b981; }
+        .value-red { color: #ef4444; }
+        .value-blue { color: #3b82f6; }
+        .value-orange { color: #f59e0b; }
+
+        .card-info {
+            color: #999;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        .console {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .console-title {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .logs {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .log-line {
+            margin: 3px 0;
+        }
+
+        .log-time {
+            color: #888;
+        }
+
+        .log-success {
+            color: #10b981;
+        }
+
+        .log-error {
+            color: #ef4444;
+        }
+
+        .log-info {
+            color: #3b82f6;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .update-indicator {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            background: #10b981;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div class="update-indicator" id="updateIndicator">
+        #0
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🤖 KriptoScan</h1>
+            <div class="status" id="botStatus">● CARREGANDO...</div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-label">💰 SALDO TOTAL</div>
+                <div class="card-value-small value-blue" id="balance">---</div>
+                <div class="old-balance" id="oldBalance">Inicial: ---</div>
+                <div class="card-info">USDT disponível</div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">💹 LUCRO/PERDA</div>
+                <div class="card-value" id="pnl">---</div>
+                <div class="card-info" id="pnlInfo">Hoje</div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">🎯 TAXA DE ACERTO</div>
+                <div class="card-value" id="winRate">---</div>
+                <div class="card-info" id="winRateInfo">Win Rate</div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">🔢 OPERAÇÕES</div>
+                <div class="card-value" id="totalTrades">0</div>
+                <div class="card-info" id="tradesInfo">---</div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">⏱️ TEMPO ATIVO</div>
+                <div class="card-value" id="uptime">---</div>
+                <div class="card-info">Bot ativo</div>
+            </div>
+        </div>
+
+        <!-- BTC/USDT -->
+        <div class="crypto-section">
+            <div class="crypto-header">
+                <div class="crypto-name">₿ BTC/USDT</div>
+                <div class="crypto-price" id="btc-price">---</div>
+            </div>
+            <div class="crypto-grid">
+                <div class="mini-card">
+                    <div class="mini-label">RSI</div>
+                    <div class="mini-value" id="btc-rsi">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">MACD</div>
+                    <div class="mini-value" id="btc-macd">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">SINAL</div>
+                    <div class="mini-value" id="btc-signal">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">ÚLTIMO TRADE</div>
+                    <div class="mini-value" id="btc-last-trade" style="font-size: 14px;">---</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ETH/USDT -->
+        <div class="crypto-section">
+            <div class="crypto-header">
+                <div class="crypto-name">💎 ETH/USDT</div>
+                <div class="crypto-price" id="eth-price">---</div>
+            </div>
+            <div class="crypto-grid">
+                <div class="mini-card">
+                    <div class="mini-label">RSI</div>
+                    <div class="mini-value" id="eth-rsi">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">MACD</div>
+                    <div class="mini-value" id="eth-macd">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">SINAL</div>
+                    <div class="mini-value" id="eth-signal">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">ÚLTIMO TRADE</div>
+                    <div class="mini-value" id="eth-last-trade" style="font-size: 14px;">---</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SOL/USDT -->
+        <div class="crypto-section">
+            <div class="crypto-header">
+                <div class="crypto-name">☀️ SOL/USDT</div>
+                <div class="crypto-price" id="sol-price">---</div>
+            </div>
+            <div class="crypto-grid">
+                <div class="mini-card">
+                    <div class="mini-label">RSI</div>
+                    <div class="mini-value" id="sol-rsi">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">MACD</div>
+                    <div class="mini-value" id="sol-macd">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">SINAL</div>
+                    <div class="mini-value" id="sol-signal">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">ÚLTIMO TRADE</div>
+                    <div class="mini-value" id="sol-last-trade" style="font-size: 14px;">---</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MATIC/USDT -->
+        <div class="crypto-section">
+            <div class="crypto-header">
+                <div class="crypto-name">🔷 MATIC/USDT</div>
+                <div class="crypto-price" id="matic-price">---</div>
+            </div>
+            <div class="crypto-grid">
+                <div class="mini-card">
+                    <div class="mini-label">RSI</div>
+                    <div class="mini-value" id="matic-rsi">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">MACD</div>
+                    <div class="mini-value" id="matic-macd">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">SINAL</div>
+                    <div class="mini-value" id="matic-signal">---</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-label">ÚLTIMO TRADE</div>
+                    <div class="mini-value" id="matic-last-trade" style="font-size: 14px;">---</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="console">
+            <div class="console-title">🖥️ Console do Sistema</div>
+            <div class="logs" id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        let updateCounter = 0;
+        let initialBalance = null;
+        let startTime = Date.now();
+
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const now = new Date();
+            const time = now.toLocaleTimeString('pt-BR');
+            
+            let className = 'log-info';
+            if (type === 'success') className = 'log-success';
+            if (type === 'error') className = 'log-error';
+            
+            const logLine = document.createElement('div');
+            logLine.className = 'log-line';
+            logLine.innerHTML = `<span class="log-time">[${time}]</span> <span class="${className}">${message}</span>`;
+            
+            logsDiv.insertBefore(logLine, logsDiv.firstChild);
+            
+            // Limita a 100 linhas
+            while (logsDiv.children.length > 100) {
+                logsDiv.removeChild(logsDiv.lastChild);
+            }
+        }
+
+        function formatMoney(value) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(value);
+        }
+
+        function formatUptime(milliseconds) {
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        }
+
+        function updateLastTrades(tradesBySymbol) {
+            const symbolMap = {
+                'BTC/USDT': 'btc',
+                'ETH/USDT': 'eth',
+                'SOL/USDT': 'sol',
+                'MATIC/USDT': 'matic'
+            };
+
+            for (const [symbol, trades] of Object.entries(tradesBySymbol)) {
+                const prefix = symbolMap[symbol];
+                if (!prefix || !trades || trades.length === 0) {
+                    document.getElementById(`${prefix}-last-trade`).textContent = '---';
+                    continue;
+                }
+
+                const lastTrade = trades[0];
+                const tradeElement = document.getElementById(`${prefix}-last-trade`);
+                
+                if (lastTrade.type === 'COMPRA') {
+                    tradeElement.textContent = `🟢 ${lastTrade.type}`;
+                    tradeElement.className = 'mini-value value-green';
+                } else {
+                    tradeElement.textContent = `🔴 ${lastTrade.type}`;
+                    tradeElement.className = 'mini-value value-red';
+                }
+            }
+        }
+
+        function updateDashboard() {
+            updateCounter++;
+            const indicator = document.getElementById('updateIndicator');
+            indicator.textContent = `#${updateCounter}`;
+            indicator.className = 'update-indicator pulse';
+
+            addLog('🔍 Buscando dados do bot...');
+
+            fetch('/api/status/')
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    addLog(`✅ Resposta recebida (${response.status})`, 'success');
+                    return response.json();
+                })
+                .then(data => {
+                    addLog(`📊 Dados recebidos`, 'success');
+
+                    // Guarda saldo inicial
+                    if (initialBalance === null) {
+                        initialBalance = data.balance;
+                    }
+
+                    // Atualiza saldo
+                    document.getElementById('balance').textContent = formatMoney(data.balance);
+                    document.getElementById('oldBalance').textContent = `Inicial: ${formatMoney(initialBalance)}`;
+
+                    // Atualiza PNL
+                    const pnl = data.daily_pnl || 0;
+                    const pnlElement = document.getElementById('pnl');
+                    pnlElement.textContent = formatMoney(pnl);
+                    pnlElement.className = pnl >= 0 ? 'card-value value-green' : 'card-value value-red';
+
+                    const pnlPercent = data.balance > 0 ? (pnl / data.balance * 100).toFixed(2) : 0;
+                    document.getElementById('pnlInfo').textContent = `${pnlPercent >= 0 ? '+' : ''}${pnlPercent}%`;
+
+                    // Taxa de acerto
+                    const totalTrades = (data.wins || 0) + (data.losses || 0);
+                    const winRate = totalTrades > 0 ? ((data.wins || 0) / totalTrades * 100).toFixed(1) : 0;
+                    const winRateElement = document.getElementById('winRate');
+                    winRateElement.textContent = winRate + '%';
+                    winRateElement.className = winRate >= 50 ? 'card-value value-green' : 'card-value value-red';
+                    document.getElementById('winRateInfo').textContent = `${totalTrades} trade(s)`;
+
+                    // Total de operações
+                    document.getElementById('totalTrades').textContent = totalTrades;
+                    document.getElementById('tradesInfo').textContent = `✅ ${data.wins || 0} | ❌ ${data.losses || 0}`;
+
+                    // Tempo de operação
+                    const uptime = Date.now() - startTime;
+                    document.getElementById('uptime').textContent = formatUptime(uptime);
+
+                    // Status
+                    const statusElement = document.getElementById('botStatus');
+                    statusElement.textContent = '● ' + data.status.toUpperCase();
+                    statusElement.style.background = data.status === 'Operando' ? '#10b981' : '#ef4444';
+
+                    // Últimos trades por símbolo
+                    if (data.trades_by_symbol) {
+                        updateLastTrades(data.trades_by_symbol);
+                    }
+
+                    // Update indicator
+                    indicator.textContent = `#${updateCounter}`;
+                    indicator.className = 'update-indicator';
+                    indicator.style.background = '#10b981';
+
+                    addLog('✅ Dashboard atualizado!', 'success');
+                })
+                .catch(error => {
+                    addLog(`❌ ERRO: ${error.message}`, 'error');
+                    indicator.textContent = `#${updateCounter}`;
+                    indicator.style.background = '#ef4444';
+                });
+            
+            // Atualiza dados das criptomoedas
+            updateCryptos();
+        }
+
+        function updateCryptos() {
+            const cryptos = [
+                { symbol: 'BTCUSDT', prefix: 'btc', name: 'BTC' },
+                { symbol: 'ETHUSDT', prefix: 'eth', name: 'ETH' },
+                { symbol: 'SOLUSDT', prefix: 'sol', name: 'SOL' },
+                { symbol: 'MATICUSDT', prefix: 'matic', name: 'MATIC' }
+            ];
+
+            cryptos.forEach(crypto => {
+                fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${crypto.symbol}`)
+                    .then(response => response.json())
+                    .then(ticker => {
+                        // Preço
+                        const price = parseFloat(ticker.lastPrice);
+                        document.getElementById(`${crypto.prefix}-price`).textContent = formatMoney(price);
+
+                        // RSI simulado (baseado em mudança de preço)
+                        const priceChange = parseFloat(ticker.priceChangePercent);
+                        const rsi = 50 + (priceChange * 2);
+                        const rsiElement = document.getElementById(`${crypto.prefix}-rsi`);
+                        rsiElement.textContent = Math.round(Math.max(0, Math.min(100, rsi)));
+                        
+                        if (rsi < 30) {
+                            rsiElement.className = 'mini-value value-green';
+                        } else if (rsi > 70) {
+                            rsiElement.className = 'mini-value value-red';
+                        } else {
+                            rsiElement.className = 'mini-value value-orange';
+                        }
+
+                        // MACD simulado
+                        const macd = priceChange > 0 ? 'COMPRA' : 'VENDA';
+                        const macdElement = document.getElementById(`${crypto.prefix}-macd`);
+                        macdElement.textContent = macd;
+                        macdElement.className = macd === 'COMPRA' ? 'mini-value value-green' : 'mini-value value-red';
+
+                        // Sinal
+                        let signal = 'NEUTRO';
+                        if (rsi < 30 && priceChange > 0) signal = 'COMPRA';
+                        else if (rsi > 70 && priceChange < 0) signal = 'VENDA';
+                        
+                        const signalElement = document.getElementById(`${crypto.prefix}-signal`);
+                        signalElement.textContent = signal;
+                        if (signal === 'COMPRA') {
+                            signalElement.className = 'mini-value value-green';
+                        } else if (signal === 'VENDA') {
+                            signalElement.className = 'mini-value value-red';
+                        } else {
+                            signalElement.className = 'mini-value value-orange';
+                        }
+                    })
+                    .catch(error => {
+                        addLog(`❌ Erro ${crypto.name}: ${error.message}`, 'error');
+                    });
+            });
+        }
+
+        // Inicialização
+        addLog('🚀 Dashboard inicializado!', 'success');
+        updateDashboard();
+        setInterval(updateDashboard, 2000);
+        addLog('✅ Sistema pronto!', 'success');
+    </script>
+</body>
+</html>
