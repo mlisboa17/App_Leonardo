@@ -240,12 +240,74 @@ App_Leonardo/
 
 ---
 
-## 🚀 Próximos Passos
+## 🚀 Próximos Passos Concluídos
 
-1. **GitHub** - Versionar o código
-2. **Executáveis** - Criar .exe para Windows
-3. **Docker** - Containerizar para deploy
+### ✅ 1. GitHub - Versionamento
+- Repositório Git inicializado
+- Commits organizados por versão
+- `.gitignore` configurado para ignorar:
+  - `venv/`, `__pycache__/`, `build/`, `dist/`
+  - `*.sqlite3`, `*.db`, `*.log`
+  - `.env` (segurança)
+
+### ✅ 2. Scripts de Inicialização
+Criados scripts `.bat` para facilitar uso:
+
+| Script | Função |
+|--------|--------|
+| `INICIAR_BOT.bat` | Inicia apenas o bot |
+| `INICIAR_DASHBOARD.bat` | Inicia apenas o dashboard |
+| `INICIAR_TUDO.bat` | Inicia bot + dashboard + abre navegador |
+| `INSTALAR_NOVA_MAQUINA.bat` | Instala dependências automaticamente |
+
+### ✅ 3. Portabilidade - ZIP para Outra Máquina
+
+**Problema:** Projeto original tinha ~21MB devido a pastas desnecessárias.
+
+**Solução:** Criar ZIP limpo excluindo:
+- `venv/` - Ambiente virtual (7MB+) - reinstalado via pip
+- `build/`, `dist/` - Arquivos do PyInstaller
+- `__pycache__/` - Cache do Python
+- `.git/` - Histórico do Git
+- `*.sqlite3`, `*.db` - Bancos de dados (recriados)
+- `logs/` - Logs antigos
+
+**Resultado:** ZIP de **513 KB** vs 21MB original (redução de 97%)
+
+**Comando PowerShell usado:**
+```powershell
+Get-ChildItem $src -Exclude @("build","dist","logs","__pycache__",".git","venv") | 
+    Copy-Item -Destination $temp -Recurse
+Compress-Archive -Path "$temp\*" -DestinationPath $zip
+```
+
+**Aprendizado:**
+> ⚠️ Nunca incluir `venv/` em ZIPs ou Git! As dependências são reinstaladas via `pip install -r requirements.txt`. Isso reduz drasticamente o tamanho.
 
 ---
 
-*Documento gerado em 30/11/2025 - App Leonardo v2.0*
+## 📋 Histórico de Versões (Git)
+
+| Versão | Commit | Descrição |
+|--------|--------|-----------|
+| v2.1 | `5454e4e` | Scripts de inicialização e portabilidade |
+| v2.0 | `6c8c7ef` | Bot completo com dashboard e correções |
+| v1.1 | `e670493` | Sistema adaptativo com múltiplas compras |
+| v1.0 | `a9bd9a4` | Initial commit |
+
+---
+
+## 🖥️ Instruções para Nova Máquina
+
+### Pré-requisito:
+- **Python 3.9+** instalado com **"Add to PATH"** marcado
+
+### Passos:
+1. Extrair `App_Leonardo_PORTATIL.zip`
+2. Executar `INSTALAR_NOVA_MAQUINA.bat` (instala dependências)
+3. Executar `INICIAR_TUDO.bat` (inicia o sistema)
+4. Acessar `http://localhost:8050` no navegador
+
+---
+
+*Documento atualizado em 30/11/2025 - App Leonardo v2.1*
