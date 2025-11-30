@@ -25,6 +25,8 @@ class ExchangeClient:
             'timeout': 30000,  # 30 segundos de timeout
             'options': {
                 'defaultType': 'spot',  # spot, future, swap
+                'adjustForTimeDifference': True,  # ✅ Ajusta diferença de tempo automaticamente
+                'recvWindow': 60000,  # ✅ Janela de tempo maior (60 segundos)
             }
         })
         
@@ -35,6 +37,13 @@ class ExchangeClient:
                 logger.info(f"🧪 Modo TESTNET ativado para {exchange_name}")
             else:
                 logger.warning(f"⚠️ {exchange_name} não suporta testnet via ccxt")
+        
+        # ✅ Carrega mercados para sincronizar tempo
+        try:
+            self.exchange.load_markets()
+            logger.info(f"✅ Mercados carregados e tempo sincronizado")
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao carregar mercados: {e}")
                 
         logger.info(f"✅ Conectado à {exchange_name}")
         

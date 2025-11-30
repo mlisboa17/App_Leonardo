@@ -6,19 +6,24 @@ trading:
     - BTC/USDT
     - ETH/USDT
     - SOL/USDT
-    - POL/USDT
+    - BNB/USDT
+    - XRP/USDT
+    - LINK/USDT
+    - DOGE/USDT
+    - LTC/USDT
   timeframe: 1m
-  amount_per_trade: 10.0
-  max_positions: 4
+  amount_per_trade: 50.0
+  max_positions: 6
+  daily_profit_target: 100.0
 safety:
-  max_daily_loss: 100.0
+  max_daily_loss: 50.0
   max_drawdown: 20.0
   price_deviation_limit: 30.0
 indicators:
   rsi:
     period: 14
-    oversold: 47
-    overbought: 56
+    oversold: 35
+    overbought: 65
   macd:
     fast: 12
     slow: 26
@@ -36,5 +41,7 @@ data:
   cache_dir: data/cache
   csv_reports: data/reports
 execution:
-  interval_seconds: 5
+  interval_seconds: 3
   dry_run: false
+strategy:
+  type: smart

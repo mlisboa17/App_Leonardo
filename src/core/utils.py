@@ -30,12 +30,12 @@ def load_env_credentials() -> Dict[str, str]:
     load_dotenv('config/.env')
     
     credentials = {
-        'binance_api_key': os.getenv('BINANCE_API_KEY', ''),
-        'binance_api_secret': os.getenv('BINANCE_API_SECRET', ''),
-        'binance_testnet_api_key': os.getenv('BINANCE_TESTNET_API_KEY', ''),
-        'binance_testnet_api_secret': os.getenv('BINANCE_TESTNET_API_SECRET', ''),
-        'telegram_bot_token': os.getenv('TELEGRAM_BOT_TOKEN', ''),
-        'telegram_chat_id': os.getenv('TELEGRAM_CHAT_ID', ''),
+        'BINANCE_API_KEY': os.getenv('BINANCE_API_KEY', ''),
+        'BINANCE_API_SECRET': os.getenv('BINANCE_API_SECRET', ''),
+        'BINANCE_TESTNET_API_KEY': os.getenv('BINANCE_TESTNET_API_KEY', ''),
+        'BINANCE_TESTNET_API_SECRET': os.getenv('BINANCE_TESTNET_API_SECRET', ''),
+        'TELEGRAM_BOT_TOKEN': os.getenv('TELEGRAM_BOT_TOKEN', ''),
+        'TELEGRAM_CHAT_ID': os.getenv('TELEGRAM_CHAT_ID', ''),
     }
     
     logger.info("✅ Credenciais carregadas do .env")
