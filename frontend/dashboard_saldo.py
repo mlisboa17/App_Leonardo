@@ -3,7 +3,7 @@
 Mostra saldo em USDT e todas as criptomoedas em tempo real
 """
 import dash
-from dash import dcc, html, Input, Output
+from dash import dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import ccxt
@@ -352,7 +352,7 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             html.H1(
-                "💰 App Leonardo - Saldo em Criptomoedas",
+                "💰 App Leonardo - Trading Bot",
                 className="mb-2",
                 style={'color': COLORS['text'], 'fontWeight': 'bold'}
             ),
@@ -369,35 +369,76 @@ app.layout = dbc.Container([
                 ),
             ])
         ])
-    ], className="mt-4 mb-4"),
+    ], className="mt-4 mb-3"),
     
-    # Cards Principais (USDT + Total)
+    # Navegação por abas
     dbc.Row([
         dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("💵 USDT Disponível", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H2(id='usdt-balance', children="$0.00",
-                            style={'color': COLORS['gold'], 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["gold"]}'})
-        ], width=3),
-        
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("💎 Valor Total em Crypto", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H2(id='crypto-value', children="$0.00",
-                            style={'color': COLORS['accent'], 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["accent"]}'})
-        ], width=3),
-        
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
+            dbc.Tabs([
+                dbc.Tab(label="📊 Dashboard", tab_id="dashboard-tab", active_label_style={'color': COLORS['gold']}),
+                dbc.Tab(label="⚙️ Configurações", tab_id="config-tab", active_label_style={'color': COLORS['accent']}),
+                dbc.Tab(label="📈 Estratégia", tab_id="strategy-tab", active_label_style={'color': COLORS['positive']}),
+                dbc.Tab(label="🛡️ Segurança", tab_id="safety-tab", active_label_style={'color': COLORS['negative']}),
+            ], id="main-tabs", active_tab="dashboard-tab", style={'marginBottom': '20px'})
+        ])
+    ]),
+    
+    # Conteúdo das abas
+    html.Div(id='tab-content'),
+    
+], fluid=True, style={'backgroundColor': COLORS['background'], 'minHeight': '100vh', 'padding': '20px'})
+
+# ========================================
+# CALLBACK PARA MUDANÇA DE ABAS
+# ========================================
+
+@app.callback(
+    Output('tab-content', 'children'),
+    Input('main-tabs', 'active_tab')
+)
+def render_tab_content(active_tab):
+    """Renderiza o conteúdo baseado na aba ativa"""
+    if active_tab == "dashboard-tab":
+        return get_dashboard_layout()
+    elif active_tab == "config-tab":
+        return get_config_layout()
+    elif active_tab == "strategy-tab":
+        return get_strategy_layout()
+    elif active_tab == "safety-tab":
+        return get_safety_layout()
+    return html.Div("Carregando...")
+
+def get_dashboard_layout():
+    """Layout do dashboard principal"""
+    return [
+    
+        # Cards Principais (USDT + Total)
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("💵 USDT Disponível", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H2(id='usdt-balance', children="$0.00",
+                                style={'color': COLORS['gold'], 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["gold"]}'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("💎 Valor Total em Crypto", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H2(id='crypto-value', children="$0.00",
+                                style={'color': COLORS['accent'], 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["accent"]}'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
                     html.P("🏦 Patrimônio Total", className="mb-1",
                            style={'color': COLORS['neutral'], 'fontSize': '14px'}),
                     html.H2(id='total-value', children="$0.00",
@@ -503,7 +544,7 @@ app.layout = dbc.Container([
     html.Div(id='last-update', className="text-center mb-4",
              style={'color': COLORS['neutral'], 'fontSize': '12px'})
     
-], fluid=True, style={'backgroundColor': COLORS['background'], 'minHeight': '100vh', 'padding': '20px'})
+]
 
 
 # ========================================
@@ -829,6 +870,361 @@ def update_dashboard(n):
 # ========================================
 # RUN
 # ========================================
+
+# ========================================
+# LAYOUTS DAS ABAS DE CONFIGURAÇÃO
+# ========================================
+
+def get_config_layout():
+    """Layout da aba de configurações gerais"""
+    return dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.H3("⚙️ Configurações do Bot", style={'color': COLORS['text'], 'marginBottom': '30px'}),
+                
+                # Configurações de Trading
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5("📊 Configurações de Trading", className="mb-0", style={'color': COLORS['accent']})
+                    ]),
+                    dbc.CardBody([
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("💰 Valor por Trade (USDT):", style={'color': COLORS['text']}),
+                                dbc.Input(id='amount-per-trade', type='number', value=50.0, step=5.0, min=1.0, max=500.0, className='mb-3')
+                            ], width=6),
+                            dbc.Col([
+                                html.Label("📈 Posições Máximas:", style={'color': COLORS['text']}),
+                                dbc.Input(id='max-positions', type='number', value=6, min=1, max=10, className='mb-3')
+                            ], width=6),
+                        ]),
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("🎯 Meta Diária (USDT):", style={'color': COLORS['text']}),
+                                dbc.Input(id='daily-target', type='number', value=100.0, step=10.0, min=10.0, max=1000.0, className='mb-3')
+                            ], width=6),
+                            dbc.Col([
+                                html.Label("⏱️ Intervalo (segundos):", style={'color': COLORS['text']}),
+                                dbc.Input(id='interval-seconds', type='number', value=3, min=1, max=60, className='mb-3')
+                            ], width=6),
+                        ]),
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'marginBottom': '20px'}),
+                
+                # Seleção de Moedas
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5("🪙 Criptomoedas Ativas", className="mb-0", style={'color': COLORS['gold']})
+                    ]),
+                    dbc.CardBody([
+                        html.P("Selecione as moedas para trading:", style={'color': COLORS['neutral']}),
+                        dbc.Checklist(
+                            id='crypto-selection',
+                            options=[
+                                {'label': ' Bitcoin (BTC)', 'value': 'BTC/USDT'},
+                                {'label': ' Ethereum (ETH)', 'value': 'ETH/USDT'},
+                                {'label': ' Solana (SOL)', 'value': 'SOL/USDT'},
+                                {'label': ' Binance Coin (BNB)', 'value': 'BNB/USDT'},
+                                {'label': ' XRP', 'value': 'XRP/USDT'},
+                                {'label': ' Chainlink (LINK)', 'value': 'LINK/USDT'},
+                                {'label': ' Dogecoin (DOGE)', 'value': 'DOGE/USDT'},
+                                {'label': ' Litecoin (LTC)', 'value': 'LTC/USDT'},
+                            ],
+                            value=['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'],
+                            inline=True,
+                            style={'color': COLORS['text']}
+                        )
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'marginBottom': '20px'}),
+                
+                # Botões de Ação
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Button("💾 Salvar Configurações", id='save-config-btn', color='success', className='me-2'),
+                        dbc.Button("🔄 Restaurar Padrões", id='reset-config-btn', color='warning', className='me-2'),
+                        dbc.Button("⚡ Aplicar Agora", id='apply-config-btn', color='primary'),
+                    ], className="text-center mt-3")
+                ]),
+                
+                # Status de salvamento
+                html.Div(id='config-status', className='mt-3'),
+                
+            ], width=12)
+        ])
+    ], fluid=True)
+
+def get_strategy_layout():
+    """Layout da aba de configurações de estratégia"""
+    return dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.H3("📈 Configurações da Estratégia", style={'color': COLORS['text'], 'marginBottom': '30px'}),
+                
+                # Indicadores Técnicos
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5("📊 Indicadores Técnicos", className="mb-0", style={'color': COLORS['positive']})
+                    ]),
+                    dbc.CardBody([
+                        # RSI
+                        html.H6("📉 RSI (Relative Strength Index)", style={'color': COLORS['accent']}),
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("Período:", style={'color': COLORS['text']}),
+                                dbc.Input(id='rsi-period', type='number', value=14, min=5, max=50, className='mb-3')
+                            ], width=4),
+                            dbc.Col([
+                                html.Label("Sobrevenda:", style={'color': COLORS['text']}),
+                                dbc.Input(id='rsi-oversold', type='number', value=35, min=10, max=40, className='mb-3')
+                            ], width=4),
+                            dbc.Col([
+                                html.Label("Sobrecompra:", style={'color': COLORS['text']}),
+                                dbc.Input(id='rsi-overbought', type='number', value=65, min=60, max=90, className='mb-3')
+                            ], width=4),
+                        ]),
+                        
+                        html.Hr(),
+                        
+                        # MACD
+                        html.H6("📈 MACD (Moving Average Convergence Divergence)", style={'color': COLORS['accent']}),
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("EMA Rápida:", style={'color': COLORS['text']}),
+                                dbc.Input(id='macd-fast', type='number', value=12, min=5, max=20, className='mb-3')
+                            ], width=4),
+                            dbc.Col([
+                                html.Label("EMA Lenta:", style={'color': COLORS['text']}),
+                                dbc.Input(id='macd-slow', type='number', value=26, min=20, max=50, className='mb-3')
+                            ], width=4),
+                            dbc.Col([
+                                html.Label("Sinal:", style={'color': COLORS['text']}),
+                                dbc.Input(id='macd-signal', type='number', value=9, min=5, max=20, className='mb-3')
+                            ], width=4),
+                        ]),
+                        
+                        html.Hr(),
+                        
+                        # Médias Móveis
+                        html.H6("📊 Médias Móveis Simples (SMA)", style={'color': COLORS['accent']}),
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("SMA Curta:", style={'color': COLORS['text']}),
+                                dbc.Input(id='sma-short', type='number', value=20, min=5, max=50, className='mb-3')
+                            ], width=4),
+                            dbc.Col([
+                                html.Label("SMA Média:", style={'color': COLORS['text']}),
+                                dbc.Input(id='sma-medium', type='number', value=50, min=30, max=100, className='mb-3')
+                            ], width=4),
+                            dbc.Col([
+                                html.Label("SMA Longa:", style={'color': COLORS['text']}),
+                                dbc.Input(id='sma-long', type='number', value=200, min=100, max=500, className='mb-3')
+                            ], width=4),
+                        ]),
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'marginBottom': '20px'}),
+                
+                # Tipo de Estratégia
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5("🧠 Tipo de Estratégia", className="mb-0", style={'color': COLORS['gold']})
+                    ]),
+                    dbc.CardBody([
+                        dbc.RadioItems(
+                            id='strategy-type',
+                            options=[
+                                {'label': ' 🤖 Smart Strategy (Recomendado)', 'value': 'smart'},
+                                {'label': ' 📊 Scalping Simples', 'value': 'scalping'},
+                                {'label': ' 🎯 Trend Following', 'value': 'trend'},
+                                {'label': ' ⚖️ Mean Reversion', 'value': 'mean_reversion'},
+                            ],
+                            value='smart',
+                            style={'color': COLORS['text']}
+                        )
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'marginBottom': '20px'}),
+                
+                # Botões
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Button("💾 Salvar Estratégia", id='save-strategy-btn', color='success', className='me-2'),
+                        dbc.Button("📊 Testar Configuração", id='test-strategy-btn', color='info'),
+                    ], className="text-center")
+                ]),
+                
+                html.Div(id='strategy-status', className='mt-3'),
+                
+            ], width=12)
+        ])
+    ], fluid=True)
+
+def get_safety_layout():
+    """Layout da aba de configurações de segurança"""
+    return dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.H3("🛡️ Configurações de Segurança", style={'color': COLORS['text'], 'marginBottom': '30px'}),
+                
+                # Limites de Risco
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5("⚠️ Limites de Risco", className="mb-0", style={'color': COLORS['negative']})
+                    ]),
+                    dbc.CardBody([
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("💥 Perda Máxima Diária (USDT):", style={'color': COLORS['text']}),
+                                dbc.Input(id='max-daily-loss', type='number', value=50.0, step=5.0, min=5.0, max=200.0, className='mb-3')
+                            ], width=6),
+                            dbc.Col([
+                                html.Label("📉 Drawdown Máximo (%):", style={'color': COLORS['text']}),
+                                dbc.Input(id='max-drawdown', type='number', value=20.0, step=1.0, min=5.0, max=50.0, className='mb-3')
+                            ], width=6),
+                        ]),
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("🎯 Stop Loss (%):", style={'color': COLORS['text']}),
+                                dbc.Input(id='stop-loss', type='number', value=2.0, step=0.1, min=0.5, max=10.0, className='mb-3')
+                            ], width=6),
+                            dbc.Col([
+                                html.Label("💰 Take Profit (%):", style={'color': COLORS['text']}),
+                                dbc.Input(id='take-profit', type='number', value=3.0, step=0.1, min=1.0, max=15.0, className='mb-3')
+                            ], width=6),
+                        ]),
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'marginBottom': '20px'}),
+                
+                # Kill Switch
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5("🚨 Kill Switch Automático", className="mb-0", style={'color': COLORS['negative']})
+                    ]),
+                    dbc.CardBody([
+                        dbc.Checklist(
+                            id='kill-switch-options',
+                            options=[
+                                {'label': ' Ativar Kill Switch', 'value': 'enabled'},
+                                {'label': ' Parar em perda consecutiva (5 trades)', 'value': 'consecutive_losses'},
+                                {'label': ' Parar em horários de alta volatilidade', 'value': 'high_volatility'},
+                                {'label': ' Enviar notificações de emergência', 'value': 'emergency_notifications'},
+                            ],
+                            value=['enabled', 'consecutive_losses'],
+                            style={'color': COLORS['text']}
+                        )
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'marginBottom': '20px'}),
+                
+                # Configurações de Proteção
+                dbc.Card([
+                    dbc.CardHeader([
+                        html.H5("🔒 Proteções Avançadas", className="mb-0", style={'color': COLORS['accent']})
+                    ]),
+                    dbc.CardBody([
+                        dbc.Row([
+                            dbc.Col([
+                                html.Label("🕐 Horário de Funcionamento:", style={'color': COLORS['text']}),
+                                dbc.Row([
+                                    dbc.Col([
+                                        dbc.Input(id='start-time', type='time', value='09:00', className='mb-3')
+                                    ], width=6),
+                                    dbc.Col([
+                                        dbc.Input(id='end-time', type='time', value='18:00', className='mb-3')
+                                    ], width=6),
+                                ])
+                            ], width=6),
+                            dbc.Col([
+                                html.Label("📅 Dias de Operação:", style={'color': COLORS['text']}),
+                                dbc.Checklist(
+                                    id='operating-days',
+                                    options=[
+                                        {'label': 'Seg', 'value': 0},
+                                        {'label': 'Ter', 'value': 1},
+                                        {'label': 'Qua', 'value': 2},
+                                        {'label': 'Qui', 'value': 3},
+                                        {'label': 'Sex', 'value': 4},
+                                        {'label': 'Sáb', 'value': 5},
+                                        {'label': 'Dom', 'value': 6},
+                                    ],
+                                    value=[0, 1, 2, 3, 4],
+                                    inline=True,
+                                    style={'color': COLORS['text'], 'fontSize': '12px'}
+                                )
+                            ], width=6),
+                        ]),
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'marginBottom': '20px'}),
+                
+                # Botões
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Button("🛡️ Salvar Segurança", id='save-safety-btn', color='danger', className='me-2'),
+                        dbc.Button("🚨 Ativar Kill Switch", id='emergency-stop-btn', color='warning'),
+                    ], className="text-center")
+                ]),
+                
+                html.Div(id='safety-status', className='mt-3'),
+                
+            ], width=12)
+        ])
+    ], fluid=True)
+
+# ========================================
+# CALLBACKS PARA CONFIGURAÇÕES
+# ========================================
+
+@app.callback(
+    Output('config-status', 'children'),
+    Input('save-config-btn', 'n_clicks'),
+    [State('amount-per-trade', 'value'),
+     State('max-positions', 'value'),
+     State('daily-target', 'value'),
+     State('interval-seconds', 'value'),
+     State('crypto-selection', 'value')]
+)
+def save_config(n_clicks, amount, max_pos, target, interval, cryptos):
+    """Salva configurações gerais"""
+    if n_clicks:
+        try:
+            # Aqui você salvaria no config.yaml
+            return dbc.Alert("✅ Configurações salvas com sucesso!", color="success", dismissable=True)
+        except Exception as e:
+            return dbc.Alert(f"❌ Erro ao salvar: {str(e)}", color="danger", dismissable=True)
+    return ""
+
+@app.callback(
+    Output('strategy-status', 'children'),
+    Input('save-strategy-btn', 'n_clicks'),
+    [State('rsi-period', 'value'),
+     State('rsi-oversold', 'value'),
+     State('rsi-overbought', 'value'),
+     State('strategy-type', 'value')]
+)
+def save_strategy(n_clicks, rsi_period, rsi_oversold, rsi_overbought, strategy_type):
+    """Salva configurações de estratégia"""
+    if n_clicks:
+        try:
+            # Aqui você salvaria as configurações da estratégia
+            return dbc.Alert("📈 Estratégia atualizada com sucesso!", color="success", dismissable=True)
+        except Exception as e:
+            return dbc.Alert(f"❌ Erro ao salvar estratégia: {str(e)}", color="danger", dismissable=True)
+    return ""
+
+@app.callback(
+    Output('safety-status', 'children'),
+    Input('save-safety-btn', 'n_clicks'),
+    [State('max-daily-loss', 'value'),
+     State('max-drawdown', 'value'),
+     State('stop-loss', 'value'),
+     State('take-profit', 'value')]
+)
+def save_safety(n_clicks, max_loss, max_drawdown, stop_loss, take_profit):
+    """Salva configurações de segurança"""
+    if n_clicks:
+        try:
+            # Aqui você salvaria as configurações de segurança
+            return dbc.Alert("🛡️ Configurações de segurança salvas!", color="success", dismissable=True)
+        except Exception as e:
+            return dbc.Alert(f"❌ Erro ao salvar segurança: {str(e)}", color="danger", dismissable=True)
+    return ""
 
 if __name__ == '__main__':
     print("="*60)

@@ -1,110 +1,13 @@
 {
-  "status": "Operando",
-  "balance": 28110.6154629,
-  "daily_pnl": 1.440526999999973,
-  "total_pnl": 1.440526999999973,
-  "trades_count": 188,
-  "wins": 135,
-  "losses": 35,
-  "positions": {
-    "BTC/USDT": {
-      "symbol": "BTC/USDT",
-      "side": "BUY",
-      "entry_price": 90937.49,
-      "amount": 0.00054,
-      "entry_time": "2025-11-30 03:35:27.786888",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.1%)",
-      "indicators": {
-        "rsi": 69.49917362284557,
-        "macd": 36.17348223023873,
-        "macd_signal": 27.11753523528493,
-        "sma_20": 90836.9145,
-        "price": 90937.49
-      },
-      "order_id": "4907454"
-    },
-    "ETH/USDT": {
-      "symbol": "ETH/USDT",
-      "side": "BUY",
-      "entry_price": 3000.0,
-      "amount": 0.0166,
-      "entry_time": "2025-11-30 03:35:48.287546",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
-      "indicators": {
-        "rsi": 72.51008122685032,
-        "macd": 2.2479921563135576,
-        "macd_signal": 1.5699327491792618,
-        "sma_20": 2994.157,
-        "price": 3000.0
-      },
-      "order_id": "3912871"
-    },
-    "SOL/USDT": {
-      "symbol": "SOL/USDT",
-      "side": "BUY",
-      "entry_price": 136.43,
-      "amount": 0.366,
-      "entry_time": "2025-11-30 03:40:11.221122",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
-      "indicators": {
-        "rsi": 71.147484486915,
-        "macd": 0.14776860635743105,
-        "macd_signal": 0.11924372983539454,
-        "sma_20": 136.134,
-        "price": 136.43
-      },
-      "order_id": "1833774"
-    },
-    "BNB/USDT": {
-      "symbol": "BNB/USDT",
-      "side": "BUY",
-      "entry_price": 874.2,
-      "amount": 0.057,
-      "entry_time": "2025-11-30 03:37:44.568530",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.1%)",
-      "indicators": {
-        "rsi": 65.02237470747252,
-        "macd": 0.6449157797395628,
-        "macd_signal": 0.588059201381089,
-        "sma_20": 873.1510000000001,
-        "price": 874.2
-      },
-      "order_id": "3072959"
-    },
-    "XRP/USDT": {
-      "symbol": "XRP/USDT",
-      "side": "BUY",
-      "entry_price": 2.199,
-      "amount": 22.7,
-      "entry_time": "2025-11-30 03:40:54.719652",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.1%)",
-      "indicators": {
-        "rsi": 67.50730446129072,
-        "macd": 0.0013053598634940045,
-        "macd_signal": 0.001031335621795403,
-        "sma_20": 2.196465,
-        "price": 2.199
-      },
-      "order_id": "2056956"
-    },
-    "LTC/USDT": {
-      "symbol": "LTC/USDT",
-      "side": "BUY",
-      "entry_price": 84.12,
-      "amount": 0.594,
-      "entry_time": "2025-11-30 03:33:38.697768",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.3%)",
-      "indicators": {
-        "rsi": 87.93753851334058,
-        "macd": 0.08913577954567131,
-        "macd_signal": 0.0591664003669362,
-        "sma_20": 83.8635,
-        "price": 84.12
-      },
-      "order_id": "1220872"
-    }
-  },
-  "last_update": "2025-11-30T03:42:56.660548",
-  "timestamp": 1764484976660,
-  "is_running": true
+  "status": "Parado",
+  "balance": 0.3125034,
+  "daily_pnl": 4.18191639999998,
+  "total_pnl": 4.18191639999998,
+  "trades_count": 505,
+  "wins": 351,
+  "losses": 106,
+  "positions": {},
+  "last_update": "2025-11-30T21:41:34.891077",
+  "timestamp": 1764549694891,
+  "is_running": false
 }

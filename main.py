@@ -21,6 +21,16 @@ from core.utils import load_config, load_env_credentials, setup_logging
 from core.exchange_client import ExchangeClient
 from indicators.technical_indicators import TechnicalIndicators
 from safety.safety_manager import SafetyManager
+from src.core.portfolio_manager import PortfolioManager
+
+# Tentar carregar Enhanced Trading Engine
+try:
+    from enhanced_trading_engine import EnhancedTradingEngine
+    ENHANCED_ENGINE_AVAILABLE = True
+    print("🚀 Enhanced Trading Engine Disponível!")
+except ImportError as e:
+    ENHANCED_ENGINE_AVAILABLE = False
+    print(f"⚠️ Enhanced Trading Engine não disponível: {e}")
 
 # Tenta usar Smart Strategy, senão usa a antiga
 try:
@@ -143,6 +153,10 @@ class TradingBot:
         
         # Safety Manager
         self.safety = SafetyManager(self.config['safety'])
+        
+        # Portfolio Manager - Gestão avançada de portfólio
+        self.portfolio_manager = PortfolioManager()
+        logger.info("💼 Portfolio Manager inicializado - Regras de exposição ativas")
         
         # Inicializa posições
         for symbol in self.symbols:

@@ -1,63 +1,240 @@
-# Credenciais e segredos
+# ==============================================
+# CREDENCIAIS E SEGURANÇA
+# ==============================================
+# Credenciais sensíveis
+*.env
 .env
+.env.*
 config/.env
+config/credentials.json
 config/credentials.yaml
+*credentials*
+*secret*
+*api_key*
 *.key
 *.pem
+*.p12
+*.pfx
 
-# Python
+# ==============================================  
+# DADOS SENSÍVEIS DO TRADING
+# ==============================================
+# Histórico e estados do bot
+bot_state.json
+bot_history.json
+daily_stats.json
+trading_history.db
+*.sqlite
+*.sqlite3
+*.db
+
+# Dados e cache
+data/
+!data/.gitkeep
+logs/
+!logs/.gitkeep
+cache/
+history/
+reports/
+backups/
+*.backup
+*.tmp
+*.temp
+
+# ==============================================
+# PYTHON
+# ==============================================
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# Distribution / packaging
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Environments
+.env
+.venv
 env/
 venv/
 ENV/
-.venv
-*.egg-info/
-dist/
-build/
-.eggs/
+env.bak/
+venv.bak/
 
-# Django
-*.log
-db.sqlite3
-db.sqlite3-journal
-staticfiles/
-media/
-
-# Logs
-logs/*.log
-logs/*.txt
-
-# Dados
-data/cache/*
-data/reports/*
-data/*.csv
-data/*.json
-!data/cache/.gitkeep
-!data/reports/.gitkeep
-
+# ==============================================
+# DESENVOLVIMENTO
+# ==============================================
 # IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.spyderproject
+.spyproject
+.ropeproject
 
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Jupyter
+# Jupyter Notebook
 .ipynb_checkpoints
 
-# Testes
-.pytest_cache/
-.coverage
-htmlcov/
+# IPython
+profile_default/
+ipython_config.py
 
-# Backtest results
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ==============================================
+# SISTEMA OPERACIONAL
+# ==============================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==============================================
+# DOCKER E DEPLOY
+# ==============================================
+# Docker
+.dockerignore
+
+# Kubernetes
+*.yaml.bak
+*.yml.bak
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# ==============================================
+# TRADING ESPECÍFICO
+# ==============================================
+# Executáveis gerados
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.deb
+*.rpm
+
+# Scripts de automação local
+**/INICIAR_*.bat
+**/START_*.bat
+**/CRIAR_*.bat
+**/INSTALAR_*.bat
+
+# Arquivos de configuração local
+config/local_*
+config/personal_*
+
+# Resultados de backtest
 backtest_results/
+*.backtest
+
+# Monitoring
+monitoring/data/
+grafana-data/
+prometheus-data/
