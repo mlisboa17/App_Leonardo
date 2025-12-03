@@ -1,9 +1,227 @@
 {
-  "total_trades": 4,
-  "winning_trades": 0,
-  "losing_trades": 0,
-  "total_pnl": 0.0,
-  "daily_pnl": 0.0,
-  "recent_trades": [],
-  "trades_by_symbol": {}
+  "total_trades": 94,
+  "winning_trades": 32,
+  "losing_trades": 16,
+  "total_pnl": 71.28328850000122,
+  "daily_pnl": 71.28328850000122,
+  "recent_trades": [
+    {
+      "symbol": "BTC/USDT",
+      "side": "BUY",
+      "entry_price": 93294.5,
+      "exit_price": 93374.98,
+      "amount": 0.05359,
+      "pnl": 4.312923199999782,
+      "pnl_pct": 0.08625846399999564,
+      "entry_time": "2025-12-03T07:25:46.799341",
+      "exit_time": "2025-12-03T07:26:47.744981",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.1%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 1.0157606666666665,
+      "entry_indicators": {
+        "rsi": 70.16960025660424,
+        "macd": 64.82069580275856,
+        "macd_signal": 51.402387349023314,
+        "sma_20": 93164.9155,
+        "price": 93294.5
+      }
+    },
+    {
+      "symbol": "ETH/USDT",
+      "side": "BUY",
+      "entry_price": 3069.09,
+      "exit_price": 3070.94,
+      "amount": 1.6291,
+      "pnl": 3.013834999999852,
+      "pnl_pct": 0.06027669999999705,
+      "entry_time": "2025-12-03T07:25:55.276966",
+      "exit_time": "2025-12-03T07:26:49.621138",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 0.9057362,
+      "entry_indicators": {
+        "rsi": 76.18135376756254,
+        "macd": 2.613393526960408,
+        "macd_signal": 1.816238693051525,
+        "sma_20": 3062.6425,
+        "price": 3069.09
+      }
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "BUY",
+      "entry_price": 142.06,
+      "exit_price": 142.11,
+      "amount": 35.196,
+      "pnl": 1.7598000000004,
+      "pnl_pct": 0.035196000000008,
+      "entry_time": "2025-12-03T07:26:02.634386",
+      "exit_time": "2025-12-03T07:26:50.290103",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.1%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 0.79426195,
+      "entry_indicators": {
+        "rsi": 72.54901960784127,
+        "macd": 0.017542618783096486,
+        "macd_signal": -0.009740060967873249,
+        "sma_20": 141.926,
+        "price": 142.06
+      }
+    },
+    {
+      "symbol": "BNB/USDT",
+      "side": "BUY",
+      "entry_price": 899.74,
+      "exit_price": 900.0,
+      "amount": 5.557,
+      "pnl": 1.4448199999999496,
+      "pnl_pct": 0.028896399999998993,
+      "entry_time": "2025-12-03T07:26:10.505746",
+      "exit_time": "2025-12-03T07:26:51.567435",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.1%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 0.6843614833333334,
+      "entry_indicators": {
+        "rsi": 70.67448680351879,
+        "macd": 0.3431168927144199,
+        "macd_signal": 0.2560432067754616,
+        "sma_20": 898.6570000000002,
+        "price": 899.74
+      }
+    },
+    {
+      "symbol": "XRP/USDT",
+      "side": "BUY",
+      "entry_price": 2.1874,
+      "exit_price": 2.1891,
+      "amount": 2285.8,
+      "pnl": 3.88586000000008,
+      "pnl_pct": 0.0777172000000016,
+      "entry_time": "2025-12-03T07:26:18.986850",
+      "exit_time": "2025-12-03T07:26:52.249153",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 0.5543717166666667,
+      "entry_indicators": {
+        "rsi": 88.29787234042428,
+        "macd": 0.0012126129386111906,
+        "macd_signal": 0.0005226472948916085,
+        "sma_20": 2.182625,
+        "price": 2.1874
+      }
+    },
+    {
+      "symbol": "LINK/USDT",
+      "side": "BUY",
+      "entry_price": 14.52,
+      "exit_price": 14.57,
+      "amount": 344.35,
+      "pnl": 17.217500000000246,
+      "pnl_pct": 0.34435000000000493,
+      "entry_time": "2025-12-03T07:26:25.733907",
+      "exit_time": "2025-12-03T07:26:52.905830",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.3%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 0.4528653833333333,
+      "entry_indicators": {
+        "rsi": 76.92307692307725,
+        "macd": 0.02807846586724061,
+        "macd_signal": 0.024658682043539302,
+        "sma_20": 14.472,
+        "price": 14.52
+      }
+    },
+    {
+      "symbol": "DOGE/USDT",
+      "side": "BUY",
+      "entry_price": 0.15036,
+      "exit_price": 0.15062,
+      "amount": 33253.0,
+      "pnl": 8.64578000000034,
+      "pnl_pct": 0.1729156000000068,
+      "entry_time": "2025-12-03T07:26:33.642025",
+      "exit_time": "2025-12-03T07:26:54.246618",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 0.34340988333333333,
+      "entry_indicators": {
+        "rsi": 83.50515463917543,
+        "macd": 9.390639941792012e-05,
+        "macd_signal": 3.661367822520649e-05,
+        "sma_20": 0.15000149999999998,
+        "price": 0.15036
+      }
+    },
+    {
+      "symbol": "LTC/USDT",
+      "side": "BUY",
+      "entry_price": 85.65,
+      "exit_price": 85.84,
+      "amount": 58.377,
+      "pnl": 11.091629999999867,
+      "pnl_pct": 0.22183259999999735,
+      "entry_time": "2025-12-03T07:26:41.573863",
+      "exit_time": "2025-12-03T07:26:55.616125",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
+      "exit_reason": "Bot parado",
+      "duration_minutes": 0.2340377,
+      "entry_indicators": {
+        "rsi": 100.0,
+        "macd": 0.09927786825969065,
+        "macd_signal": 0.08002312384676154,
+        "sma_20": 85.4555,
+        "price": 85.65
+      }
+    }
+  ],
+  "trades_by_symbol": {
+    "BTC/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 4.312923199999782
+    },
+    "ETH/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 3.013834999999852
+    },
+    "SOL/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 1.7598000000004
+    },
+    "BNB/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 1.4448199999999496
+    },
+    "XRP/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 3.88586000000008
+    },
+    "LINK/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 17.217500000000246
+    },
+    "DOGE/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 8.64578000000034
+    },
+    "LTC/USDT": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "pnl": 11.091629999999867
+    }
+  }
 }

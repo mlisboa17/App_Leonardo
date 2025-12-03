@@ -1,78 +1,13 @@
 {
-  "status": "Operando",
-  "balance": 27034.418556130004,
-  "daily_pnl": 0.0,
-  "total_pnl": 0.0,
-  "trades_count": 4,
-  "wins": 0,
-  "losses": 0,
-  "positions": {
-    "BTC/USDT": {
-      "symbol": "BTC/USDT",
-      "side": "BUY",
-      "entry_price": 92667.07,
-      "amount": 0.05395,
-      "entry_time": "2025-12-03 00:46:55.100644",
-      "reason": "COMPRA: RSI 43.9 < 45.3 | Perto SMA20 (-0.1%)",
-      "indicators": {
-        "rsi": 43.890225027983284,
-        "macd": -11.14664534459007,
-        "macd_signal": -1.4668232547226183,
-        "sma_20": 92750.8735,
-        "price": 92667.07
-      },
-      "order_id": "5963773"
-    },
-    "XRP/USDT": {
-      "symbol": "XRP/USDT",
-      "side": "BUY",
-      "entry_price": 2.1754,
-      "amount": 2298.4,
-      "entry_time": "2025-12-03 00:42:09.822192",
-      "reason": "COMPRA: RSI 32.2 < 45.9 | Perto SMA20 (-0.2%)",
-      "indicators": {
-        "rsi": 32.21033929952408,
-        "macd": -0.0016427091563602225,
-        "macd_signal": -0.0011349897428623893,
-        "sma_20": 2.179725,
-        "price": 2.1754
-      },
-      "order_id": "2311537"
-    },
-    "LINK/USDT": {
-      "symbol": "LINK/USDT",
-      "side": "BUY",
-      "entry_price": 13.95,
-      "amount": 358.42,
-      "entry_time": "2025-12-03 00:42:18.216239",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.3%)",
-      "indicators": {
-        "rsi": 66.9323544448232,
-        "macd": 0.018335911865793975,
-        "macd_signal": 0.014429393227715602,
-        "sma_20": 13.914000000000001,
-        "price": 13.95
-      },
-      "order_id": "323660"
-    },
-    "LTC/USDT": {
-      "symbol": "LTC/USDT",
-      "side": "BUY",
-      "entry_price": 84.18,
-      "amount": 59.396,
-      "entry_time": "2025-12-03 00:42:30.682535",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
-      "indicators": {
-        "rsi": 89.57758761219758,
-        "macd": 0.10235061909980914,
-        "macd_signal": 0.09150985003543445,
-        "sma_20": 84.018,
-        "price": 84.18
-      },
-      "order_id": "1319504"
-    }
-  },
-  "last_update": "2025-12-03T00:49:47.436232",
-  "timestamp": 1764733787436,
-  "is_running": true
+  "status": "Parado",
+  "balance": 8418.90513475,
+  "daily_pnl": 71.28328850000122,
+  "total_pnl": 71.28328850000122,
+  "trades_count": 94,
+  "wins": 32,
+  "losses": 16,
+  "positions": {},
+  "last_update": "2025-12-03T07:26:55.640646",
+  "timestamp": 1764757615640,
+  "is_running": false
 }

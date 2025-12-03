@@ -21,7 +21,7 @@ class KillSwitch:
         self.last_reset = datetime.now()
         
     def check_daily_loss(self, current_pnl: float) -> bool:
-        """Verifica se atingiu limite de perda diária"""
+        """Verifica se atingiu limite de perda diária (apenas perdas, não lucros)"""
         # Reset diário
         if datetime.now() - self.last_reset > timedelta(days=1):
             self.daily_pnl = 0.0
@@ -29,8 +29,9 @@ class KillSwitch:
             
         self.daily_pnl = current_pnl
         
-        if abs(self.daily_pnl) >= self.max_daily_loss:
-            logger.critical(f"⛔ KILL SWITCH: Perda diária de {self.daily_pnl:.2f} USDT atingida!")
+        # Só ativa kill switch se for PERDA (valor negativo)
+        if self.daily_pnl < 0 and abs(self.daily_pnl) >= self.max_daily_loss:
+            logger.critical(f"⛔ KILL SWITCH: Perda diária de {abs(self.daily_pnl):.2f} USDT atingida!")
             self.activate()
             return True
         return False

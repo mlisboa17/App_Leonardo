@@ -118,8 +118,8 @@ jobs:
         context: .
         push: true
         tags: |
-          leonardotrading/app-leonardo:latest
-          leonardotrading/app-leonardo:${{ github.sha }}
+          mlisboa17/app_leonardo:latest
+          mlisboa17/app_leonardo:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -166,7 +166,7 @@ jobs:
           ## Docker Image
           
           ```bash
-          docker pull leonardotrading/app-leonardo:${{ steps.get_version.outputs.version }}
+          docker pull mlisboa17/app_leonardo:${{ steps.get_version.outputs.version }}
           ```
           
           ## Installation

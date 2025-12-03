@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # InfluxDB - Banco de dados de séries temporais
+  influxdb:
+    image: influxdb:2.7
+    container_name: leonardo_influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=leonardo123
+      - DOCKER_INFLUXDB_INIT_ORG=leonardo
+      - DOCKER_INFLUXDB_INIT_BUCKET=trading
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=leonardo-trading-token-2024
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    restart: unless-stopped
+
+  # Grafana - Dashboard de visualização
+  grafana:
+    image: grafana/grafana:latest
+    container_name: leonardo_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=leonardo123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+
+volumes:
+  influxdb_data:
+  grafana_data:
