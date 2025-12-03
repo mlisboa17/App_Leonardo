@@ -1,65 +1,86 @@
 {
-  "total_trades": 505,
-  "winning_trades": 351,
-  "losing_trades": 106,
-  "total_pnl": 4.18191639999998,
-  "daily_pnl": 4.18191639999998,
+  "total_trades": 10,
+  "winning_trades": 3,
+  "losing_trades": 2,
+  "total_pnl": 0.033480799999997785,
+  "daily_pnl": 0.033480799999997785,
   "recent_trades": [
     {
-      "symbol": "BTC/USDT",
+      "symbol": "LINK/USDT",
       "side": "BUY",
-      "entry_price": 87824.11,
-      "exit_price": 87691.53,
-      "amount": 0.00014,
-      "pnl": -0.018561200000000243,
-      "pnl_pct": -0.037122400000000486,
-      "entry_time": "2025-11-30T21:41:00.024031",
-      "exit_time": "2025-11-30T21:41:33.565830",
-      "entry_reason": "COMPRA: RSI 25.9 < 45.3 | MACD\u2191 | Perto SMA20 (-0.5%)",
-      "exit_reason": "Bot parado",
-      "duration_minutes": 0.5590299833333333,
+      "entry_price": 13.73,
+      "exit_price": 13.73,
+      "amount": 3.64,
+      "pnl": 0.0,
+      "pnl_pct": 0.0,
+      "entry_time": "2025-12-02T22:58:49.484961",
+      "exit_time": "2025-12-02T23:00:30.248626",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.4%)",
+      "exit_reason": "\ud83d\ude80 AGRESSIVO RSI 78.5 > 50 +0.00%",
+      "duration_minutes": 1.6793944166666668,
       "entry_indicators": {
-        "rsi": 25.949834895444226,
-        "macd": -370.95003439723223,
-        "macd_signal": -373.17870585802063,
-        "sma_20": 88298.13100000001,
-        "price": 87824.11
+        "rsi": 78.53475336311294,
+        "macd": 0.028790335320275418,
+        "macd_signal": 0.02510930714043823,
+        "sma_20": 13.681000000000003,
+        "price": 13.73
       }
     },
     {
-      "symbol": "DOGE/USDT",
+      "symbol": "LTC/USDT",
       "side": "BUY",
-      "entry_price": 0.1401,
-      "exit_price": 0.1401,
-      "amount": 11.0,
-      "pnl": 0.0,
-      "pnl_pct": 0.0,
-      "entry_time": "2025-11-30T21:41:23.543025",
-      "exit_time": "2025-11-30T21:41:34.828065",
-      "entry_reason": "COMPRA: RSI 27.1 < 44.8 | MACD\u2191 | Perto SMA20 (-0.8%)",
-      "exit_reason": "Bot parado",
-      "duration_minutes": 0.188084,
+      "entry_price": 83.23,
+      "exit_price": 83.24,
+      "amount": 0.6,
+      "pnl": 0.005999999999994543,
+      "pnl_pct": 0.011999999999989085,
+      "entry_time": "2025-12-02T23:02:47.208449",
+      "exit_time": "2025-12-02T23:03:04.716094",
+      "entry_reason": "COMPRA: RSI 8.3 < 44.2 | Perto SMA20 (-0.1%)",
+      "exit_reason": "\ud83d\ude80 AGRESSIVO QUEDA (4/4) +0.01%",
+      "duration_minutes": 0.29179408333333334,
       "entry_indicators": {
-        "rsi": 27.12924166774323,
-        "macd": -0.0008483470802538029,
-        "macd_signal": -0.0008865458611932383,
-        "sma_20": 0.1412235,
-        "price": 0.1401
+        "rsi": 8.309245407383415,
+        "macd": -0.006415247226485121,
+        "macd_signal": 0.0008112381469999512,
+        "sma_20": 83.325,
+        "price": 83.23
+      }
+    },
+    {
+      "symbol": "LTC/USDT",
+      "side": "BUY",
+      "entry_price": 83.21,
+      "exit_price": 83.25,
+      "amount": 0.6,
+      "pnl": 0.02400000000000375,
+      "pnl_pct": 0.0480000000000075,
+      "entry_time": "2025-12-02T23:03:23.319587",
+      "exit_time": "2025-12-02T23:03:40.767626",
+      "entry_reason": "COMPRA: RSI 7.1 < 39.4 | Perto SMA20 (-0.1%)",
+      "exit_reason": "\ud83d\ude80 AGRESSIVO QUEDA (4/4) +0.05%",
+      "duration_minutes": 0.29080065000000005,
+      "entry_indicators": {
+        "rsi": 7.099790904831551,
+        "macd": -0.008010688821940448,
+        "macd_signal": 0.0004921498279088859,
+        "sma_20": 83.324,
+        "price": 83.21
       }
     }
   ],
   "trades_by_symbol": {
-    "BTC/USDT": {
-      "total": 1,
-      "wins": 0,
-      "losses": 1,
-      "pnl": -0.018561200000000243
-    },
-    "DOGE/USDT": {
+    "LINK/USDT": {
       "total": 1,
       "wins": 0,
       "losses": 1,
       "pnl": 0.0
+    },
+    "LTC/USDT": {
+      "total": 2,
+      "wins": 2,
+      "losses": 0,
+      "pnl": 0.029999999999998292
     }
   }
 }
