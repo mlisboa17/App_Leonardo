@@ -46,6 +46,9 @@ else:
     print("⚠️ API Key não encontrada!")
 TESTNET = True
 
+# Correção de saldo Testnet (valores vêm 10x maiores)
+TESTNET_BALANCE_CORRECTION = 10.0
+
 # Moedas que queremos destacar
 MAIN_CRYPTOS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'LINK', 'DOGE', 'LTC']
 
@@ -105,13 +108,33 @@ def get_exchange():
         return None
 
 def get_balances():
-    """Busca todos os saldos"""
+    """Busca todos os saldos (com correção para Testnet)"""
     try:
         exchange = get_exchange()
         if not exchange:
             print("❌ Exchange não disponível para buscar saldos")
             return None
         balance = exchange.fetch_balance()
+        
+        # Aplica correção para Testnet
+        if TESTNET and TESTNET_BALANCE_CORRECTION > 1:
+            corrected_balance = {}
+            for key, value in balance.items():
+                if isinstance(value, dict):
+                    corrected_balance[key] = {}
+                    for subkey, subvalue in value.items():
+                        if isinstance(subvalue, (int, float)):
+                            corrected_balance[key][subkey] = subvalue / TESTNET_BALANCE_CORRECTION
+                        else:
+                            corrected_balance[key][subkey] = subvalue
+                elif isinstance(value, (int, float)):
+                    corrected_balance[key] = value / TESTNET_BALANCE_CORRECTION
+                else:
+                    corrected_balance[key] = value
+            
+            print(f"✅ Saldo obtido (corrigido ÷{TESTNET_BALANCE_CORRECTION:.0f}): USDT={corrected_balance.get('free', {}).get('USDT', 0):.2f}")
+            return corrected_balance
+        
         print(f"✅ Saldo obtido: USDT={balance.get('free', {}).get('USDT', 0):.2f}")
         return balance
     except Exception as e:
@@ -124,7 +147,12 @@ def get_prices(symbols):
         exchange = get_exchange()
         if not exchange:
             return {s: 0 for s in symbols}
-        tickers = exchange.fetch_tickers([f"{s}/USDT" for s in symbols if s != 'USDT'])
+        # Filtra moedas fiduciárias e outras inválidas
+        invalid_symbols = {'TRY', 'EUR', 'GBP', 'BRL', 'USD', 'NGN', 'RUB', 'UAH', 'ARS', 'BIDR', 'IDRT', 'PLN', 'RON'}
+        valid_symbols = [s for s in symbols if s not in invalid_symbols and s != 'USDT']
+        if not valid_symbols:
+            return {}
+        tickers = exchange.fetch_tickers([f"{s}/USDT" for s in valid_symbols])
         return {s.replace('/USDT', ''): t.get('last', 0) for s, t in tickers.items()}
     except Exception as e:
         print(f"❌ Erro ao buscar preços: {e}")
@@ -389,162 +417,11 @@ app.layout = dbc.Container([
 ], fluid=True, style={'backgroundColor': COLORS['background'], 'minHeight': '100vh', 'padding': '20px'})
 
 # ========================================
-# CALLBACK PARA MUDANÇA DE ABAS
+# CALLBACK PARA MUDANÇA DE ABAS (MOVIDO PARA SEÇÃO DE CALLBACKS)
 # ========================================
+# O callback render_tab_content_with_data está definido na seção CALLBACKS
 
-@app.callback(
-    Output('tab-content', 'children'),
-    Input('main-tabs', 'active_tab')
-)
-def render_tab_content(active_tab):
-    """Renderiza o conteúdo baseado na aba ativa"""
-    if active_tab == "dashboard-tab":
-        return get_dashboard_layout()
-    elif active_tab == "config-tab":
-        return get_config_layout()
-    elif active_tab == "strategy-tab":
-        return get_strategy_layout()
-    elif active_tab == "safety-tab":
-        return get_safety_layout()
-    return html.Div("Carregando...")
-
-def get_dashboard_layout():
-    """Layout do dashboard principal"""
-    return [
-    
-        # Cards Principais (USDT + Total)
-        dbc.Row([
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.P("💵 USDT Disponível", className="mb-1",
-                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                        html.H2(id='usdt-balance', children="$0.00",
-                                style={'color': COLORS['gold'], 'fontWeight': 'bold'})
-                    ])
-                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["gold"]}'})
-            ], width=3),
-            
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                        html.P("💎 Valor Total em Crypto", className="mb-1",
-                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                        html.H2(id='crypto-value', children="$0.00",
-                                style={'color': COLORS['accent'], 'fontWeight': 'bold'})
-                    ])
-                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["accent"]}'})
-            ], width=3),
-            
-            dbc.Col([
-                dbc.Card([
-                    dbc.CardBody([
-                    html.P("🏦 Patrimônio Total", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H2(id='total-value', children="$0.00",
-                            style={'color': COLORS['positive'], 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["positive"]}'})
-        ], width=3),
-        
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("📈 Lucro do Dia", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H2(id='daily-pnl', children="$0.00",
-                            style={'color': COLORS['positive'], 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["positive"]}'}, id='daily-pnl-card')
-        ], width=3),
-    ], className="mb-4"),
-    
-    # Cards de Estatísticas do Bot
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("🎯 Meta Diária ($100)", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H3(id='daily-progress', children="0%",
-                            style={'color': COLORS['accent'], 'fontWeight': 'bold'}),
-                    dbc.Progress(id='progress-bar', value=0, color="success", className="mt-2", style={'height': '10px'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
-        ], width=3),
-        
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("📊 Trades Hoje", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H3(id='trades-count', children="0",
-                            style={'color': COLORS['text'], 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
-        ], width=3),
-        
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("✅ Win Rate", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H3(id='win-rate', children="0%",
-                            style={'color': COLORS['positive'], 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
-        ], width=3),
-        
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.P("🤖 Status do Bot", className="mb-1",
-                           style={'color': COLORS['neutral'], 'fontSize': '14px'}),
-                    html.H3(id='bot-status', children="⚪ Offline",
-                            style={'color': COLORS['neutral'], 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
-        ], width=3),
-    ], className="mb-4"),
-    
-    # Criptomoedas Principais (8 cards)
-    html.H3(
-        "🪙 Principais Criptomoedas",
-        className="mb-3",
-        style={'color': COLORS['text'], 'fontWeight': 'bold'}
-    ),
-    
-    html.Div(id='main-crypto-cards', className="mb-4"),
-    
-    # Distribuição do Portfólio (Cards)
-    dbc.Row([
-        dbc.Col([
-            html.H4("📊 Distribuição do Portfólio", 
-                    className="mb-3",
-                    style={'color': COLORS['text'], 'fontWeight': 'bold'}),
-        ])
-    ]),
-    
-    html.Div(id='portfolio-distribution', className="mb-4"),
-    
-    # Moedas em Operação
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("📋 Moedas em Operação", 
-                            style={'color': COLORS['text'], 'marginBottom': '20px'}),
-                    html.Div(id='all-balances-list', style={'maxHeight': '400px', 'overflowY': 'auto'})
-                ])
-            ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
-        ], width=12)
-    ], className="mb-4"),
-    
-    # Última atualização
-    html.Div(id='last-update', className="text-center mb-4",
-             style={'color': COLORS['neutral'], 'fontSize': '12px'})
-    
-]
+# Função get_dashboard_layout() REMOVIDA - agora usamos get_dashboard_layout_with_data()
 
 
 # ========================================
@@ -552,91 +429,26 @@ def get_dashboard_layout():
 # ========================================
 
 @app.callback(
-    [
-        Output('usdt-balance', 'children'),
-        Output('crypto-value', 'children'),
-        Output('total-value', 'children'),
-        Output('daily-pnl', 'children'),
-        Output('daily-pnl', 'style'),
-        Output('daily-progress', 'children'),
-        Output('progress-bar', 'value'),
-        Output('trades-count', 'children'),
-        Output('win-rate', 'children'),
-        Output('bot-status', 'children'),
-        Output('bot-status', 'style'),
-        Output('stats-date', 'children'),
-        Output('main-crypto-cards', 'children'),
-        Output('portfolio-distribution', 'children'),
-        Output('all-balances-list', 'children'),
-        Output('last-update', 'children')
-    ],
+    Output('balance-data', 'data'),
     [Input('interval-update', 'n_intervals')]
 )
-def update_dashboard(n):
-    """Atualiza todo o dashboard"""
-    print(f"🔄 Callback executado #{n}")
+def fetch_balance_data(n):
+    """Busca dados de saldo (roda sempre)"""
+    print(f"🔄 Buscando dados #{n}")
     
     # Busca estatísticas do bot
     bot_stats = get_bot_stats()
-    print(f"📊 Bot stats: {bot_stats is not None}")
-    
-    # Valores padrão para estatísticas do bot
-    daily_pnl = 0.0
-    total_pnl = 0.0
-    trades_count = 0
-    wins = 0
-    losses = 0
-    bot_running = False
-    stats_date = datetime.now().strftime('%Y-%m-%d')
-    
-    if bot_stats:
-        daily_pnl = bot_stats.get('daily_pnl', 0.0)
-        total_pnl = bot_stats.get('total_pnl', 0.0)
-        trades_count = bot_stats.get('trades_count', 0)
-        wins = bot_stats.get('wins', 0)
-        losses = bot_stats.get('losses', 0)
-        bot_running = bot_stats.get('is_running', False)
-        stats_date = bot_stats.get('date', stats_date)
-    
-    # Win rate
-    win_rate = (wins / trades_count * 100) if trades_count > 0 else 0
-    
-    # Progresso da meta ($100)
-    target = 100.0
-    progress_pct = min((daily_pnl / target) * 100, 100) if daily_pnl > 0 else 0
-    
-    # Estilo do PnL (verde se positivo, vermelho se negativo)
-    pnl_color = COLORS['positive'] if daily_pnl >= 0 else COLORS['negative']
-    pnl_style = {'color': pnl_color, 'fontWeight': 'bold'}
-    
-    # Status do bot
-    if bot_running:
-        bot_status = "🟢 Operando"
-        bot_status_style = {'color': COLORS['positive'], 'fontWeight': 'bold'}
-    else:
-        bot_status = "⚪ Parado"
-        bot_status_style = {'color': COLORS['neutral'], 'fontWeight': 'bold'}
     
     # Busca saldos
     balance_data = get_balances()
     
     if not balance_data:
-        return (
-            "Erro", "Erro", "Erro",  # saldos
-            "$0.00", pnl_style,  # daily pnl
-            "0%", 0,  # progresso
-            "0", "0%",  # trades, win rate
-            bot_status, bot_status_style,  # status
-            f"📅 Data: {stats_date}",  # data
-            [], [],  # cards principais, distribuição
-            [],  # lista
-            "Erro ao conectar"
-        )
+        return {'error': True}
     
     # Extrai saldos livres
     free_balances = balance_data.get('free', {})
     
-    # USDT
+    # USDT (correção já aplicada no exchange_client para Testnet)
     usdt_balance = float(free_balances.get('USDT', 0))
     
     # Filtra moedas com saldo > 0
@@ -646,9 +458,9 @@ def update_dashboard(n):
     }
     
     # Busca preços
-    prices = get_prices(list(cryptos_with_balance.keys())[:50])  # Limite de 50
+    prices = get_prices(list(cryptos_with_balance.keys())[:50])
     
-    # Busca previsões para as 8 cryptos principais
+    # Busca previsões
     predictions = get_crypto_predictions(MAIN_CRYPTOS)
     
     # Calcula valor em USD de cada crypto
@@ -661,26 +473,95 @@ def update_dashboard(n):
             'value_usd': amount * price if price else 0
         }
     
-    # Ordena por valor USD
-    sorted_cryptos = sorted(
-        crypto_values.items(), 
-        key=lambda x: x[1]['value_usd'], 
-        reverse=True
-    )
-    
     # Total em crypto
     total_crypto_value = sum(v['value_usd'] for v in crypto_values.values())
     
     # Total geral
     total_value = usdt_balance + total_crypto_value
     
-    # ===== CARDS PRINCIPAIS (8 cryptos) com previsões =====
-    main_cards_data = []
-    for symbol in MAIN_CRYPTOS:
-        if symbol in crypto_values:
-            main_cards_data.append((symbol, crypto_values[symbol], predictions.get(symbol, {})))
-        else:
-            main_cards_data.append((symbol, {'amount': 0, 'price': prices.get(symbol, 0), 'value_usd': 0}, predictions.get(symbol, {})))
+    return {
+        'error': False,
+        'usdt_balance': usdt_balance,
+        'crypto_values': crypto_values,
+        'total_crypto_value': total_crypto_value,
+        'total_value': total_value,
+        'prices': prices,
+        'predictions': predictions,
+        'bot_stats': bot_stats,
+        'timestamp': datetime.now().isoformat()
+    }
+
+
+@app.callback(
+    Output('tab-content', 'children'),
+    [Input('main-tabs', 'active_tab'),
+     Input('balance-data', 'data')]
+)
+def render_tab_content_with_data(active_tab, data):
+    """Renderiza o conteúdo baseado na aba ativa COM os dados"""
+    if active_tab == "dashboard-tab":
+        return get_dashboard_layout_with_data(data)
+    elif active_tab == "config-tab":
+        return get_config_layout()
+    elif active_tab == "strategy-tab":
+        return get_strategy_layout()
+    elif active_tab == "safety-tab":
+        return get_safety_layout()
+    return html.Div("Carregando...")
+
+
+def get_dashboard_layout_with_data(data):
+    """Layout do dashboard com dados já carregados"""
+    
+    # Valores padrão
+    usdt_balance = 0.0
+    total_crypto_value = 0.0
+    total_value = 0.0
+    daily_pnl = 0.0
+    trades_count = 0
+    wins = 0
+    losses = 0
+    bot_running = False
+    stats_date = datetime.now().strftime('%Y-%m-%d')
+    crypto_values = {}
+    prices = {}
+    predictions = {}
+    
+    if data and not data.get('error', True):
+        usdt_balance = data.get('usdt_balance', 0)
+        crypto_values = data.get('crypto_values', {})
+        total_crypto_value = data.get('total_crypto_value', 0)
+        total_value = data.get('total_value', 0)
+        prices = data.get('prices', {})
+        predictions = data.get('predictions', {})
+        
+        bot_stats = data.get('bot_stats')
+        if bot_stats:
+            daily_pnl = bot_stats.get('daily_pnl', 0.0)
+            trades_count = bot_stats.get('trades_count', 0)
+            wins = bot_stats.get('wins', 0)
+            losses = bot_stats.get('losses', 0)
+            bot_running = bot_stats.get('is_running', False)
+            stats_date = bot_stats.get('date', stats_date)
+    
+    # Win rate
+    win_rate = (wins / trades_count * 100) if trades_count > 0 else 0
+    
+    # Progresso da meta ($100)
+    target = 100.0
+    progress_pct = min((daily_pnl / target) * 100, 100) if daily_pnl > 0 else 0
+    
+    # Estilo do PnL
+    pnl_color = COLORS['positive'] if daily_pnl >= 0 else COLORS['negative']
+    pnl_sign = "+" if daily_pnl >= 0 else ""
+    
+    # Status do bot
+    if bot_running:
+        bot_status_text = "🟢 Operando"
+        bot_status_color = COLORS['positive']
+    else:
+        bot_status_text = "⚪ Parado"
+        bot_status_color = COLORS['neutral']
     
     # Cores de tendência
     trend_colors = {
@@ -693,17 +574,22 @@ def update_dashboard(n):
         'ERRO': COLORS['neutral']
     }
     
+    # ===== CARDS PRINCIPAIS (8 cryptos) =====
+    main_cards_data = []
+    for symbol in MAIN_CRYPTOS:
+        if symbol in crypto_values:
+            main_cards_data.append((symbol, crypto_values[symbol], predictions.get(symbol, {})))
+        else:
+            main_cards_data.append((symbol, {'amount': 0, 'price': prices.get(symbol, 0), 'value_usd': 0}, predictions.get(symbol, {})))
+    
     main_cards = dbc.Row([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    # Header com símbolo e emoji de tendência
                     html.Div([
                         html.Span(symbol, style={'fontSize': '18px', 'fontWeight': 'bold', 'color': COLORS['text']}),
                         html.Span(pred.get('signal', '⚪'), style={'fontSize': '16px', 'marginLeft': '8px'})
                     ], className="d-flex justify-content-between align-items-center mb-1"),
-                    
-                    # Tendência e confiança
                     html.Div([
                         html.Span(pred.get('trend', 'NEUTRO'), 
                                   style={'fontSize': '12px', 'fontWeight': 'bold', 
@@ -713,37 +599,28 @@ def update_dashboard(n):
                         html.Span(f"{pred.get('confidence', 0)}%", 
                                   style={'fontSize': '11px', 'color': COLORS['neutral'], 'marginLeft': '8px'})
                     ], className="mb-2"),
-                    
-                    # Preço e variação 24h
                     html.Div([
-                        html.Span(f"${data['price']:,.4f}" if data['price'] else "-", 
+                        html.Span(f"${cdata['price']:,.4f}" if cdata['price'] else "-", 
                                   style={'color': COLORS['text'], 'fontSize': '13px', 'fontWeight': 'bold'}),
                         html.Span(f" ({pred.get('change_24h', 0):+.1f}%)" if pred.get('change_24h') else "", 
                                   style={'fontSize': '11px', 
                                          'color': COLORS['positive'] if pred.get('change_24h', 0) >= 0 else COLORS['negative']})
                     ], className="mb-1"),
-                    
-                    # Quantidade e RSI
-                    html.P(f"Qtd: {data['amount']:.4f} | RSI: {pred.get('rsi', 0):.0f}", 
+                    html.P(f"Qtd: {cdata['amount']:.4f} | RSI: {pred.get('rsi', 0):.0f}", 
                            style={'color': COLORS['neutral'], 'fontSize': '11px', 'marginBottom': '3px'}),
-                    
-                    # Valor em USD
-                    html.H5(f"${data['value_usd']:,.2f}",
-                           style={'color': COLORS['positive'] if data['value_usd'] > 0 else COLORS['neutral'], 
+                    html.H5(f"${cdata['value_usd']:,.2f}",
+                           style={'color': COLORS['positive'] if cdata['value_usd'] > 0 else COLORS['neutral'], 
                                   'fontWeight': 'bold', 'marginBottom': '0'})
                 ])
             ], style={'backgroundColor': COLORS['card_highlight'], 
                       'border': f"1px solid {trend_colors.get(pred.get('trend', 'NEUTRO'), COLORS['neutral'])}40",
                       'height': '175px'})
         ], width=3, className="mb-3")
-        for symbol, data, pred in main_cards_data
+        for symbol, cdata, pred in main_cards_data
     ])
     
-    # ===== CARDS DE DISTRIBUIÇÃO DO PORTFÓLIO =====
-    # Calcula porcentagem de cada ativo
+    # ===== DISTRIBUIÇÃO DO PORTFÓLIO =====
     distribution_cards = []
-    
-    # USDT primeiro
     usdt_pct = (usdt_balance / total_value * 100) if total_value > 0 else 0
     distribution_cards.append(
         dbc.Col([
@@ -761,14 +638,12 @@ def update_dashboard(n):
         ], width=3, className="mb-3")
     )
     
-    # Cryptos em operação
     crypto_colors = ['#1d9bf0', '#00ba7c', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#a29bfe']
     for i, symbol in enumerate(MAIN_CRYPTOS):
         if symbol in crypto_values:
-            data = crypto_values[symbol]
-            pct = (data['value_usd'] / total_value * 100) if total_value > 0 else 0
+            cdata = crypto_values[symbol]
+            pct = (cdata['value_usd'] / total_value * 100) if total_value > 0 else 0
             color = crypto_colors[i % len(crypto_colors)]
-            
             distribution_cards.append(
                 dbc.Col([
                     dbc.Card([
@@ -777,9 +652,9 @@ def update_dashboard(n):
                                 html.Span("🪙", style={'fontSize': '24px'}),
                                 html.Span(f" {symbol}", style={'fontSize': '16px', 'fontWeight': 'bold', 'color': COLORS['text'], 'marginLeft': '8px'}),
                             ], className="mb-2"),
-                            html.H4(f"${data['value_usd']:,.2f}", style={'color': color, 'fontWeight': 'bold', 'marginBottom': '5px'}),
+                            html.H4(f"${cdata['value_usd']:,.2f}", style={'color': color, 'fontWeight': 'bold', 'marginBottom': '5px'}),
                             dbc.Progress(value=pct, className="mb-2", style={'height': '8px', 'backgroundColor': COLORS['card_highlight']}),
-                            html.P(f"{pct:.1f}% | {data['amount']:.6f}", style={'color': COLORS['neutral'], 'fontSize': '12px', 'marginBottom': '0'})
+                            html.P(f"{pct:.1f}% | {cdata['amount']:.6f}", style={'color': COLORS['neutral'], 'fontSize': '12px', 'marginBottom': '0'})
                         ])
                     ], style={'backgroundColor': COLORS['card'], 'border': f'1px solid {color}', 'height': '150px'})
                 ], width=3, className="mb-3")
@@ -803,68 +678,166 @@ def update_dashboard(n):
     
     portfolio_distribution = dbc.Row(distribution_cards)
     
-    # ===== LISTA DE TODAS AS MOEDAS =====
-    # Mostra apenas as moedas que estão sendo operadas pelo bot
+    # ===== LISTA DE MOEDAS =====
     all_balances_rows = []
     for symbol in MAIN_CRYPTOS:
         if symbol in crypto_values:
-            data = crypto_values[symbol]
+            cdata = crypto_values[symbol]
             all_balances_rows.append(
                 html.Div([
                     html.Div([
                         html.Span(symbol, style={'fontWeight': 'bold', 'color': COLORS['text']}),
-                        html.Span(f" {data['amount']:.6f}", style={'color': COLORS['neutral'], 'fontSize': '12px'})
+                        html.Span(f" {cdata['amount']:.6f}", style={'color': COLORS['neutral'], 'fontSize': '12px'})
                     ]),
-                    html.Span(f"${data['value_usd']:,.2f}", 
-                             style={'color': COLORS['positive'] if data['value_usd'] > 1 else COLORS['neutral'], 
+                    html.Span(f"${cdata['value_usd']:,.2f}", 
+                             style={'color': COLORS['positive'] if cdata['value_usd'] > 1 else COLORS['neutral'], 
                                     'fontWeight': 'bold'})
                 ], className="d-flex justify-content-between align-items-center py-2",
-                   style={'borderBottom': f'1px solid {COLORS["card_highlight"]}'})
-            )
+                   style={'borderBottom': f'1px solid {COLORS["card_highlight"]}'}))
         else:
-            # Moeda sem saldo
             all_balances_rows.append(
                 html.Div([
                     html.Div([
                         html.Span(symbol, style={'fontWeight': 'bold', 'color': COLORS['neutral']}),
                         html.Span(" 0.000000", style={'color': COLORS['neutral'], 'fontSize': '12px'})
                     ]),
-                    html.Span("$0.00", 
-                             style={'color': COLORS['neutral'], 'fontWeight': 'bold'})
+                    html.Span("$0.00", style={'color': COLORS['neutral'], 'fontWeight': 'bold'})
                 ], className="d-flex justify-content-between align-items-center py-2",
-                   style={'borderBottom': f'1px solid {COLORS["card_highlight"]}'})
-            )
+                   style={'borderBottom': f'1px solid {COLORS["card_highlight"]}'}))
     
-    # Última atualização
     last_update = f"Última atualização: {datetime.now().strftime('%H:%M:%S')}"
     
-    # Formata PnL diário
-    pnl_sign = "+" if daily_pnl >= 0 else ""
-    daily_pnl_text = f"{pnl_sign}${daily_pnl:.2f}"
-    
-    # Formata data
-    date_display = f"📅 Data: {stats_date}"
-    
-    print(f"✅ Dashboard atualizado: USDT=${usdt_balance:,.2f}, Total=${total_value:,.2f}")
-    
-    return (
-        f"${usdt_balance:,.2f}",
-        f"${total_crypto_value:,.2f}",
-        f"${total_value:,.2f}",
-        daily_pnl_text,
-        pnl_style,
-        f"{progress_pct:.1f}%",
-        progress_pct,
-        f"{trades_count} (✅{wins} | ❌{losses})",
-        f"{win_rate:.1f}%",
-        bot_status,
-        bot_status_style,
-        date_display,
+    return [
+        # Cards Principais (USDT + Total)
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("💵 USDT Disponível", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H2(f"${usdt_balance:,.2f}",
+                                style={'color': COLORS['gold'], 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["gold"]}'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("💎 Valor Total em Crypto", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H2(f"${total_crypto_value:,.2f}",
+                                style={'color': COLORS['accent'], 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["accent"]}'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("🏦 Patrimônio Total", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H2(f"${total_value:,.2f}",
+                                style={'color': COLORS['positive'], 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {COLORS["positive"]}'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("📈 Lucro do Dia", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H2(f"{pnl_sign}${abs(daily_pnl):.2f}",
+                                style={'color': pnl_color, 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': f'2px solid {pnl_color}'})
+            ], width=3),
+        ], className="mb-4"),
+        
+        # Cards de Estatísticas do Bot
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("🎯 Meta Diária ($100)", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H3(f"{progress_pct:.1f}%",
+                                style={'color': COLORS['accent'], 'fontWeight': 'bold'}),
+                        dbc.Progress(value=progress_pct, color="success", className="mt-2", style={'height': '10px'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("📊 Trades Hoje", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H3(f"{trades_count} (✅{wins} | ❌{losses})",
+                                style={'color': COLORS['text'], 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("✅ Win Rate", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H3(f"{win_rate:.1f}%",
+                                style={'color': COLORS['positive'], 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
+            ], width=3),
+            
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.P("🤖 Status do Bot", className="mb-1",
+                               style={'color': COLORS['neutral'], 'fontSize': '14px'}),
+                        html.H3(bot_status_text,
+                                style={'color': bot_status_color, 'fontWeight': 'bold'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
+            ], width=3),
+        ], className="mb-4"),
+        
+        # Criptomoedas Principais (8 cards)
+        html.H3(
+            "🪙 Principais Criptomoedas",
+            className="mb-3",
+            style={'color': COLORS['text'], 'fontWeight': 'bold'}
+        ),
         main_cards,
+        
+        # Distribuição do Portfólio
+        dbc.Row([
+            dbc.Col([
+                html.H4("📊 Distribuição do Portfólio", 
+                        className="mb-3",
+                        style={'color': COLORS['text'], 'fontWeight': 'bold'}),
+            ])
+        ]),
         portfolio_distribution,
-        html.Div(all_balances_rows),
-        last_update
-    )
+        
+        # Moedas em Operação
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4("📋 Moedas em Operação", 
+                                style={'color': COLORS['text'], 'marginBottom': '20px'}),
+                        html.Div(all_balances_rows, style={'maxHeight': '400px', 'overflowY': 'auto'})
+                    ])
+                ], style={'backgroundColor': COLORS['card'], 'border': 'none'})
+            ], width=12)
+        ], className="mb-4"),
+        
+        # Última atualização
+        html.Div(last_update, className="text-center mb-4",
+                 style={'color': COLORS['neutral'], 'fontSize': '12px'})
+    ]
 
 
 # ========================================

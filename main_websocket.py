@@ -206,8 +206,85 @@ class WebSocketTradingBot:
                 await self._open_position(symbol, signal, current_price, reason)
     
     
+    def _calculate_crypto_holdings(self) -> float:
+        """Calcula o valor total em crypto (não USDT)"""
+        try:
+            balance_data = self.exchange.get_balance()
+            if not balance_data:
+                return 0.0
+            
+            total_crypto_value = 0.0
+            free_balances = balance_data.get('free', {})
+            
+            for symbol in self.symbols:
+                crypto = symbol.split('/')[0]
+                crypto_amount = float(free_balances.get(crypto, 0))
+                
+                if crypto_amount > 0:
+                    try:
+                        ticker = self.exchange.get_ticker(symbol)
+                        if ticker:
+                            crypto_price = ticker.get('last', 0)
+                            total_crypto_value += crypto_amount * crypto_price
+                    except:
+                        pass
+            
+            return total_crypto_value
+        except Exception as e:
+            logger.error(f"❌ Erro ao calcular holdings: {e}")
+            return 0.0
+    
+    def _can_open_position(self, amount_usdt: float) -> tuple:
+        """
+        Verifica se pode abrir nova posição baseado nas regras de negócio:
+        1. Não pode comprar mais crypto do que tem em USDT
+        2. Se não tem nenhuma crypto, pode usar até 15% do USDT
+        """
+        try:
+            balance_data = self.exchange.get_balance()
+            if not balance_data:
+                return False, "Erro ao obter saldo"
+            
+            usdt_balance = float(balance_data.get('free', {}).get('USDT', 0))
+            crypto_value = self._calculate_crypto_holdings()
+            open_positions = sum(1 for p in self.positions.values() if p is not None)
+            
+            logger.info(f"💰 Verificação: USDT={usdt_balance:.2f}, Crypto={crypto_value:.2f}, Posições={open_positions}")
+            
+            # REGRA 1: Se não tem crypto, pode usar até 15% do USDT
+            if crypto_value < 1.0 and open_positions == 0:
+                max_allowed = usdt_balance * 0.15
+                if amount_usdt <= max_allowed:
+                    return True, f"Primeira compra (até 15%): ${amount_usdt:.2f}"
+                else:
+                    return False, f"Limite de 15% para primeira compra: ${amount_usdt:.2f} > ${max_allowed:.2f}"
+            
+            # REGRA 2: Não pode comprar mais do que tem em USDT
+            if amount_usdt > usdt_balance:
+                return False, f"Saldo insuficiente: ${amount_usdt:.2f} > ${usdt_balance:.2f}"
+            
+            # REGRA 3: Crypto não pode exceder USDT
+            future_crypto_value = crypto_value + amount_usdt
+            if future_crypto_value > usdt_balance:
+                return False, f"Crypto excederia USDT: ${future_crypto_value:.2f} > ${usdt_balance:.2f}"
+            
+            return True, "Compra dentro dos limites"
+            
+        except Exception as e:
+            logger.error(f"❌ Erro na verificação: {e}")
+            return False, f"Erro: {e}"
+    
     async def _open_position(self, symbol: str, side: str, price: float, reason: str):
         """Abre nova posição"""
+        
+        # ========================================
+        # REGRAS DE NEGÓCIO - VERIFICAÇÃO DE CAPITAL
+        # ========================================
+        can_open, capital_reason = self._can_open_position(self.amount_per_trade)
+        
+        if not can_open:
+            logger.warning(f"🚫 Posição BLOQUEADA em {symbol}: {capital_reason}")
+            return
         
         # Calcula quantidade
         amount = self.amount_per_trade / price
@@ -221,6 +298,7 @@ class WebSocketTradingBot:
 ║  Preço: ${price:<20.2f}                      ║
 ║  Quantidade: {amount:<15.6f}                      ║
 ║  Valor: ${self.amount_per_trade:<20.2f}                      ║
+║  Capital: {capital_reason[:38]:<38} ║
 ║  Razão: {reason[:40]:<40} ║
 ╚══════════════════════════════════════════════════════╝
 """)

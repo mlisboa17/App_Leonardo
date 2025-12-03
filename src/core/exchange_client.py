@@ -8,6 +8,13 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# ========================================
+# CORREÇÃO DE SALDO TESTNET
+# ========================================
+# A Binance Testnet retorna valores 10x maiores que o real
+# Este fator corrige os valores para exibição correta
+TESTNET_BALANCE_CORRECTION = 10.0
+
 
 class ExchangeClient:
     """Cliente para conexão com exchanges"""
@@ -82,9 +89,30 @@ class ExchangeClient:
             return None
     
     def fetch_balance(self) -> Optional[Dict]:
-        """Obtém saldo da conta"""
+        """Obtém saldo da conta (com correção para Testnet)"""
         try:
             balance = self.exchange.fetch_balance()
+            
+            # Aplica correção de saldo para Testnet
+            if self.testnet and TESTNET_BALANCE_CORRECTION > 1:
+                corrected_balance = {}
+                for key, value in balance.items():
+                    if isinstance(value, dict):
+                        # Corrige dicionários (free, used, total por moeda)
+                        corrected_balance[key] = {}
+                        for subkey, subvalue in value.items():
+                            if isinstance(subvalue, (int, float)):
+                                corrected_balance[key][subkey] = subvalue / TESTNET_BALANCE_CORRECTION
+                            else:
+                                corrected_balance[key][subkey] = subvalue
+                    elif isinstance(value, (int, float)):
+                        corrected_balance[key] = value / TESTNET_BALANCE_CORRECTION
+                    else:
+                        corrected_balance[key] = value
+                
+                logger.debug(f"💰 Saldo corrigido (Testnet ÷{TESTNET_BALANCE_CORRECTION:.0f})")
+                return corrected_balance
+            
             return balance
         except Exception as e:
             logger.error(f"❌ Erro ao buscar saldo: {e}")

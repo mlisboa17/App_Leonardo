@@ -45,11 +45,11 @@ class SmartStrategy:
         self.last_trade_time: Dict[str, datetime] = {}
         self.positions_open_time: Dict[str, datetime] = {}
         
-        # Configurações
-        self.stop_loss_pct = -1.5  # -1.5%
+        # Configurações - AJUSTADAS PARA TRADES MAIS FREQUENTES
+        self.stop_loss_pct = -1.5  # -1.5% stop loss
         self.max_take_pct = 5.0    # +5% máximo
-        self.max_hold_minutes = 15  # Máx 15 min segurando
-        self.min_profit_to_hold = 0.3  # Mín 0.3% para começar a analisar venda
+        self.max_hold_minutes = 20  # Máx 20 min segurando
+        self.min_profit_to_hold = 0.25  # Mín 0.25% para vender ($2.50 por trade de $1000)
         
         # Estatísticas do dia
         self.daily_stats = {

@@ -280,6 +280,86 @@ class TradingBot:
         """Verifica se há posição aberta para o símbolo"""
         return self.positions.get(symbol) is not None
     
+    def _calculate_crypto_holdings(self) -> float:
+        """Calcula o valor total em crypto (não USDT)"""
+        try:
+            balance_data = self.exchange.fetch_balance()
+            if not balance_data:
+                return 0.0
+            
+            total_crypto_value = 0.0
+            free_balances = balance_data.get('free', {})
+            
+            for symbol in self.symbols:
+                # Extrai o nome da moeda (ex: BTC de BTC/USDT)
+                crypto = symbol.split('/')[0]
+                crypto_amount = float(free_balances.get(crypto, 0))
+                
+                if crypto_amount > 0:
+                    try:
+                        ticker = self.exchange.fetch_ticker(symbol)
+                        if ticker:
+                            crypto_price = ticker.get('last', 0)
+                            total_crypto_value += crypto_amount * crypto_price
+                    except:
+                        pass
+            
+            return total_crypto_value
+        except Exception as e:
+            logger.error(f"❌ Erro ao calcular holdings: {e}")
+            return 0.0
+    
+    def _can_open_position(self, amount_usdt: float) -> tuple:
+        """
+        Verifica se pode abrir nova posição baseado nas regras de negócio:
+        1. Limite máximo de investimento em crypto: $10,000
+        2. Não pode exceder o saldo USDT disponível
+        
+        Returns:
+            tuple: (can_open: bool, reason: str)
+        """
+        try:
+            # Limite máximo de investimento
+            MAX_TOTAL_INVESTMENT = 100000.0  # $100K máximo em crypto
+            
+            # Atualiza saldo USDT
+            balance_data = self.exchange.fetch_balance()
+            if not balance_data:
+                return False, "Erro ao obter saldo"
+            
+            usdt_balance = float(balance_data.get('free', {}).get('USDT', 0))
+            
+            # Calcula valor total em crypto
+            crypto_value = self._calculate_crypto_holdings()
+            
+            # Conta posições abertas (pelo bot)
+            open_positions = sum(1 for p in self.positions.values() if p is not None)
+            
+            logger.info(f"💰 Verificação de capital: USDT={usdt_balance:.2f}, Crypto={crypto_value:.2f}, Posições={open_positions}")
+            
+            # REGRA 1: Não pode exceder $100K total em crypto
+            future_crypto_value = crypto_value + amount_usdt
+            if future_crypto_value > MAX_TOTAL_INVESTMENT:
+                remaining = MAX_TOTAL_INVESTMENT - crypto_value
+                if remaining <= 0:
+                    logger.warning(f"⚠️ Limite de $100K atingido: ${crypto_value:.2f}")
+                    return False, f"Limite de $100K atingido: já tem ${crypto_value:.2f} em crypto"
+                else:
+                    logger.info(f"⚠️ Ajustando para limite restante: ${remaining:.2f}")
+                    # Pode continuar com valor menor
+                    
+            # REGRA 2: Não pode exceder saldo USDT disponível
+            if amount_usdt > usdt_balance:
+                logger.warning(f"⚠️ Saldo insuficiente: tentando usar ${amount_usdt:.2f} mas só tem ${usdt_balance:.2f}")
+                return False, f"Saldo insuficiente: ${amount_usdt:.2f} > ${usdt_balance:.2f}"
+            
+            logger.info(f"✅ Compra permitida: ${amount_usdt:.2f} (Total crypto: ${future_crypto_value:.2f}/$100K)")
+            return True, f"Compra permitida (${future_crypto_value:.2f}/$100K investido)"
+            
+        except Exception as e:
+            logger.error(f"❌ Erro na verificação de capital: {e}")
+            return False, f"Erro na verificação: {e}"
+    
     def open_position(self, symbol: str, signal: str, price: float, reason: str, indicators: Dict):
         """Abre uma nova posição"""
         if self.check_position(symbol):
@@ -291,6 +371,17 @@ class TradingBot:
         if open_positions >= self.max_positions:
             logger.warning(f"⚠️ Limite de posições atingido ({self.max_positions})")
             return
+        
+        # ========================================
+        # REGRAS DE NEGÓCIO - VERIFICAÇÃO DE CAPITAL
+        # ========================================
+        can_open, capital_reason = self._can_open_position(self.amount_per_trade)
+        
+        if not can_open:
+            logger.warning(f"🚫 Posição BLOQUEADA em {symbol}: {capital_reason}")
+            return
+        
+        logger.info(f"💵 Capital verificado: {capital_reason}")
         
         # Executa ordem
         if self.dry_run:

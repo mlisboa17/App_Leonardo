@@ -300,11 +300,94 @@ class TradingEngine:
         if should_close:
             await self._close_position(symbol, close_reason, current_price)
     
+    async def _calculate_crypto_holdings(self) -> float:
+        """Calcula o valor total em crypto (não USDT)"""
+        try:
+            balance_data = await self.exchange.fetch_balance()
+            total_crypto_value = 0.0
+            
+            for symbol in settings.SYMBOLS:
+                # Extrai o nome da moeda (ex: BTC de BTC/USDT)
+                crypto = symbol.split('/')[0]
+                crypto_amount = balance_data.get(crypto, {}).get('free', 0.0)
+                
+                if crypto_amount > 0:
+                    try:
+                        ticker = await self.exchange.fetch_ticker(symbol)
+                        crypto_price = ticker.get('last', 0)
+                        total_crypto_value += crypto_amount * crypto_price
+                    except:
+                        pass
+            
+            return total_crypto_value
+        except Exception as e:
+            logger.error(f"❌ Erro ao calcular holdings: {e}")
+            return 0.0
+    
+    async def _can_open_position(self, amount_usdt: float) -> tuple[bool, str]:
+        """
+        Verifica se pode abrir nova posição baseado nas regras de negócio:
+        1. Não pode comprar mais crypto do que tem em USDT
+        2. Se não tem nenhuma crypto, pode usar até 15% do USDT
+        """
+        try:
+            # Atualiza saldo USDT
+            await self._update_balance()
+            usdt_balance = self.stats['balance']
+            
+            # Calcula valor total em crypto
+            crypto_value = await self._calculate_crypto_holdings()
+            
+            # Conta posições abertas (pelo bot)
+            open_positions = sum(1 for p in self.positions.values() if p is not None)
+            
+            logger.info(f"💰 Verificação de capital: USDT={usdt_balance:.2f}, Crypto={crypto_value:.2f}, Posições={open_positions}")
+            
+            # REGRA 1: Se não tem nenhuma crypto, pode usar até 15% do USDT
+            if crypto_value < 1.0 and open_positions == 0:
+                max_allowed = usdt_balance * 0.15  # 15% do saldo
+                if amount_usdt <= max_allowed:
+                    logger.info(f"✅ Sem crypto - Permitido usar até 15%: ${amount_usdt:.2f} <= ${max_allowed:.2f}")
+                    return True, f"Primeira compra (até 15%): ${amount_usdt:.2f}"
+                else:
+                    logger.warning(f"⚠️ Sem crypto mas tentando usar mais de 15%: ${amount_usdt:.2f} > ${max_allowed:.2f}")
+                    return False, f"Limite de 15% para primeira compra: ${amount_usdt:.2f} > ${max_allowed:.2f}"
+            
+            # REGRA 2: Não pode comprar mais crypto do que tem em USDT disponível
+            if amount_usdt > usdt_balance:
+                logger.warning(f"⚠️ Saldo insuficiente: tentando usar ${amount_usdt:.2f} mas só tem ${usdt_balance:.2f}")
+                return False, f"Saldo insuficiente: ${amount_usdt:.2f} > ${usdt_balance:.2f}"
+            
+            # REGRA 3: Valor total em crypto não pode exceder USDT disponível
+            future_crypto_value = crypto_value + amount_usdt
+            if future_crypto_value > usdt_balance:
+                logger.warning(f"⚠️ Crypto excederia USDT: ${future_crypto_value:.2f} > ${usdt_balance:.2f}")
+                return False, f"Crypto excederia USDT disponível: ${future_crypto_value:.2f} > ${usdt_balance:.2f}"
+            
+            logger.info(f"✅ Compra permitida: ${amount_usdt:.2f}")
+            return True, "Compra dentro dos limites"
+            
+        except Exception as e:
+            logger.error(f"❌ Erro na verificação de capital: {e}")
+            return False, f"Erro na verificação: {e}"
+    
     async def _open_position(self, symbol: str, signal: str, price: float, reason: str, indicators: Dict):
         """Abre nova posição"""
-        logger.info(f"🟢 Abrindo posição {signal} em {symbol} @ {price:.2f}")
+        amount_usdt = settings.AMOUNT_PER_TRADE
         
-        amount = settings.AMOUNT_PER_TRADE / price
+        # ========================================
+        # REGRAS DE NEGÓCIO - VERIFICAÇÃO DE CAPITAL
+        # ========================================
+        can_open, capital_reason = await self._can_open_position(amount_usdt)
+        
+        if not can_open:
+            logger.warning(f"🚫 Posição BLOQUEADA em {symbol}: {capital_reason}")
+            return
+        
+        logger.info(f"🟢 Abrindo posição {signal} em {symbol} @ {price:.2f}")
+        logger.info(f"   💵 Capital: {capital_reason}")
+        
+        amount = amount_usdt / price
         
         # Registra posição
         position_data = {

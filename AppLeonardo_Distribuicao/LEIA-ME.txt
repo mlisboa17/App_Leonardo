@@ -1,0 +1,61 @@
+=====================================================
+🤖 APP LEONARDO - BOT DE TRADING v2.0
+=====================================================
+
+📌 COMO USAR:
+
+1. Configure suas credenciais da Binance:
+   - Abra a pasta "config"
+   - Edite o arquivo ".env" com suas chaves API:
+     BINANCE_TESTNET_API_KEY=sua_chave_aqui
+     BINANCE_TESTNET_API_SECRET=sua_secret_aqui
+
+2. Configure o bot (opcional):
+   - Abra "config/config.yaml"
+   - Ajuste os valores conforme necessário:
+     * amount_per_trade: valor por operação
+     * max_positions: máximo de posições abertas
+     * max_total_investment: investimento máximo total
+
+3. Execute o bot:
+   - Dê dois cliques em "AppLeonardo_Bot.exe"
+   - O bot irá iniciar automaticamente
+
+=====================================================
+⚠️ AVISOS IMPORTANTES:
+=====================================================
+
+- Este bot opera na TESTNET por padrão (dinheiro virtual)
+- Para usar em produção, altere "testnet: false" no config.yaml
+- Nunca compartilhe suas chaves API
+- Monitore o bot regularmente
+
+=====================================================
+📊 ESTATÍSTICAS (30/11 - 03/12/2025):
+=====================================================
+
+Total de trades: 118
+Win Rate: ~85%
+Lucro Total: +$130.85 USDT
+
+=====================================================
+📁 ESTRUTURA DE PASTAS:
+=====================================================
+
+📁 AppLeonardo_Distribuicao/
+├── 🚀 AppLeonardo_Bot.exe  (executável do bot)
+├── 📁 config/
+│   ├── config.yaml         (configurações)
+│   └── .env                 (credenciais API)
+├── 📁 data/                 (dados e histórico)
+└── 📁 logs/                 (logs de execução)
+
+=====================================================
+💡 SUPORTE:
+=====================================================
+
+Em caso de dúvidas, consulte a documentação ou
+entre em contato com o desenvolvedor.
+
+Versão: 2.0
+Data: 03/12/2025
