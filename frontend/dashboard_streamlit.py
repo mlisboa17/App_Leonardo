@@ -12,15 +12,17 @@ import ccxt
 from dotenv import load_dotenv
 import os
 import json
+import yaml
 from datetime import datetime, timedelta
 import time
+import subprocess
 
 # ========================================
 # CONFIGURAÇÃO DA PÁGINA
 # ========================================
 
 st.set_page_config(
-    page_title="App Leonardo | Trading Bot",
+    page_title="App Leonardo | Trading Bot_v2",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -300,30 +302,208 @@ def get_trade_history():
 # SIDEBAR
 # ========================================
 
+def load_config():
+    """Carrega configuração do bot"""
+    config_path = os.path.join(os.path.dirname(__file__), '../config/config.yaml')
+    try:
+        import yaml
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except:
+        return None
+
+def save_config(config):
+    """Salva configuração do bot"""
+    config_path = os.path.join(os.path.dirname(__file__), '../config/config.yaml')
+    try:
+        import yaml
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar: {e}")
+        return False
+
+def get_history_files():
+    """Lista arquivos de histórico"""
+    history_dir = os.path.join(os.path.dirname(__file__), '../data/history')
+    if os.path.exists(history_dir):
+        files = [f for f in os.listdir(history_dir) if f.endswith('.json')]
+        return sorted(files, reverse=True)[:20]  # Últimos 20
+    return []
+
 with st.sidebar:
     st.image("https://em-content.zobj.net/source/apple/391/robot_1f916.png", width=80)
-    st.title("App Leonardo")
+    st.title("App Leonardo_v2")
     st.caption("Trading Bot v2.0")
     
     st.divider()
     
-    # Status
-    bot_stats = get_bot_stats()
-    is_running = os.path.exists(os.path.join(os.path.dirname(__file__), '../bot_state.json'))
+    # Status do bot
+    bot_state_path = os.path.join(os.path.dirname(__file__), '../bot_state.json')
+    bot_running = False
+    bot_status = "Offline"
     
-    if is_running:
+    if os.path.exists(bot_state_path):
+        try:
+            with open(bot_state_path, 'r') as f:
+                state = json.load(f)
+                bot_running = state.get('is_running', False)
+                bot_status = state.get('status', 'Offline')
+        except:
+            pass
+    
+    if bot_running:
         st.markdown('<span class="status-online">🟢 Bot Online</span>', unsafe_allow_html=True)
+        st.caption(f"Status: {bot_status}")
     else:
         st.markdown('<span class="status-offline">⚪ Bot Offline</span>', unsafe_allow_html=True)
+        st.caption(f"Status: {bot_status}")
     
     st.divider()
     
-    # Info
-    st.markdown("### ⚙️ Configuração")
+    # ========================================
+    # HISTÓRICO
+    # ========================================
+    st.markdown("### 📜 Histórico de Trades")
+    
+    history_files = get_history_files()
+    if history_files:
+        selected_history = st.selectbox(
+            "Selecione o arquivo:",
+            history_files,
+            format_func=lambda x: x.replace('complete_history_', '').replace('.json', '')
+        )
+        
+        if st.button("📊 Abrir Planilha de Histórico", use_container_width=True):
+            history_path = os.path.join(os.path.dirname(__file__), f'../data/history/{selected_history}')
+            try:
+                with open(history_path, 'r') as f:
+                    history_data = json.load(f)
+                
+                # Converte para DataFrame
+                trades = history_data.get('trades', [])
+                if trades:
+                    df_history = pd.DataFrame(trades)
+                    
+                    # Salva como CSV temporário
+                    csv_path = os.path.join(os.path.dirname(__file__), '../data/history_export.csv')
+                    df_history.to_csv(csv_path, index=False)
+                    
+                    # Download button
+                    csv_data = df_history.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="⬇️ Download CSV",
+                        data=csv_data,
+                        file_name=f"trades_{selected_history.replace('.json', '.csv')}",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                    
+                    st.success(f"✅ {len(trades)} trades carregados!")
+                else:
+                    st.warning("Arquivo vazio")
+            except Exception as e:
+                st.error(f"Erro: {e}")
+        
+        # Botão para abrir no explorador
+        if st.button("📁 Abrir Pasta de Histórico", use_container_width=True):
+            history_dir = os.path.join(os.path.dirname(__file__), '../data/history')
+            os.startfile(os.path.abspath(history_dir))
+    else:
+        st.info("Nenhum histórico encontrado")
+    
+    st.divider()
+    
+    # ========================================
+    # CONFIGURAÇÕES
+    # ========================================
+    st.markdown("### ⚙️ Configurações do Bot")
+    
+    config = load_config()
+    
+    if config:
+        with st.expander("💰 Trading", expanded=False):
+            new_amount = st.number_input(
+                "Valor por Trade ($)",
+                min_value=100.0,
+                max_value=50000.0,
+                value=float(config.get('trading', {}).get('amount_per_trade', 5000)),
+                step=100.0
+            )
+            
+            new_max_positions = st.slider(
+                "Máx. Posições Abertas",
+                min_value=1,
+                max_value=50,
+                value=int(config.get('trading', {}).get('max_positions', 20))
+            )
+            
+            new_daily_target = st.number_input(
+                "Meta Diária ($)",
+                min_value=10.0,
+                max_value=5000.0,
+                value=float(config.get('trading', {}).get('daily_profit_target', 500)),
+                step=10.0
+            )
+        
+        with st.expander("🛡️ Segurança", expanded=False):
+            new_max_loss = st.number_input(
+                "Perda Máx. Diária ($)",
+                min_value=10.0,
+                max_value=1000.0,
+                value=float(config.get('safety', {}).get('max_daily_loss', 50)),
+                step=10.0
+            )
+            
+            new_max_drawdown = st.slider(
+                "Drawdown Máximo (%)",
+                min_value=5,
+                max_value=50,
+                value=int(config.get('safety', {}).get('max_drawdown', 20))
+            )
+        
+        with st.expander("📊 Indicadores", expanded=False):
+            new_rsi_oversold = st.slider(
+                "RSI Sobrevendido",
+                min_value=20,
+                max_value=45,
+                value=int(config.get('indicators', {}).get('rsi', {}).get('oversold', 45))
+            )
+            
+            new_rsi_overbought = st.slider(
+                "RSI Sobrecomprado",
+                min_value=55,
+                max_value=80,
+                value=int(config.get('indicators', {}).get('rsi', {}).get('overbought', 55))
+            )
+        
+        if st.button("💾 Salvar Configurações", use_container_width=True, type="primary"):
+            # Atualiza config
+            config['trading']['amount_per_trade'] = new_amount
+            config['trading']['max_positions'] = new_max_positions
+            config['trading']['daily_profit_target'] = new_daily_target
+            config['safety']['max_daily_loss'] = new_max_loss
+            config['safety']['max_drawdown'] = new_max_drawdown
+            config['indicators']['rsi']['oversold'] = new_rsi_oversold
+            config['indicators']['rsi']['overbought'] = new_rsi_overbought
+            
+            if save_config(config):
+                st.success("✅ Configurações salvas!")
+                st.balloons()
+            else:
+                st.error("❌ Erro ao salvar")
+    else:
+        st.warning("Não foi possível carregar config")
+    
+    st.divider()
+    
+    # Info atual
+    st.markdown("### ℹ️ Info")
     st.info(f"""
     🧪 **Modo:** {'Testnet' if TESTNET else 'Real'}  
     📊 **Moedas:** {len(MAIN_CRYPTOS)}  
-    ⏱️ **Refresh:** 10s
+    ⏱️ **Refresh:** Auto
     """)
     
     st.divider()
@@ -339,7 +519,7 @@ with st.sidebar:
 # PÁGINA PRINCIPAL
 # ========================================
 
-st.title("🤖 App Leonardo - Trading Bot")
+st.title("🤖 App Leonardo - Trading Bot_v2")
 st.caption(f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | 🧪 Binance Testnet")
 
 # Busca dados
@@ -623,35 +803,37 @@ if balance_data:
         
         df_rsi = pd.DataFrame(rsi_data)
         
-        # Gauge de RSI
+        # Barras de RSI (mais simples e sem erro)
         fig_rsi = go.Figure()
         
-        for i, row in df_rsi.iterrows():
-            fig_rsi.add_trace(go.Indicator(
-                mode="gauge+number",
-                value=row['rsi'],
-                title={'text': row['symbol']},
-                domain={'row': i // 4, 'column': i % 4},
-                gauge={
-                    'axis': {'range': [0, 100]},
-                    'bar': {'color': "#1d9bf0"},
-                    'steps': [
-                        {'range': [0, 30], 'color': "#00ba7c20"},
-                        {'range': [30, 70], 'color': "#8b98a520"},
-                        {'range': [70, 100], 'color': "#f9188020"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "white", 'width': 2},
-                        'thickness': 0.75,
-                        'value': row['rsi']
-                    }
-                }
-            ))
+        colors = []
+        for rsi in df_rsi['rsi']:
+            if rsi < 30:
+                colors.append('#00ba7c')  # Verde - sobrevendido
+            elif rsi > 70:
+                colors.append('#f91880')  # Vermelho - sobrecomprado
+            else:
+                colors.append('#1d9bf0')  # Azul - neutro
+        
+        fig_rsi.add_trace(go.Bar(
+            x=df_rsi['symbol'],
+            y=df_rsi['rsi'],
+            marker_color=colors,
+            text=[f"{r:.0f}" for r in df_rsi['rsi']],
+            textposition='outside'
+        ))
+        
+        # Linhas de referência
+        fig_rsi.add_hline(y=30, line_dash="dash", line_color="#00ba7c", annotation_text="Sobrevendido")
+        fig_rsi.add_hline(y=70, line_dash="dash", line_color="#f91880", annotation_text="Sobrecomprado")
         
         fig_rsi.update_layout(
-            grid={'rows': 2, 'columns': 4, 'pattern': "independent"},
+            title="📊 RSI por Criptomoeda",
             paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
             font_color='#e7e9ea',
+            yaxis=dict(range=[0, 100], title="RSI"),
+            xaxis=dict(title=""),
             height=400
         )
         

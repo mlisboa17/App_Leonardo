@@ -18,7 +18,7 @@ trading:
   daily_profit_target: 500.0
 safety:
   max_daily_loss: 50.0
-  max_drawdown: 20.0
+  max_drawdown: 50.0
   price_deviation_limit: 30.0
 indicators:
   rsi:
