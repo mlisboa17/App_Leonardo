@@ -1,3 +1,5 @@
+
+
 """
 🤖 App Leonardo - Bot de Trading com WebSocket
 Versão que usa dados em tempo real via WebSocket (mais rápido que REST)

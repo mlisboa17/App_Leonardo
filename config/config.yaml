@@ -1,48 +1,48 @@
+data:
+  cache_dir: data/cache
+  cache_enabled: true
+  csv_reports: data/reports
 exchange:
   name: binance
   testnet: true
-trading:
-  symbols:
-    - BTC/USDT
-    - ETH/USDT
-    - SOL/USDT
-    - BNB/USDT
-    - XRP/USDT
-    - LINK/USDT
-    - DOGE/USDT
-    - LTC/USDT
-  timeframe: 1m
-  amount_per_trade: 5000.0
-  max_positions: 20
-  max_total_investment: 100000.0
-  daily_profit_target: 500.0
-safety:
-  max_daily_loss: 50.0
-  max_drawdown: 50.0
-  price_deviation_limit: 30.0
+execution:
+  dry_run: false
+  interval_seconds: 3
 indicators:
-  rsi:
-    period: 14
-    oversold: 45
-    overbought: 55
   macd:
     fast: 12
-    slow: 26
     signal: 9
+    slow: 26
+  rsi:
+    overbought: 55
+    oversold: 45
+    period: 14
   sma:
     periods:
     - 20
     - 50
     - 200
 logging:
-  level: INFO
   file: logs/trading_bot.log
-data:
-  cache_enabled: true
-  cache_dir: data/cache
-  csv_reports: data/reports
-execution:
-  interval_seconds: 3
-  dry_run: false
+  level: INFO
+safety:
+  max_daily_loss: 50.0
+  max_drawdown: 50
+  price_deviation_limit: 30.0
 strategy:
   type: smart
+trading:
+  amount_per_trade: 2500.0
+  daily_profit_target: 500.0
+  max_positions: 20
+  max_total_investment: 100000.0
+  symbols:
+  - BTC/USDT
+  - ETH/USDT
+  - SOL/USDT
+  - BNB/USDT
+  - XRP/USDT
+  - LINK/USDT
+  - DOGE/USDT
+  - LTC/USDT
+  timeframe: 1m

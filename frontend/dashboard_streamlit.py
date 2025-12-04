@@ -201,12 +201,12 @@ def get_prices(symbols):
 
 @st.cache_data(ttl=60)
 def get_predictions(symbols):
-    """Calcula previsões (cache 60s)"""
+    """Calcula previsões (cache 60s) com sistema de temperatura"""
     predictions = {}
     try:
         exchange = get_exchange()
         if not exchange:
-            return {s: {'trend': 'ERRO', 'signal': '❓', 'confidence': 0, 'rsi': 50} for s in symbols}
+            return {s: {'trend': 'ERRO', 'signal': '❓', 'confidence': 0, 'rsi': 50, 'temp': 'NEUTRO', 'temp_emoji': '⚪'} for s in symbols}
         
         for symbol in symbols:
             try:
@@ -214,7 +214,7 @@ def get_predictions(symbols):
                 ohlcv = exchange.fetch_ohlcv(pair, '1h', limit=50)
                 
                 if len(ohlcv) < 20:
-                    predictions[symbol] = {'trend': 'NEUTRO', 'signal': '⚪', 'confidence': 50, 'rsi': 50}
+                    predictions[symbol] = {'trend': 'NEUTRO', 'signal': '⚪', 'confidence': 50, 'rsi': 50, 'temp': 'MORNO', 'temp_emoji': '🌡️'}
                     continue
                 
                 closes = [c[4] for c in ohlcv]
@@ -234,26 +234,57 @@ def get_predictions(symbols):
                 sma_20 = sum(closes[-20:]) / 20
                 current = closes[-1]
                 
-                # Tendência
-                if current > sma_10 > sma_20:
+                # Variação percentual
+                price_change = ((current - closes[-24]) / closes[-24] * 100) if len(closes) >= 24 else 0
+                
+                # Sistema de Temperatura (Quente = Alta, Frio = Baixa)
+                # QUENTE: 🔥 FERVENDO > 🌶️ SUPER QUENTE > ☀️ QUENTE > 🌡️ MORNO
+                # FRIO: ❄️ CONGELANDO < 🥶 SUPER FRIO < 🌬️ FRIO < 🌡️ MORNO
+                
+                if current > sma_10 > sma_20 and rsi > 60 and price_change > 3:
+                    trend, signal, conf = 'ALTA FORTE', '🟢', 85
+                    temp, temp_emoji = 'FERVENDO', '🔥'
+                elif current > sma_10 > sma_20 and rsi > 55:
                     trend, signal, conf = 'ALTA', '🟢', 75
-                elif current < sma_10 < sma_20:
+                    temp, temp_emoji = 'SUPER QUENTE', '🌶️'
+                elif current > sma_10 and price_change > 1:
+                    trend, signal, conf = 'SUBINDO', '🟡', 65
+                    temp, temp_emoji = 'QUENTE', '☀️'
+                elif current < sma_10 < sma_20 and rsi < 40 and price_change < -3:
+                    trend, signal, conf = 'QUEDA FORTE', '🔴', 85
+                    temp, temp_emoji = 'CONGELANDO', '❄️'
+                elif current < sma_10 < sma_20 and rsi < 45:
                     trend, signal, conf = 'QUEDA', '🔴', 75
+                    temp, temp_emoji = 'SUPER FRIO', '🥶'
+                elif current < sma_10 and price_change < -1:
+                    trend, signal, conf = 'CAINDO', '🟠', 65
+                    temp, temp_emoji = 'FRIO', '🌬️'
                 elif rsi < 30:
-                    trend, signal, conf = 'OVERSOLD', '🟡', 65
+                    trend, signal, conf = 'OVERSOLD', '🟡', 70
+                    temp, temp_emoji = 'CONGELANDO', '❄️'
                 elif rsi > 70:
-                    trend, signal, conf = 'OVERBOUGHT', '🟠', 65
+                    trend, signal, conf = 'OVERBOUGHT', '🟠', 70
+                    temp, temp_emoji = 'FERVENDO', '🔥'
                 else:
                     trend, signal, conf = 'LATERAL', '⚪', 50
+                    temp, temp_emoji = 'MORNO', '🌡️'
                 
-                predictions[symbol] = {'trend': trend, 'signal': signal, 'confidence': conf, 'rsi': rsi}
+                predictions[symbol] = {
+                    'trend': trend, 
+                    'signal': signal, 
+                    'confidence': conf, 
+                    'rsi': rsi,
+                    'temp': temp,
+                    'temp_emoji': temp_emoji,
+                    'price_change': price_change
+                }
                 
             except:
-                predictions[symbol] = {'trend': 'ERRO', 'signal': '❓', 'confidence': 0, 'rsi': 50}
+                predictions[symbol] = {'trend': 'ERRO', 'signal': '❓', 'confidence': 0, 'rsi': 50, 'temp': 'NEUTRO', 'temp_emoji': '⚪', 'price_change': 0}
         
         return predictions
     except:
-        return {s: {'trend': 'ERRO', 'signal': '❓', 'confidence': 0, 'rsi': 50} for s in symbols}
+        return {s: {'trend': 'ERRO', 'signal': '❓', 'confidence': 0, 'rsi': 50, 'temp': 'NEUTRO', 'temp_emoji': '⚪', 'price_change': 0} for s in symbols}
 
 def get_bot_stats():
     """Busca estatísticas do bot"""
@@ -447,6 +478,25 @@ with st.sidebar:
                 step=10.0
             )
         
+        with st.expander("🪙 Moedas Ativas", expanded=False):
+            st.markdown("Selecione as moedas para operar:")
+            
+            # As 8 moedas principais - TODAS MARCADAS POR PADRÃO
+            moedas_config = config.get('trading', {}).get('symbols', 
+                ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'LINK/USDT', 'DOGE/USDT', 'LTC/USDT'])
+            
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                btc_active = st.checkbox("₿ BTC", value='BTC/USDT' in moedas_config)
+                eth_active = st.checkbox("Ξ ETH", value='ETH/USDT' in moedas_config)
+                sol_active = st.checkbox("◎ SOL", value='SOL/USDT' in moedas_config)
+                bnb_active = st.checkbox("🔶 BNB", value='BNB/USDT' in moedas_config)
+            with col_m2:
+                xrp_active = st.checkbox("✕ XRP", value='XRP/USDT' in moedas_config)
+                link_active = st.checkbox("⬡ LINK", value='LINK/USDT' in moedas_config)
+                doge_active = st.checkbox("🐕 DOGE", value='DOGE/USDT' in moedas_config)
+                ltc_active = st.checkbox("Ł LTC", value='LTC/USDT' in moedas_config)
+        
         with st.expander("🛡️ Segurança", expanded=False):
             new_max_loss = st.number_input(
                 "Perda Máx. Diária ($)",
@@ -628,15 +678,34 @@ if balance_data:
     # Busca previsões
     predictions = get_predictions(MAIN_CRYPTOS)
     
-    # Cores por tendência
+    # Cores por temperatura (Quente = tons de vermelho/laranja, Frio = tons de azul)
     trend_colors = {
-        'ALTA': '#00ba7c',
-        'QUEDA': '#f91880',
-        'LATERAL': '#8b98a5',
-        'OVERSOLD': '#ffd700',
-        'OVERBOUGHT': '#ff8c00',
+        # QUENTES (Alta)
+        'ALTA FORTE': '#ff0000',    # Vermelho intenso - FERVENDO
+        'ALTA': '#ff4500',          # Laranja avermelhado - SUPER QUENTE
+        'SUBINDO': '#ff8c00',       # Laranja - QUENTE
+        'OVERBOUGHT': '#ff6347',    # Tomate - FERVENDO
+        # FRIOS (Baixa)
+        'QUEDA FORTE': '#00bfff',   # Azul claro intenso - CONGELANDO
+        'QUEDA': '#1e90ff',         # Azul dodger - SUPER FRIO
+        'CAINDO': '#4169e1',        # Azul royal - FRIO
+        'OVERSOLD': '#00ced1',      # Turquesa - CONGELANDO
+        # NEUTROS
+        'LATERAL': '#8b98a5',       # Cinza - MORNO
         'NEUTRO': '#8b98a5',
         'ERRO': '#8b98a5'
+    }
+    
+    # Cores de temperatura
+    temp_colors = {
+        'FERVENDO': '#ff0000',      # Vermelho intenso
+        'SUPER QUENTE': '#ff4500',  # Laranja avermelhado
+        'QUENTE': '#ff8c00',        # Laranja
+        'MORNO': '#ffd700',         # Amarelo/Dourado
+        'FRIO': '#4169e1',          # Azul royal
+        'SUPER FRIO': '#1e90ff',    # Azul dodger
+        'CONGELANDO': '#00bfff',    # Azul claro intenso
+        'NEUTRO': '#8b98a5'
     }
     
     # Grid de cards
@@ -645,7 +714,7 @@ if balance_data:
     for i, symbol in enumerate(MAIN_CRYPTOS):
         with cols[i % 4]:
             data = crypto_values.get(symbol, {'amount': 0, 'price': 0, 'change': 0, 'value': 0})
-            pred = predictions.get(symbol, {'trend': 'NEUTRO', 'signal': '⚪', 'confidence': 50, 'rsi': 50})
+            pred = predictions.get(symbol, {'trend': 'NEUTRO', 'signal': '⚪', 'confidence': 50, 'rsi': 50, 'temp': 'MORNO', 'temp_emoji': '🌡️', 'price_change': 0})
             
             # Busca preço se não tiver
             if data['price'] == 0 and symbol in prices:
@@ -653,33 +722,40 @@ if balance_data:
                 data['change'] = prices[symbol]['change']
             
             trend_color = trend_colors.get(pred['trend'], '#8b98a5')
+            temp_color = temp_colors.get(pred.get('temp', 'MORNO'), '#8b98a5')
+            temp_emoji = pred.get('temp_emoji', '🌡️')
+            temp_text = pred.get('temp', 'MORNO')
             
             st.markdown(f"""
             <div style="background-color: #1a1f29; padding: 15px; border-radius: 10px; 
-                        border-left: 4px solid {trend_color}; margin-bottom: 10px;">
+                        border-left: 4px solid {temp_color}; margin-bottom: 10px;
+                        box-shadow: 0 0 10px {temp_color}40;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 18px; font-weight: bold; color: #e7e9ea;">{symbol}</span>
-                    <span style="font-size: 16px;">{pred['signal']}</span>
+                    <span style="font-size: 20px;">{temp_emoji}</span>
                 </div>
                 <div style="margin: 8px 0;">
-                    <span style="background-color: {trend_color}20; color: {trend_color}; 
-                                 padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                        {pred['trend']}
+                    <span style="background-color: {temp_color}30; color: {temp_color}; 
+                                 padding: 3px 10px; border-radius: 4px; font-size: 13px; font-weight: bold;">
+                        {temp_text}
                     </span>
                     <span style="color: #8b98a5; font-size: 11px; margin-left: 5px;">
                         {pred['confidence']}%
                     </span>
                 </div>
+                <div style="color: {temp_color}; font-size: 11px; margin: 5px 0;">
+                    {pred['trend']} {pred['signal']}
+                </div>
                 <div style="color: #e7e9ea; font-size: 14px; font-weight: bold;">
                     ${data['price']:,.2f}
-                    <span style="color: {'#00ba7c' if data['change'] >= 0 else '#f91880'}; font-size: 12px;">
+                    <span style="color: {temp_color}; font-size: 12px;">
                         ({data['change']:+.1f}%)
                     </span>
                 </div>
                 <div style="color: #8b98a5; font-size: 11px;">
                     Qtd: {data['amount']:.6f} | RSI: {pred['rsi']:.0f}
                 </div>
-                <div style="color: #00ba7c; font-size: 16px; font-weight: bold; margin-top: 5px;">
+                <div style="color: {temp_color}; font-size: 16px; font-weight: bold; margin-top: 5px;">
                     ${data['value']:,.2f}
                 </div>
             </div>
@@ -789,62 +865,115 @@ if balance_data:
             st.info("📭 Nenhum histórico de trades encontrado.")
     
     with tab3:
-        # Análise de RSI
-        st.markdown("#### 📉 Indicadores Técnicos")
+        # Análise de Temperatura do Mercado
+        st.markdown("### 🌡️ Termômetro do Mercado")
+        st.markdown("**Sistema de cores:** 🔥 Quente = Alta | ❄️ Frio = Baixa")
         
-        rsi_data = []
+        # Cards de temperatura por moeda
+        temp_cols = st.columns(4)
+        for i, symbol in enumerate(MAIN_CRYPTOS):
+            with temp_cols[i % 4]:
+                pred = predictions.get(symbol, {'rsi': 50, 'trend': 'NEUTRO', 'temp': 'MORNO', 'temp_emoji': '🌡️', 'price_change': 0})
+                temp = pred.get('temp', 'MORNO')
+                temp_emoji = pred.get('temp_emoji', '🌡️')
+                temp_color = temp_colors.get(temp, '#8b98a5')
+                
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, {temp_color}20, {temp_color}40); 
+                            padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 10px;
+                            border: 2px solid {temp_color};">
+                    <div style="font-size: 30px;">{temp_emoji}</div>
+                    <div style="font-size: 16px; font-weight: bold; color: #e7e9ea;">{symbol}</div>
+                    <div style="font-size: 14px; font-weight: bold; color: {temp_color};">{temp}</div>
+                    <div style="font-size: 12px; color: #8b98a5;">RSI: {pred['rsi']:.0f}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.divider()
+        
+        # Gráfico de Temperatura (Barras com gradiente)
+        st.markdown("#### 📊 Análise de Tendências")
+        
+        temp_data = []
         for symbol in MAIN_CRYPTOS:
-            pred = predictions.get(symbol, {'rsi': 50, 'trend': 'NEUTRO'})
-            rsi_data.append({
+            pred = predictions.get(symbol, {'rsi': 50, 'trend': 'NEUTRO', 'temp': 'MORNO', 'price_change': 0})
+            temp_data.append({
                 'symbol': symbol,
                 'rsi': pred['rsi'],
-                'trend': pred['trend']
+                'trend': pred['trend'],
+                'temp': pred.get('temp', 'MORNO'),
+                'price_change': pred.get('price_change', 0)
             })
         
-        df_rsi = pd.DataFrame(rsi_data)
+        df_temp = pd.DataFrame(temp_data)
         
-        # Barras de RSI (mais simples e sem erro)
-        fig_rsi = go.Figure()
+        # Barras de RSI com cores de temperatura
+        fig_temp = go.Figure()
         
-        colors = []
-        for rsi in df_rsi['rsi']:
-            if rsi < 30:
-                colors.append('#00ba7c')  # Verde - sobrevendido
-            elif rsi > 70:
-                colors.append('#f91880')  # Vermelho - sobrecomprado
+        # Define cores baseadas na temperatura
+        bar_colors = []
+        for _, row in df_temp.iterrows():
+            temp = row['temp']
+            if temp == 'FERVENDO':
+                bar_colors.append('#ff0000')
+            elif temp == 'SUPER QUENTE':
+                bar_colors.append('#ff4500')
+            elif temp == 'QUENTE':
+                bar_colors.append('#ff8c00')
+            elif temp == 'MORNO':
+                bar_colors.append('#ffd700')
+            elif temp == 'FRIO':
+                bar_colors.append('#4169e1')
+            elif temp == 'SUPER FRIO':
+                bar_colors.append('#1e90ff')
+            elif temp == 'CONGELANDO':
+                bar_colors.append('#00bfff')
             else:
-                colors.append('#1d9bf0')  # Azul - neutro
+                bar_colors.append('#8b98a5')
         
-        fig_rsi.add_trace(go.Bar(
-            x=df_rsi['symbol'],
-            y=df_rsi['rsi'],
-            marker_color=colors,
-            text=[f"{r:.0f}" for r in df_rsi['rsi']],
-            textposition='outside'
+        fig_temp.add_trace(go.Bar(
+            x=df_temp['symbol'],
+            y=df_temp['rsi'],
+            marker_color=bar_colors,
+            text=[f"{r['temp']}" for _, r in df_temp.iterrows()],
+            textposition='outside',
+            name='Temperatura'
         ))
         
         # Linhas de referência
-        fig_rsi.add_hline(y=30, line_dash="dash", line_color="#00ba7c", annotation_text="Sobrevendido")
-        fig_rsi.add_hline(y=70, line_dash="dash", line_color="#f91880", annotation_text="Sobrecomprado")
+        fig_temp.add_hline(y=30, line_dash="dash", line_color="#00bfff", annotation_text="❄️ Zona Fria")
+        fig_temp.add_hline(y=50, line_dash="dot", line_color="#ffd700", annotation_text="🌡️ Neutro")
+        fig_temp.add_hline(y=70, line_dash="dash", line_color="#ff4500", annotation_text="🔥 Zona Quente")
         
-        fig_rsi.update_layout(
-            title="📊 RSI por Criptomoeda",
+        fig_temp.update_layout(
+            title="🌡️ Termômetro RSI por Criptomoeda",
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             font_color='#e7e9ea',
-            yaxis=dict(range=[0, 100], title="RSI"),
+            yaxis=dict(range=[0, 100], title="RSI (Intensidade)"),
             xaxis=dict(title=""),
-            height=400
+            height=450
         )
         
-        st.plotly_chart(fig_rsi, use_container_width=True)
+        st.plotly_chart(fig_temp, use_container_width=True)
         
-        # Legenda
+        # Legenda de Temperaturas
         st.markdown("""
-        **Zonas de RSI:**
-        - 🟢 **0-30:** Sobrevendido (possível compra)
-        - ⚪ **30-70:** Neutro
-        - 🔴 **70-100:** Sobrecomprado (possível venda)
+        ---
+        ### 🌡️ Escala de Temperatura do Mercado
+        
+        | Emoji | Temperatura | Significado | Cor | Ação Sugerida |
+        |-------|-------------|-------------|-----|---------------|
+        | 🔥 | **FERVENDO** | Alta muito forte, RSI > 70 | 🔴 Vermelho Intenso | ⚠️ Cuidado, pode reverter |
+        | 🌶️ | **SUPER QUENTE** | Alta forte, tendência de subida | 🟠 Laranja Vermelho | 📈 Momento de alta |
+        | ☀️ | **QUENTE** | Subindo, tendência positiva | 🟡 Laranja | ✅ Bom momento |
+        | 🌡️ | **MORNO** | Lateral, sem tendência clara | ⚪ Amarelo/Dourado | ⏳ Aguardar |
+        | 🌬️ | **FRIO** | Caindo, tendência negativa | 🔵 Azul Royal | ⚠️ Cautela |
+        | 🥶 | **SUPER FRIO** | Queda forte, tendência de baixa | 🔵 Azul Dodger | 📉 Momento de baixa |
+        | ❄️ | **CONGELANDO** | Queda muito forte, RSI < 30 | 🔵 Azul Claro | 🛒 Possível oportunidade |
+        
+        ---
+        **Dica:** Temperaturas extremas (🔥 FERVENDO ou ❄️ CONGELANDO) geralmente indicam reversão próxima!
         """)
 
 else:

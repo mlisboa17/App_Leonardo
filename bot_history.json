@@ -1,29 +1,29 @@
 {
-  "total_trades": 8,
+  "total_trades": 16,
   "winning_trades": 1,
   "losing_trades": 0,
-  "total_pnl": 43.04410500000009,
-  "daily_pnl": 43.04410500000009,
+  "total_pnl": 5.5983360000000575,
+  "daily_pnl": 5.5983360000000575,
   "recent_trades": [
     {
       "symbol": "ETH/USDT",
       "side": "BUY",
-      "entry_price": 3216.39,
-      "exit_price": 3244.08,
-      "amount": 1.5545,
-      "pnl": 43.04410500000009,
-      "pnl_pct": 0.8608821000000019,
-      "entry_time": "2025-12-03T22:40:53.085326",
-      "exit_time": "2025-12-03T22:41:28.453755",
-      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
-      "exit_reason": "\ud83d\udcc8 RSI 86.1 > 60.8 +0.86%",
-      "duration_minutes": 0.5894738166666667,
+      "entry_price": 3201.65,
+      "exit_price": 3208.82,
+      "amount": 0.7808,
+      "pnl": 5.5983360000000575,
+      "pnl_pct": 0.22393344000000232,
+      "entry_time": "2025-12-04T03:29:13.986426",
+      "exit_time": "2025-12-04T03:33:39.544266",
+      "entry_reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.4%)",
+      "exit_reason": "\ud83d\udcc8 RSI 70.3 > 60.8 +0.22%",
+      "duration_minutes": 4.425964,
       "entry_indicators": {
-        "rsi": 71.33053755242098,
-        "macd": 1.4311125902499953,
-        "macd_signal": 0.9800307812699711,
-        "sma_20": 3210.4525000000003,
-        "price": 3216.39
+        "rsi": 64.85675386805181,
+        "macd": 3.4054262211288915,
+        "macd_signal": 1.7972725345412428,
+        "sma_20": 3188.048,
+        "price": 3201.65
       }
     }
   ],
@@ -32,7 +32,7 @@
       "total": 1,
       "wins": 1,
       "losses": 0,
-      "pnl": 43.04410500000009
+      "pnl": 5.5983360000000575
     }
   }
 }

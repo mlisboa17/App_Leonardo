@@ -45,11 +45,16 @@ class SmartStrategy:
         self.last_trade_time: Dict[str, datetime] = {}
         self.positions_open_time: Dict[str, datetime] = {}
         
-        # Configurações - AJUSTADAS PARA TRADES MAIS FREQUENTES
-        self.stop_loss_pct = -1.5  # -1.5% stop loss
-        self.max_take_pct = 5.0    # +5% máximo
-        self.max_hold_minutes = 20  # Máx 20 min segurando
-        self.min_profit_to_hold = 0.25  # Mín 0.25% para vender ($2.50 por trade de $1000)
+        # Configurações - MAIS AGRESSIVO PARA VENDER
+        self.stop_loss_pct = -0.8  # -0.8% stop loss (era -1.0%)
+        self.stop_loss_apertado = -0.4  # -0.4% se ficar muito tempo sem lucro
+        self.max_take_pct = 3.0    # +3% máximo (era 5%)
+        self.max_hold_minutes = 10  # Máx 10 min segurando (era 15)
+        self.min_profit_to_hold = 0.1  # Mín 0.1% para vender (era 0.2%)
+        self.trailing_stop_pct = 0.2  # Trailing stop de 0.2% (era 0.3%)
+        
+        # Controle de picos de preço (para trailing stop)
+        self.price_peaks: Dict[str, float] = {}  # {symbol: highest_price_since_entry}
         
         # Estatísticas do dia
         self.daily_stats = {
@@ -351,6 +356,11 @@ class SmartStrategy:
         - Critério de venda mais flexível (RSI 50+ em vez de 60+)
         - Aceita vender em tendência LATERAL
         - MAS NUNCA vende no prejuízo (preço atual >= preço entrada)
+        
+        PROTEÇÃO DE CAPITAL:
+        - Stop loss normal: -1.0%
+        - Stop loss apertado após 10min sem lucro: -0.5%
+        - Trailing stop: Protege lucro quando sobe
         """
         
         # Calcula lucro/prejuízo
@@ -367,26 +377,60 @@ class SmartStrategy:
         # Detecta tendência
         trend, strength, reasons = self.detect_trend(df)
         
-        # ===== 1. STOP LOSS (SEMPRE ATIVO) =====
-        if profit_pct <= self.stop_loss_pct:
-            return True, f"🛑 STOP LOSS {profit_pct:.2f}%"
+        # Tempo da posição aberta
+        minutes_open = 0
+        if position_time:
+            minutes_open = (datetime.now() - position_time).total_seconds() / 60
+        
+        # ===== 0. TRAILING STOP (PROTEGE LUCRO) =====
+        # Atualiza pico de preço
+        if symbol not in self.price_peaks:
+            self.price_peaks[symbol] = current_price
+        elif current_price > self.price_peaks[symbol]:
+            self.price_peaks[symbol] = current_price
+        
+        peak_price = self.price_peaks.get(symbol, current_price)
+        drawdown_from_peak = ((current_price - peak_price) / peak_price) * 100
+        
+        # Se subiu mais de 0.5% e agora caiu 0.3% do pico → VENDE
+        profit_from_entry_to_peak = ((peak_price - entry_price) / entry_price) * 100
+        if profit_from_entry_to_peak > 0.5 and drawdown_from_peak < -self.trailing_stop_pct:
+            # Limpa o pico
+            self.price_peaks.pop(symbol, None)
+            return True, f"📉 TRAILING STOP (caiu {drawdown_from_peak:.2f}% do pico) +{profit_pct:.2f}%"
+        
+        # ===== 1. STOP LOSS PROGRESSIVO =====
+        # Stop mais apertado se ficar muito tempo sem lucro
+        current_stop = self.stop_loss_pct  # -1.0%
+        
+        if minutes_open > 10 and profit_pct < 0.2:
+            # Após 10min sem lucro → stop mais apertado
+            current_stop = self.stop_loss_apertado  # -0.5%
+        
+        if minutes_open > 5 and profit_pct < -0.3:
+            # Se estiver caindo rápido (já -0.3% em 5min) → vende logo
+            current_stop = -0.5
+        
+        if profit_pct <= current_stop:
+            # Limpa o pico
+            self.price_peaks.pop(symbol, None)
+            return True, f"🛑 STOP LOSS {profit_pct:.2f}% (limite: {current_stop}%)"
         
         # ===== 2. TAKE PROFIT MÁXIMO =====
         if profit_pct >= self.max_take_pct:
+            self.price_peaks.pop(symbol, None)
             return True, f"💰 TAKE MAX +{profit_pct:.2f}%"
         
-        # ===== 3. TEMPO MÁXIMO =====
+        # ===== 3. TEMPO MÁXIMO (VENDE APÓS 10 MIN MESMO SEM LUCRO) =====
         if position_time:
-            minutes_open = (datetime.now() - position_time).total_seconds() / 60
-            
             if minutes_open > self.max_hold_minutes:
-                if profit_pct > 0.3:
-                    return True, f"⏰ TEMPO ({minutes_open:.0f}min) +{profit_pct:.2f}%"
-                elif minutes_open > self.max_hold_minutes * 1.5:
-                    return True, f"⏰ TEMPO MAX ({minutes_open:.0f}min) {profit_pct:+.2f}%"
+                # Vende SEMPRE após 10 minutos, com lucro ou prejuízo
+                self.price_peaks.pop(symbol, None)
+                return True, f"⏰ TEMPO ({minutes_open:.0f}min) {profit_pct:+.2f}%"
         
         # ===== 4. RSI OVERBOUGHT =====
-        if rsi > sell_rsi and profit_pct > 0.3:
+        if rsi > sell_rsi and profit_pct > 0.2:
+            self.price_peaks.pop(symbol, None)
             return True, f"📈 RSI {rsi:.1f} > {sell_rsi} +{profit_pct:.2f}%"
         
         # ===== 5. MODO AGRESSIVO (POSIÇÕES CHEIAS) =====
@@ -398,26 +442,31 @@ class SmartStrategy:
             aggressive_sell_rsi = 50
             
             if rsi > aggressive_sell_rsi:
+                self.price_peaks.pop(symbol, None)
                 return True, f"🚀 AGRESSIVO RSI {rsi:.1f} > {aggressive_sell_rsi} +{profit_pct:.2f}%"
             
             # Aceita vender em LATERAL com qualquer lucro
             if trend == 'LATERAL' and profit_pct > 0:
+                self.price_peaks.pop(symbol, None)
                 return True, f"🚀 AGRESSIVO LATERAL +{profit_pct:.2f}%"
             
             # Se estiver no lucro e com sinal de queda fraco (2+ sinais)
             if trend == 'QUEDA' and strength >= 2 and profit_pct > 0:
+                self.price_peaks.pop(symbol, None)
                 return True, f"🚀 AGRESSIVO QUEDA ({strength}/4) +{profit_pct:.2f}%"
         
         # ===== 6. REGRA PRINCIPAL: TENDÊNCIA VIROU QUEDA? =====
         if profit_pct > self.min_profit_to_hold:
             if trend == 'QUEDA' and strength >= 3:
+                self.price_peaks.pop(symbol, None)
                 return True, f"📉 QUEDA ({strength}/4): {' '.join(reasons)} +{profit_pct:.2f}%"
             elif trend == 'ALTA':
                 # Tendência ainda ALTA → SEGURA!
                 return False, f"📈 ALTA ({strength}/4) - Segurando +{profit_pct:.2f}%"
             else:
                 # LATERAL com lucro bom → pode vender
-                if profit_pct > 1.0:
+                if profit_pct > 0.8:
+                    self.price_peaks.pop(symbol, None)
                     return True, f"↔️ LATERAL +{profit_pct:.2f}%"
         
         # ===== 7. Ainda não tem lucro suficiente =====
