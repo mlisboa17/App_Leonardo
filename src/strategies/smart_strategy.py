@@ -45,13 +45,13 @@ class SmartStrategy:
         self.last_trade_time: Dict[str, datetime] = {}
         self.positions_open_time: Dict[str, datetime] = {}
         
-        # Configurações - MAIS AGRESSIVO PARA VENDER
-        self.stop_loss_pct = -0.8  # -0.8% stop loss (era -1.0%)
-        self.stop_loss_apertado = -0.4  # -0.4% se ficar muito tempo sem lucro
-        self.max_take_pct = 3.0    # +3% máximo (era 5%)
-        self.max_hold_minutes = 10  # Máx 10 min segurando (era 15)
-        self.min_profit_to_hold = 0.1  # Mín 0.1% para vender (era 0.2%)
-        self.trailing_stop_pct = 0.2  # Trailing stop de 0.2% (era 0.3%)
+        # Configurações - SUPER AGRESSIVO PARA VENDER MAIS
+        self.stop_loss_pct = -0.6  # -0.6% stop loss (mais apertado)
+        self.stop_loss_apertado = -0.3  # -0.3% se ficar muito tempo sem lucro
+        self.max_take_pct = 2.0    # +2% máximo (trava lucro mais cedo)
+        self.max_hold_minutes = 5  # Máx 5 min segurando (era 10)
+        self.min_profit_to_hold = 0.05  # Mín 0.05% para vender (quase nada)
+        self.trailing_stop_pct = 0.15  # Trailing stop de 0.15% (mais apertado)
         
         # Controle de picos de preço (para trailing stop)
         self.price_peaks: Dict[str, float] = {}  # {symbol: highest_price_since_entry}
@@ -392,12 +392,19 @@ class SmartStrategy:
         peak_price = self.price_peaks.get(symbol, current_price)
         drawdown_from_peak = ((current_price - peak_price) / peak_price) * 100
         
-        # Se subiu mais de 0.5% e agora caiu 0.3% do pico → VENDE
+        # Se subiu mais de 0.3% e agora caiu 0.15% do pico → VENDE
         profit_from_entry_to_peak = ((peak_price - entry_price) / entry_price) * 100
-        if profit_from_entry_to_peak > 0.5 and drawdown_from_peak < -self.trailing_stop_pct:
+        if profit_from_entry_to_peak > 0.3 and drawdown_from_peak < -self.trailing_stop_pct:
             # Limpa o pico
             self.price_peaks.pop(symbol, None)
             return True, f"📉 TRAILING STOP (caiu {drawdown_from_peak:.2f}% do pico) +{profit_pct:.2f}%"
+        
+        # ===== 0.5. LUCRO MÍNIMO GARANTIDO (VENDE COM QUALQUER LUCRO) =====
+        if profit_pct >= 0.1:  # Com apenas 0.1% de lucro já considera vender
+            # Se RSI está subindo muito ou descendo, vende
+            if rsi > 55 or (trend == 'QUEDA' and strength >= 2):
+                self.price_peaks.pop(symbol, None)
+                return True, f"💰 LUCRO RÁPIDO +{profit_pct:.2f}% (RSI: {rsi:.1f})"
         
         # ===== 1. STOP LOSS PROGRESSIVO =====
         # Stop mais apertado se ficar muito tempo sem lucro
@@ -421,12 +428,36 @@ class SmartStrategy:
             self.price_peaks.pop(symbol, None)
             return True, f"💰 TAKE MAX +{profit_pct:.2f}%"
         
-        # ===== 3. TEMPO MÁXIMO (VENDE APÓS 10 MIN MESMO SEM LUCRO) =====
+        # ===== 3. TEMPO + TENDÊNCIA (NÃO VENDE FORÇADO, SÓ SE TENDÊNCIA VIRAR) =====
         if position_time:
+            # Detecta queda brusca (caiu mais de 0.3% nos últimos candles)
+            if len(df) >= 3:
+                price_3_candles_ago = df.iloc[-3]['close']
+                queda_brusca = ((current_price - price_3_candles_ago) / price_3_candles_ago) * 100
+            else:
+                queda_brusca = 0
+            
+            # Após 3 minutos: vende se tendência não for mais ALTA ou queda brusca
+            if minutes_open > 3 and profit_pct >= 0:
+                if trend != 'ALTA':  # Tendência virou para LATERAL ou QUEDA
+                    self.price_peaks.pop(symbol, None)
+                    return True, f"⚡ TEND VIROU ({minutes_open:.0f}min) {trend} +{profit_pct:.2f}%"
+                if queda_brusca < -0.3:  # Queda brusca de mais de 0.3%
+                    self.price_peaks.pop(symbol, None)
+                    return True, f"📉 QUEDA BRUSCA ({queda_brusca:.2f}%) +{profit_pct:.2f}%"
+            
+            # Após 5 minutos: mesma lógica, mas também vende se no prejuízo com tendência ruim
             if minutes_open > self.max_hold_minutes:
-                # Vende SEMPRE após 10 minutos, com lucro ou prejuízo
-                self.price_peaks.pop(symbol, None)
-                return True, f"⏰ TEMPO ({minutes_open:.0f}min) {profit_pct:+.2f}%"
+                if trend != 'ALTA':  # Tendência não é mais de alta
+                    self.price_peaks.pop(symbol, None)
+                    return True, f"⏰ TEMPO+TEND ({minutes_open:.0f}min) {trend} {profit_pct:+.2f}%"
+                if queda_brusca < -0.3:  # Queda brusca
+                    self.price_peaks.pop(symbol, None)
+                    return True, f"⏰ TEMPO+QUEDA ({minutes_open:.0f}min) {queda_brusca:.2f}% {profit_pct:+.2f}%"
+                # Se ainda está em ALTA após 5min, segura mais um pouco (até 8min máx)
+                if minutes_open > 8:
+                    self.price_peaks.pop(symbol, None)
+                    return True, f"⏰ TEMPO MAX ({minutes_open:.0f}min) {profit_pct:+.2f}%"
         
         # ===== 4. RSI OVERBOUGHT =====
         if rsi > sell_rsi and profit_pct > 0.2:

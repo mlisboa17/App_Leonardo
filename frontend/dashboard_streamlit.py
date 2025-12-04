@@ -558,12 +558,12 @@ with st.sidebar:
     
     st.divider()
     
-    # Auto refresh
-    auto_refresh = st.checkbox("🔄 Auto Refresh", value=True)
-    if auto_refresh:
-        refresh_rate = st.slider("Intervalo (seg)", 5, 60, 10)
-        time.sleep(0.1)  # Pequeno delay
-        st.rerun() if st.button("🔄 Atualizar Agora") else None
+    # Botão de atualizar
+    if st.button("🔄 Atualizar Agora", use_container_width=True):
+        st.rerun()
+    
+    auto_refresh = False
+    refresh_rate = 30
 
 # ========================================
 # PÁGINA PRINCIPAL
@@ -638,6 +638,330 @@ if balance_data:
             value=f"${daily_pnl:,.2f}",
             delta=f"{(daily_pnl/total_value*100):.2f}%" if total_value > 0 else "0%"
         )
+    
+    # ========================================
+    # 🚨 PAINEL DE ALERTAS E CONTROLES RÁPIDOS
+    # ========================================
+    
+    st.markdown("### 🚨 Alertas e Controles Rápidos")
+    
+    # Carrega configuração atual
+    import yaml
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yaml')
+    try:
+        with open(config_path, 'r') as f:
+            config_data = yaml.safe_load(f)
+        amount_per_trade = config_data.get('trading', {}).get('amount_per_trade', 2000.0)
+    except:
+        amount_per_trade = 2000.0
+    
+    max_hold_minutes = 10  # Tempo máximo configurado na estratégia
+    
+    # ---- ALERTAS ----
+    alerts = []
+    
+    # Alerta de saldo insuficiente
+    if usdt_balance < amount_per_trade:
+        alerts.append({
+            'type': 'error',
+            'icon': '🔴',
+            'title': 'SALDO INSUFICIENTE',
+            'msg': f'USDT disponível (${usdt_balance:.2f}) é menor que o valor por trade (${amount_per_trade:.2f}). Bot NÃO conseguirá abrir novas posições!',
+            'action_needed': True
+        })
+    elif usdt_balance < amount_per_trade * 1.5:
+        alerts.append({
+            'type': 'warning',
+            'icon': '🟡',
+            'title': 'Saldo Baixo',
+            'msg': f'USDT disponível (${usdt_balance:.2f}) está ficando baixo. Considere reduzir o valor por trade.',
+            'action_needed': False
+        })
+    else:
+        alerts.append({
+            'type': 'success',
+            'icon': '🟢',
+            'title': 'Saldo OK',
+            'msg': f'USDT disponível: ${usdt_balance:.2f} | Pode abrir {int(usdt_balance / amount_per_trade)} trades',
+            'action_needed': False
+        })
+    
+    # Alerta de posições abertas
+    open_positions = len([c for c in cryptos if cryptos[c] > 0.001])
+    if open_positions > 5:
+        alerts.append({
+            'type': 'warning',
+            'icon': '⚠️',
+            'title': 'Muitas Posições',
+            'msg': f'{open_positions} posições abertas. Risco aumentado!',
+            'action_needed': False
+        })
+    elif open_positions > 0:
+        alerts.append({
+            'type': 'info',
+            'icon': 'ℹ️',
+            'title': 'Posições Ativas',
+            'msg': f'{open_positions} posições abertas no momento',
+            'action_needed': False
+        })
+    
+    # Exibir alertas
+    for alert in alerts:
+        if alert['type'] == 'error':
+            st.error(f"{alert['icon']} **{alert['title']}**: {alert['msg']}")
+        elif alert['type'] == 'warning':
+            st.warning(f"{alert['icon']} **{alert['title']}**: {alert['msg']}")
+        elif alert['type'] == 'success':
+            st.success(f"{alert['icon']} **{alert['title']}**: {alert['msg']}")
+        else:
+            st.info(f"{alert['icon']} **{alert['title']}**: {alert['msg']}")
+    
+    # ---- CORREÇÃO DE SALDO INSUFICIENTE ----
+    if usdt_balance < amount_per_trade:
+        st.markdown("---")
+        st.markdown("### 🔧 CORRIGIR SALDO INSUFICIENTE")
+        st.markdown(f"**Problema:** Você tem **${usdt_balance:.2f}** mas o bot precisa de **${amount_per_trade:.2f}** por trade.")
+        
+        # Calcula valor sugerido (80% do saldo disponível)
+        suggested_value = int(usdt_balance * 0.8 / 100) * 100  # Arredonda para centenas
+        if suggested_value < 100:
+            suggested_value = int(usdt_balance * 0.8)
+        
+        fix_col1, fix_col2 = st.columns([2, 1])
+        
+        with fix_col1:
+            new_amount = st.number_input(
+                "💰 Novo valor por trade ($)",
+                min_value=50.0,
+                max_value=float(usdt_balance),
+                value=float(suggested_value),
+                step=50.0,
+                help=f"Máximo recomendado: ${usdt_balance * 0.8:.0f} (80% do saldo)"
+            )
+        
+        with fix_col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("✅ APLICAR E CONTINUAR", type="primary", use_container_width=True):
+                try:
+                    # Atualiza o config.yaml
+                    config_data['trading']['amount_per_trade'] = float(new_amount)
+                    with open(config_path, 'w') as f:
+                        yaml.dump(config_data, f, default_flow_style=False)
+                    
+                    st.success(f"✅ Configuração atualizada! Novo valor: ${new_amount:.2f}")
+                    st.toast("🎉 Bot pode continuar operando!", icon="✅")
+                    st.balloons()
+                    time.sleep(1)
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Erro ao salvar: {e}")
+        
+        # Opções rápidas
+        st.markdown("**⚡ Opções rápidas:**")
+        quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
+        
+        with quick_col1:
+            if st.button(f"${int(usdt_balance * 0.5)}", help="50% do saldo"):
+                config_data['trading']['amount_per_trade'] = float(int(usdt_balance * 0.5))
+                with open(config_path, 'w') as f:
+                    yaml.dump(config_data, f, default_flow_style=False)
+                st.toast(f"✅ Alterado para ${int(usdt_balance * 0.5)}", icon="✅")
+                st.cache_data.clear()
+                st.rerun()
+        
+        with quick_col2:
+            if st.button(f"${int(usdt_balance * 0.6)}", help="60% do saldo"):
+                config_data['trading']['amount_per_trade'] = float(int(usdt_balance * 0.6))
+                with open(config_path, 'w') as f:
+                    yaml.dump(config_data, f, default_flow_style=False)
+                st.toast(f"✅ Alterado para ${int(usdt_balance * 0.6)}", icon="✅")
+                st.cache_data.clear()
+                st.rerun()
+        
+        with quick_col3:
+            if st.button(f"${int(usdt_balance * 0.7)}", help="70% do saldo"):
+                config_data['trading']['amount_per_trade'] = float(int(usdt_balance * 0.7))
+                with open(config_path, 'w') as f:
+                    yaml.dump(config_data, f, default_flow_style=False)
+                st.toast(f"✅ Alterado para ${int(usdt_balance * 0.7)}", icon="✅")
+                st.cache_data.clear()
+                st.rerun()
+        
+        with quick_col4:
+            if st.button(f"${int(usdt_balance * 0.8)}", help="80% do saldo (recomendado)"):
+                config_data['trading']['amount_per_trade'] = float(int(usdt_balance * 0.8))
+                with open(config_path, 'w') as f:
+                    yaml.dump(config_data, f, default_flow_style=False)
+                st.toast(f"✅ Alterado para ${int(usdt_balance * 0.8)}", icon="✅")
+                st.cache_data.clear()
+                st.rerun()
+        
+        st.markdown("---")
+    
+    # ---- CONTROLES RÁPIDOS ----
+    st.markdown("#### ⚡ Configuração Atual")
+    
+    ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns(4)
+    
+    with ctrl_col1:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #ff6b6b20, #ff6b6b40); 
+                    padding: 15px; border-radius: 10px; text-align: center;
+                    border: 2px solid #ff6b6b;">
+            <div style="font-size: 24px;">⏱️</div>
+            <div style="font-size: 12px; color: #8b98a5;">Tempo Máximo</div>
+            <div style="font-size: 18px; font-weight: bold; color: #e7e9ea;">{} min</div>
+            <div style="font-size: 10px; color: #ff6b6b;">Vende após esse tempo</div>
+        </div>
+        """.format(max_hold_minutes), unsafe_allow_html=True)
+    
+    with ctrl_col2:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #4ecdc420, #4ecdc440); 
+                    padding: 15px; border-radius: 10px; text-align: center;
+                    border: 2px solid #4ecdc4;">
+            <div style="font-size: 24px;">💰</div>
+            <div style="font-size: 12px; color: #8b98a5;">Valor/Trade</div>
+            <div style="font-size: 18px; font-weight: bold; color: #e7e9ea;">${:.0f}</div>
+            <div style="font-size: 10px; color: #4ecdc4;">Por operação</div>
+        </div>
+        """.format(amount_per_trade), unsafe_allow_html=True)
+    
+    with ctrl_col3:
+        stop_loss_pct = -0.8  # Configurado na estratégia
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #f9188020, #f9188040); 
+                    padding: 15px; border-radius: 10px; text-align: center;
+                    border: 2px solid #f91880;">
+            <div style="font-size: 24px;">🛑</div>
+            <div style="font-size: 12px; color: #8b98a5;">Stop Loss</div>
+            <div style="font-size: 18px; font-weight: bold; color: #e7e9ea;">{}%</div>
+            <div style="font-size: 10px; color: #f91880;">Proteção automática</div>
+        </div>
+        """.format(stop_loss_pct), unsafe_allow_html=True)
+    
+    with ctrl_col4:
+        take_profit_pct = 3.0  # Configurado na estratégia
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #00ba7c20, #00ba7c40); 
+                    padding: 15px; border-radius: 10px; text-align: center;
+                    border: 2px solid #00ba7c;">
+            <div style="font-size: 24px;">🎯</div>
+            <div style="font-size: 12px; color: #8b98a5;">Take Profit</div>
+            <div style="font-size: 18px; font-weight: bold; color: #e7e9ea;">+{}%</div>
+            <div style="font-size: 10px; color: #00ba7c;">Meta de lucro</div>
+        </div>
+        """.format(take_profit_pct), unsafe_allow_html=True)
+    
+    # ---- AJUSTAR CONFIGURAÇÕES ----
+    with st.expander("⚙️ Ajustar Configurações do Bot", expanded=False):
+        st.markdown("**Altere as configurações abaixo e clique em Salvar:**")
+        
+        adj_col1, adj_col2 = st.columns(2)
+        
+        with adj_col1:
+            new_trade_amount = st.slider(
+                "💰 Valor por Trade ($)",
+                min_value=100,
+                max_value=5000,
+                value=int(amount_per_trade),
+                step=100,
+                help="Quanto investir em cada operação"
+            )
+            
+            new_max_positions = st.slider(
+                "📊 Máximo de Posições",
+                min_value=1,
+                max_value=20,
+                value=config_data.get('trading', {}).get('max_positions', 8),
+                step=1,
+                help="Quantas moedas diferentes pode ter ao mesmo tempo"
+            )
+        
+        with adj_col2:
+            st.markdown("**⏱️ Estratégias de Tempo:**")
+            time_strategy = st.radio(
+                "Selecione o modo",
+                options=["🚀 Agressivo (5 min)", "⚡ Rápido (10 min)", "🐢 Conservador (15 min)"],
+                index=1,
+                help="Tempo máximo para segurar uma posição"
+            )
+            
+            st.markdown("**🛡️ Proteção:**")
+            risk_level = st.radio(
+                "Nível de risco",
+                options=["🟢 Baixo (SL: -0.5%)", "🟡 Médio (SL: -0.8%)", "🔴 Alto (SL: -1.2%)"],
+                index=1,
+                help="Stop Loss automático"
+            )
+        
+        if st.button("💾 SALVAR CONFIGURAÇÕES", type="primary", use_container_width=True):
+            try:
+                # Atualiza config
+                config_data['trading']['amount_per_trade'] = float(new_trade_amount)
+                config_data['trading']['max_positions'] = new_max_positions
+                
+                with open(config_path, 'w') as f:
+                    yaml.dump(config_data, f, default_flow_style=False)
+                
+                st.success(f"✅ Configurações salvas!")
+                st.toast("💾 Configurações atualizadas! Reinicie o bot para aplicar todas.", icon="✅")
+                st.cache_data.clear()
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Erro: {e}")
+        
+        st.info("💡 **Nota:** Alterações no tempo e stop loss requerem edição da estratégia (smart_strategy.py)")
+    
+    # ---- AÇÕES RÁPIDAS ----
+    st.markdown("#### 🎮 Ações Rápidas")
+    
+    action_col1, action_col2, action_col3 = st.columns(3)
+    
+    with action_col1:
+        if st.button("⚡ MODO TURBO", help="$1000 por trade, mais operações", use_container_width=True):
+            config_data['trading']['amount_per_trade'] = 1000.0
+            with open(config_path, 'w') as f:
+                yaml.dump(config_data, f, default_flow_style=False)
+            st.toast("⚡ Modo Turbo! $1000 por trade", icon="⚡")
+            st.cache_data.clear()
+            st.rerun()
+    
+    with action_col2:
+        if st.button("💪 MODO POWER", help="$2000 por trade, equilibrado", use_container_width=True):
+            config_data['trading']['amount_per_trade'] = 2000.0
+            with open(config_path, 'w') as f:
+                yaml.dump(config_data, f, default_flow_style=False)
+            st.toast("💪 Modo Power! $2000 por trade", icon="💪")
+            st.cache_data.clear()
+            st.rerun()
+    
+    with action_col3:
+        if st.button("🔄 REFRESH", help="Atualiza dados", use_container_width=True):
+            st.cache_data.clear()
+            st.toast("🔄 Dados atualizados!", icon="✅")
+            st.rerun()
+    
+    # Status atual
+    status_color = "#00ba7c" if usdt_balance >= amount_per_trade else "#f91880"
+    status_text = "OPERANDO" if usdt_balance >= amount_per_trade else "BLOQUEADO"
+    
+    st.markdown(f"""
+    <div style="background-color: #1a1f29; padding: 10px; border-radius: 8px; margin-top: 10px;">
+        <span style="color: #8b98a5;">📋 Status:</span>
+        <span style="color: {status_color}; font-weight: bold;"> {status_text}</span> |
+        <span style="color: #8b98a5;"> Tempo Máx:</span>
+        <span style="color: #ff6b6b;">{max_hold_minutes} min</span> |
+        <span style="color: #8b98a5;"> Venda Forçada:</span>
+        <span style="color: #00ba7c;">SIM</span> |
+        <span style="color: #8b98a5;"> Valor:</span>
+        <span style="color: #ffd700;">${amount_per_trade:.0f}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.divider()
     
     # ========================================
     # ESTATÍSTICAS DO BOT
@@ -986,8 +1310,3 @@ else:
 
 st.divider()
 st.caption(f"🤖 App Leonardo v2.0 | Última atualização: {datetime.now().strftime('%H:%M:%S')} | Made with ❤️")
-
-# Auto-refresh
-if auto_refresh:
-    time.sleep(refresh_rate)
-    st.rerun()

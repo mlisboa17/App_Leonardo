@@ -1,46 +1,13 @@
 {
-  "status": "Operando",
-  "balance": 2261.66952893,
-  "daily_pnl": 5.5983360000000575,
-  "total_pnl": 5.5983360000000575,
-  "trades_count": 16,
-  "wins": 1,
-  "losses": 0,
-  "positions": {
-    "BTC/USDT": {
-      "symbol": "BTC/USDT",
-      "side": "BUY",
-      "entry_price": 93184.5,
-      "amount": 0.02682,
-      "entry_time": "2025-12-04 03:29:05.381154",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.2%)",
-      "indicators": {
-        "rsi": 63.62239234976656,
-        "macd": 22.784445761091774,
-        "macd_signal": 17.432210250117198,
-        "sma_20": 93041.696,
-        "price": 93184.5
-      },
-      "order_id": "6460640"
-    },
-    "SOL/USDT": {
-      "symbol": "SOL/USDT",
-      "side": "BUY",
-      "entry_price": 143.98,
-      "amount": 17.363,
-      "entry_time": "2025-12-04 03:33:46.915569",
-      "reason": "COMPRA: MACD\u2191 | Perto SMA20 (+0.3%)",
-      "indicators": {
-        "rsi": 69.85916351036433,
-        "macd": 0.14682596923586289,
-        "macd_signal": 0.09429990865959366,
-        "sma_20": 143.58499999999998,
-        "price": 143.98
-      },
-      "order_id": "2190019"
-    }
-  },
-  "last_update": "2025-12-04T03:34:30.843875",
-  "timestamp": 1764830070843,
-  "is_running": true
+  "status": "Parado",
+  "balance": 1663.01710094,
+  "daily_pnl": 29.868940900000123,
+  "total_pnl": 29.868940900000123,
+  "trades_count": 81,
+  "wins": 58,
+  "losses": 2,
+  "positions": {},
+  "last_update": "2025-12-04T15:05:38.070843",
+  "timestamp": 1764871538070,
+  "is_running": false
 }

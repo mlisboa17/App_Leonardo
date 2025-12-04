@@ -26,15 +26,15 @@ logging:
   file: logs/trading_bot.log
   level: INFO
 safety:
-  max_daily_loss: 50.0
-  max_drawdown: 50
+  max_daily_loss: 100.0
+  max_drawdown: 25
   price_deviation_limit: 30.0
 strategy:
   type: smart
 trading:
-  amount_per_trade: 2500.0
-  daily_profit_target: 500.0
-  max_positions: 20
+  amount_per_trade: 500.0
+  daily_profit_target: 200.0
+  max_positions: 15
   max_total_investment: 100000.0
   symbols:
   - BTC/USDT
