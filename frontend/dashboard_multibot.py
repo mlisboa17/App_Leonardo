@@ -643,7 +643,7 @@ def render_sidebar():
     
     # Navegação de páginas
     st.sidebar.subheader("📑 Páginas")
-    page = st.sidebar.radio("Selecione", ["🏠 Dashboard", "🤖 AI Intelligence", "⚙️ Configurações"])
+    page = st.sidebar.radio("Selecione", ["🏠 Dashboard", "🎮 Controle Bots", "🤖 AI Intelligence", "⚙️ Configurações"])
     
     st.sidebar.markdown("---")
     
@@ -1065,6 +1065,268 @@ def render_config_page():
     st.info("💡 As configurações são ajustadas automaticamente pela AI. Para edição manual, use o arquivo config/bots_config.yaml")
 
 
+def load_unico_bot_config():
+    """Carrega configuração do UnicoBot"""
+    config_file = Path("config/unico_bot_config.yaml")
+    if config_file.exists():
+        with open(config_file, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+    return None
+
+
+def save_bots_config(config: dict):
+    """Salva configuração dos bots"""
+    config_file = Path("config/bots_config.yaml")
+    with open(config_file, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+
+
+def save_unico_bot_config(config: dict):
+    """Salva configuração do UnicoBot"""
+    config_file = Path("config/unico_bot_config.yaml")
+    with open(config_file, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+
+
+def render_bot_control_page():
+    """Renderiza página de controle de bots - Ativar/Pausar/UnicoBot"""
+    st.markdown('<div class="main-header">🎮 CONTROLE DE BOTS - App Leonardo v3.0</div>', unsafe_allow_html=True)
+    
+    # Carrega configurações
+    config = load_bots_config()
+    unico_config = load_unico_bot_config()
+    
+    if not config:
+        st.error("❌ Arquivo de configuração não encontrado!")
+        return
+    
+    # ===== SEÇÃO: UNICOBOT =====
+    st.header("⚡ UnicoBot - Controle Unificado")
+    
+    unico_enabled = unico_config.get('enabled', False) if unico_config else False
+    
+    if unico_enabled:
+        st.success("🟢 **UnicoBot ATIVO** - Controlando todas as operações com Smart Strategy")
+    else:
+        st.info("🔴 **UnicoBot INATIVO** - Bots especializados estão no controle")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        ### 🤖 O que é o UnicoBot?
+        
+        O UnicoBot é um sistema unificado que:
+        - ✅ Usa a **Smart Strategy** otimizada
+        - ✅ Controla **todas as 12 moedas** do portfólio
+        - ✅ **RSI adaptativo** por moeda
+        - ✅ Sistema de **urgência** integrado
+        - ✅ Trailing stop inteligente
+        """)
+    
+    with col2:
+        st.markdown("""
+        ### ⚠️ Importante
+        
+        - Quando ativado, **TODOS os 4 bots são pausados**
+        - O capital é gerenciado de forma unificada
+        - Ideal para operação simplificada
+        - Recomendado para gerenciamento eficiente
+        """)
+    
+    st.markdown("---")
+    
+    # Botões de ação do UnicoBot
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col2:
+        if unico_enabled:
+            if st.button("🔴 DESATIVAR UnicoBot", type="secondary", use_container_width=True):
+                # Desativa UnicoBot
+                if unico_config:
+                    unico_config['enabled'] = False
+                    save_unico_bot_config(unico_config)
+                    st.success("✅ UnicoBot desativado! Você pode ativar os bots especializados agora.")
+                    st.rerun()
+        else:
+            if st.button("⚡ ATIVAR UnicoBot", type="primary", use_container_width=True):
+                # Ativa UnicoBot e desativa todos os outros
+                if unico_config:
+                    unico_config['enabled'] = True
+                    save_unico_bot_config(unico_config)
+                    
+                    # Desativa todos os bots especializados
+                    bots = config.get('bots', config)
+                    for bot_type in bots:
+                        if isinstance(bots[bot_type], dict):
+                            bots[bot_type]['enabled'] = False
+                    
+                    if 'bots' in config:
+                        config['bots'] = bots
+                    save_bots_config(config)
+                    
+                    st.success("✅ UnicoBot ATIVADO! Todos os outros bots foram pausados.")
+                    st.balloons()
+                    st.rerun()
+    
+    st.markdown("---")
+    
+    # ===== SEÇÃO: BOTS ESPECIALIZADOS =====
+    st.header("🤖 Bots Especializados")
+    
+    if unico_enabled:
+        st.warning("⚠️ Bots especializados estão PAUSADOS porque o UnicoBot está ativo. Desative o UnicoBot primeiro para controlá-los.")
+    
+    bot_info = {
+        'bot_estavel': {'name': '🔵 Bot Estável', 'desc': 'BTC, ETH, BNB - Baixa volatilidade', 'color': '#1e3a5f'},
+        'bot_medio': {'name': '🟢 Bot Médio', 'desc': 'SOL, ADA, DOT - Volatilidade moderada', 'color': '#1e5f3a'},
+        'bot_volatil': {'name': '🟡 Bot Volátil', 'desc': 'DOGE, XRP - Alta volatilidade', 'color': '#5f5f1e'},
+        'bot_meme': {'name': '🔴 Bot Meme', 'desc': 'SHIB, PEPE - Máxima volatilidade', 'color': '#5f1e1e'}
+    }
+    
+    # Carrega estatísticas
+    history = load_trade_history()
+    pnl_by_bot = get_pnl_by_bot(history)
+    daily_pnl = get_daily_pnl(history)
+    
+    # Grid de bots (2x2)
+    col1, col2 = st.columns(2)
+    
+    bots = config.get('bots', config)
+    bot_types = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']
+    
+    for i, bot_type in enumerate(bot_types):
+        if bot_type not in bots:
+            continue
+            
+        bot_config = bots[bot_type] if isinstance(bots[bot_type], dict) else {}
+        info = bot_info.get(bot_type, {'name': bot_type, 'desc': '', 'color': '#333'})
+        
+        is_enabled = bot_config.get('enabled', False) and not unico_enabled
+        stats = pnl_by_bot.get(bot_type, {})
+        
+        with col1 if i % 2 == 0 else col2:
+            # Card do bot
+            status_icon = "🟢" if is_enabled else "🔴"
+            status_text = "ATIVO" if is_enabled else "PAUSADO"
+            
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, {info['color']}, {info['color']}dd); 
+                        padding: 1.5rem; border-radius: 10px; margin-bottom: 1rem;">
+                <h3>{info['name']} {status_icon}</h3>
+                <p style="color: #aaa; margin: 0.5rem 0;">{info['desc']}</p>
+                <p><strong>Status:</strong> {status_text}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Métricas
+            mcol1, mcol2, mcol3 = st.columns(3)
+            with mcol1:
+                win_rate = 0
+                if stats.get('trades', 0) > 0:
+                    win_rate = (stats.get('wins', 0) / stats['trades']) * 100
+                st.metric("Win Rate", f"{win_rate:.1f}%")
+            with mcol2:
+                st.metric("Trades", stats.get('trades', 0))
+            with mcol3:
+                pnl_today = daily_pnl.get(bot_type, 0)
+                st.metric("PnL Hoje", f"${pnl_today:+.2f}")
+            
+            # Botão de controle
+            if not unico_enabled:
+                if is_enabled:
+                    if st.button(f"⏸️ Pausar {info['name']}", key=f"pause_{bot_type}", use_container_width=True):
+                        bots[bot_type]['enabled'] = False
+                        if 'bots' in config:
+                            config['bots'] = bots
+                        save_bots_config(config)
+                        st.success(f"✅ {info['name']} pausado!")
+                        st.rerun()
+                else:
+                    if st.button(f"▶️ Ativar {info['name']}", key=f"activate_{bot_type}", type="primary", use_container_width=True):
+                        bots[bot_type]['enabled'] = True
+                        if 'bots' in config:
+                            config['bots'] = bots
+                        save_bots_config(config)
+                        st.success(f"✅ {info['name']} ativado!")
+                        st.rerun()
+            
+            st.markdown("---")
+    
+    # ===== SEÇÃO: AÇÕES RÁPIDAS =====
+    st.header("🚀 Ações Rápidas")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("✅ Ativar TODOS", use_container_width=True, disabled=unico_enabled):
+            for bot_type in bot_types:
+                if bot_type in bots and isinstance(bots[bot_type], dict):
+                    bots[bot_type]['enabled'] = True
+            if 'bots' in config:
+                config['bots'] = bots
+            save_bots_config(config)
+            st.success("Todos os bots ativados!")
+            st.rerun()
+    
+    with col2:
+        if st.button("⏸️ Pausar TODOS", use_container_width=True, disabled=unico_enabled):
+            for bot_type in bot_types:
+                if bot_type in bots and isinstance(bots[bot_type], dict):
+                    bots[bot_type]['enabled'] = False
+            if 'bots' in config:
+                config['bots'] = bots
+            save_bots_config(config)
+            st.success("Todos os bots pausados!")
+            st.rerun()
+    
+    with col3:
+        if st.button("🔄 Redistribuir Capital", use_container_width=True, disabled=unico_enabled):
+            # Conta bots ativos
+            active_bots = [bt for bt in bot_types if bt in bots and isinstance(bots[bt], dict) and bots[bt].get('enabled', False)]
+            if active_bots:
+                capital_each = round(100 / len(active_bots), 1)
+                for bot_type in bot_types:
+                    if bot_type in bots and isinstance(bots[bot_type], dict):
+                        if bots[bot_type].get('enabled', False):
+                            bots[bot_type]['capital_percent'] = capital_each
+                        else:
+                            bots[bot_type]['capital_percent'] = 0
+                if 'bots' in config:
+                    config['bots'] = bots
+                save_bots_config(config)
+                st.success(f"Capital redistribuído: {capital_each}% por bot ativo")
+                st.rerun()
+            else:
+                st.warning("Nenhum bot ativo para redistribuir capital")
+    
+    with col4:
+        if st.button("🔄 Atualizar Página", use_container_width=True):
+            st.rerun()
+    
+    # ===== SEÇÃO: RESUMO =====
+    st.header("📊 Resumo do Sistema")
+    
+    # Conta status
+    active_specialized = sum(1 for bt in bot_types if bt in bots and isinstance(bots[bt], dict) and bots[bt].get('enabled', False))
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if unico_enabled:
+            st.metric("🎯 Modo Atual", "UnicoBot", delta="Unificado")
+        else:
+            st.metric("🎯 Modo Atual", "Especializado", delta=f"{active_specialized} bots")
+    
+    with col2:
+        total_trades = sum(pnl_by_bot.get(bt, {}).get('trades', 0) for bt in bot_types)
+        st.metric("📈 Total Trades", total_trades)
+    
+    with col3:
+        total_pnl = sum(pnl_by_bot.get(bt, {}).get('total_pnl', 0) for bt in bot_types)
+        st.metric("💰 PnL Total", f"${total_pnl:+.2f}")
+
+
 def main():
     """Função principal do dashboard"""
     
@@ -1073,6 +1335,10 @@ def main():
     
     # Verifica qual página exibir
     page = filters.get('page', '🏠 Dashboard')
+    
+    if page == "🎮 Controle Bots":
+        render_bot_control_page()
+        return
     
     if page == "🤖 AI Intelligence":
         render_ai_page()

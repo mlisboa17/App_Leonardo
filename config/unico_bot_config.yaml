@@ -1,234 +1,181 @@
-# ============================================================
-# UNICO BOT - Bot Unificado com Smart Strategy
-# ============================================================
-# 
-# 🎯 Este bot assume TODAS as carteiras com estratégia única
-# 📊 Baseado na Smart Strategy do App_Leonardo original
-# ⚠️ DESATIVADO POR PADRÃO - Ativar manualmente quando quiser
-#
-# Características:
-# - RSI adaptativo por moeda (baseado em histórico)
-# - Segura enquanto tendência for de ALTA
-# - Vende apenas quando tendência VIRAR para QUEDA
-# - Sistema de urgência se ficar sem trades
-# - Meta: $100/dia comprando barato e vendendo na virada
-#
-# ============================================================
-
-# ===== STATUS DO UNICO BOT =====
+enabled: true
 unico_bot:
-  name: "UnicoBot"
-  description: "Bot unificado com Smart Strategy - Todas as carteiras"
-  enabled: false  # ⚠️ DESATIVADO - Ativar manualmente
-  version: "2.0"
-  
-  # ===== PORTFÓLIO COMPLETO =====
-  # Todas as moedas em um único bot
-  portfolio:
-    # Estáveis (BTC, ETH, BNB, LTC)
-    - symbol: "BTCUSDT"
-      name: "Bitcoin"
-      category: "estavel"
-      weight: 15
-    - symbol: "ETHUSDT"
-      name: "Ethereum"
-      category: "estavel"
-      weight: 12
-    - symbol: "BNBUSDT"
-      name: "BNB"
-      category: "estavel"
-      weight: 8
-    - symbol: "LTCUSDT"
-      name: "Litecoin"
-      category: "estavel"
-      weight: 5
-    
-    # Médias (SOL, LINK, AVAX, DOT, NEAR)
-    - symbol: "SOLUSDT"
-      name: "Solana"
-      category: "medio"
-      weight: 12
-    - symbol: "LINKUSDT"
-      name: "Chainlink"
-      category: "medio"
-      weight: 10
-    - symbol: "AVAXUSDT"
-      name: "Avalanche"
-      category: "medio"
-      weight: 8
-    - symbol: "DOTUSDT"
-      name: "Polkadot"
-      category: "medio"
-      weight: 8
-    - symbol: "NEARUSDT"
-      name: "Near"
-      category: "medio"
-      weight: 5
-    
-    # Voláteis (XRP, ADA, TRX)
-    - symbol: "XRPUSDT"
-      name: "XRP"
-      category: "volatil"
-      weight: 8
-    - symbol: "ADAUSDT"
-      name: "Cardano"
-      category: "volatil"
-      weight: 5
-    - symbol: "TRXUSDT"
-      name: "Tron"
-      category: "volatil"
-      weight: 4
-
-  # ===== CONFIGURAÇÕES DE TRADING =====
-  trading:
-    amount_per_trade: 500        # $500 por trade (agressivo)
-    max_positions: 15            # Máximo 15 posições abertas
-    max_total_investment: 10000  # Máximo $10k investido
-    timeframe: "1m"              # 1 minuto (scalping rápido)
-    interval_seconds: 3          # Verifica a cada 3 segundos
-
-  # ===== METAS =====
-  targets:
-    daily_profit: 100            # Meta: $100/dia
-    monthly_profit: 2500         # Meta: $2500/mês
-    min_trade_profit: 0.05       # Mínimo 0.05% para vender
-
-  # ===== SMART STRATEGY SETTINGS =====
-  # Copiado do App_Leonardo original
-  smart_strategy:
-    # Stop Loss / Take Profit
-    stop_loss_pct: -0.6          # -0.6% stop loss (apertado)
-    stop_loss_tight: -0.3        # -0.3% se ficar muito tempo sem lucro
-    max_take_pct: 2.0            # +2.0% máximo (trava lucro mais cedo)
-    trailing_stop_pct: 0.15      # Trailing stop de 0.15%
-    
-    # Tempo máximo
-    max_hold_minutes: 5          # Máx 5 min segurando posição
-    
-    # RSI Base por categoria
-    rsi_config:
-      estavel:
-        oversold: 40             # Compra RSI < 40
-        overbought: 63           # Vende RSI > 63
-        mean: 51
-      medio:
-        oversold: 38             # Compra RSI < 38
-        overbought: 62           # Vende RSI > 62
-        mean: 50
-      volatil:
-        oversold: 35             # Compra RSI < 35
-        overbought: 60           # Vende RSI > 60
-        mean: 48
-    
-    # Sistema de Urgência (se ficar muito tempo sem trades)
-    urgency_system:
-      enabled: true
-      idle_5min_adjustment: 1    # +1 RSI após 5min parado
-      idle_10min_adjustment: 2   # +2 RSI após 10min parado
-      idle_20min_adjustment: 3   # +3 RSI após 20min parado
-      idle_30min_adjustment: 4   # +4 RSI após 30min parado
-      idle_60min_adjustment: 5   # +5 RSI após 60min parado
-      max_rsi_increase: 8        # Máximo de aumento do RSI
-
-  # ===== INDICADORES TÉCNICOS =====
+  crypto_profiles:
+    ADAUSDT:
+      buy_rsi: 35
+      rsi_mean: 48
+      sell_rsi: 60
+    AVAXUSDT:
+      buy_rsi: 38
+      rsi_mean: 50
+      sell_rsi: 62
+    BNBUSDT:
+      buy_rsi: 40
+      rsi_mean: 50
+      sell_rsi: 60
+    BTCUSDT:
+      buy_rsi: 40
+      rsi_mean: 51
+      sell_rsi: 63
+    DOGEUSDT:
+      buy_rsi: 35
+      rsi_mean: 50
+      sell_rsi: 61
+    DOTUSDT:
+      buy_rsi: 38
+      rsi_mean: 50
+      sell_rsi: 62
+    ETHUSDT:
+      buy_rsi: 40
+      rsi_mean: 50
+      sell_rsi: 61
+    LINKUSDT:
+      buy_rsi: 38
+      rsi_mean: 51
+      sell_rsi: 62
+    LTCUSDT:
+      buy_rsi: 40
+      rsi_mean: 49
+      sell_rsi: 60
+    NEARUSDT:
+      buy_rsi: 38
+      rsi_mean: 50
+      sell_rsi: 62
+    SOLUSDT:
+      buy_rsi: 38
+      rsi_mean: 50
+      sell_rsi: 63
+    TRXUSDT:
+      buy_rsi: 35
+      rsi_mean: 48
+      sell_rsi: 60
+    XRPUSDT:
+      buy_rsi: 35
+      rsi_mean: 51
+      sell_rsi: 63
+  description: Bot unificado com Smart Strategy - Todas as carteiras
+  enabled: false
   indicators:
-    rsi:
-      period: 14
-    macd:
-      fast: 12
-      slow: 26
-      signal: 9
-    sma:
-      periods: [20, 50, 200]
-    ema:
-      periods: [9, 21]
     bollinger:
       period: 20
       std_dev: 2
-
-  # ===== DETECÇÃO DE TENDÊNCIA =====
-  # Vende APENAS quando tendência virar para QUEDA
-  trend_detection:
-    signals_required: 3          # Precisa 3 de 4 sinais para confirmar tendência
-    signals:
-      - "macd_crossover"         # MACD acima/abaixo do sinal
-      - "price_vs_sma20"         # Preço vs SMA20
-      - "rsi_direction"          # RSI subindo/descendo
-      - "ema_crossover"          # EMA9 vs EMA21
-
-  # ===== PERFIS DE MOEDAS (RSI ADAPTATIVO) =====
-  # Valores otimizados do App_Leonardo original
-  crypto_profiles:
-    BTCUSDT:
-      buy_rsi: 40
-      sell_rsi: 63
-      rsi_mean: 51
-    ETHUSDT:
-      buy_rsi: 40
-      sell_rsi: 61
-      rsi_mean: 50
-    SOLUSDT:
-      buy_rsi: 38
-      sell_rsi: 63
-      rsi_mean: 50
-    BNBUSDT:
-      buy_rsi: 40
-      sell_rsi: 60
-      rsi_mean: 50
-    XRPUSDT:
-      buy_rsi: 35
-      sell_rsi: 63
-      rsi_mean: 51
-    LINKUSDT:
-      buy_rsi: 38
-      sell_rsi: 62
-      rsi_mean: 51
-    DOGEUSDT:
-      buy_rsi: 35
-      sell_rsi: 61
-      rsi_mean: 50
-    LTCUSDT:
-      buy_rsi: 40
-      sell_rsi: 60
-      rsi_mean: 49
-    ADAUSDT:
-      buy_rsi: 35
-      sell_rsi: 60
-      rsi_mean: 48
-    AVAXUSDT:
-      buy_rsi: 38
-      sell_rsi: 62
-      rsi_mean: 50
-    DOTUSDT:
-      buy_rsi: 38
-      sell_rsi: 62
-      rsi_mean: 50
-    NEARUSDT:
-      buy_rsi: 38
-      sell_rsi: 62
-      rsi_mean: 50
-    TRXUSDT:
-      buy_rsi: 35
-      sell_rsi: 60
-      rsi_mean: 48
-
-  # ===== SAFETY / SEGURANÇA =====
-  safety:
-    max_daily_loss_pct: 5.0      # Stop se perder 5% no dia
-    max_drawdown_pct: 15.0       # Drawdown máximo 15%
-    max_consecutive_losses: 5   # Pausa após 5 losses seguidos
-    cool_down_minutes: 5        # Pausa de 5 min após loss streak
-
-  # ===== LOGGING =====
+    ema:
+      periods:
+      - 9
+      - 21
+    macd:
+      fast: 12
+      signal: 9
+      slow: 26
+    rsi:
+      period: 14
+    sma:
+      periods:
+      - 20
+      - 50
+      - 200
   logging:
-    level: "INFO"
-    save_trades: true
+    level: INFO
     save_analysis: true
     save_snapshots: true
-
-# ===== NOTA IMPORTANTE =====
-# Quando UnicoBot estiver ATIVADO:
-# - Os 4 bots especializados serão DESATIVADOS automaticamente
-# - UnicoBot assume TODO o capital
-# - Usa estratégia Smart Strategy unificada
-# - Todas as 12+ moedas em um único bot
+    save_trades: true
+  name: UnicoBot
+  portfolio:
+  - category: estavel
+    name: Bitcoin
+    symbol: BTCUSDT
+    weight: 15
+  - category: estavel
+    name: Ethereum
+    symbol: ETHUSDT
+    weight: 12
+  - category: estavel
+    name: BNB
+    symbol: BNBUSDT
+    weight: 8
+  - category: estavel
+    name: Litecoin
+    symbol: LTCUSDT
+    weight: 5
+  - category: medio
+    name: Solana
+    symbol: SOLUSDT
+    weight: 12
+  - category: medio
+    name: Chainlink
+    symbol: LINKUSDT
+    weight: 10
+  - category: medio
+    name: Avalanche
+    symbol: AVAXUSDT
+    weight: 8
+  - category: medio
+    name: Polkadot
+    symbol: DOTUSDT
+    weight: 8
+  - category: medio
+    name: Near
+    symbol: NEARUSDT
+    weight: 5
+  - category: volatil
+    name: XRP
+    symbol: XRPUSDT
+    weight: 8
+  - category: volatil
+    name: Cardano
+    symbol: ADAUSDT
+    weight: 5
+  - category: volatil
+    name: Tron
+    symbol: TRXUSDT
+    weight: 4
+  safety:
+    cool_down_minutes: 5
+    max_consecutive_losses: 5
+    max_daily_loss_pct: 5.0
+    max_drawdown_pct: 15.0
+  smart_strategy:
+    max_hold_minutes: 5
+    max_take_pct: 2.0
+    rsi_config:
+      estavel:
+        mean: 51
+        overbought: 63
+        oversold: 40
+      medio:
+        mean: 50
+        overbought: 62
+        oversold: 38
+      volatil:
+        mean: 48
+        overbought: 60
+        oversold: 35
+    stop_loss_pct: -0.6
+    stop_loss_tight: -0.3
+    trailing_stop_pct: 0.15
+    urgency_system:
+      enabled: true
+      idle_10min_adjustment: 2
+      idle_20min_adjustment: 3
+      idle_30min_adjustment: 4
+      idle_5min_adjustment: 1
+      idle_60min_adjustment: 5
+      max_rsi_increase: 8
+  targets:
+    daily_profit: 100
+    min_trade_profit: 0.05
+    monthly_profit: 2500
+  trading:
+    amount_per_trade: 500
+    interval_seconds: 3
+    max_positions: 15
+    max_total_investment: 10000
+    timeframe: 1m
+  trend_detection:
+    signals:
+    - macd_crossover
+    - price_vs_sma20
+    - rsi_direction
+    - ema_crossover
+    signals_required: 3
+  version: '2.0'
