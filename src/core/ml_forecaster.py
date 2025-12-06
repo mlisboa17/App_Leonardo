@@ -1,5 +1,5 @@
 """
-🤖 Machine Learning Forecasting - App Leonardo
+🤖 Machine Learning Forecasting - R7_V1
 Powered by Facebook Prophet - Previsões inteligentes de preço
 """
 import pandas as pd

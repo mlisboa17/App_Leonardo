@@ -1,0 +1,13 @@
+# Ignorar no git
+*.pem
+.env
+*.env
+venv/
+venv_new/
+__pycache__/
+*.pyc
+*.db
+data/db_backups/
+data/backups/
+*.tar.gz
+*.zip

@@ -4,13 +4,15 @@ Meta: $100/dia comprando barato e vendendo quando tendência virar
 
 Características:
 - RSI adaptativo por moeda (baseado em histórico)
+- RSI que ENCURTA ao longo do dia (mais agressivo)
+- Configurações ESPECÍFICAS por cripto (volatilidade)
 - Segura enquanto tendência for de ALTA
 - Vende apenas quando tendência VIRAR para QUEDA
-- Sistema de urgência se ficar sem trades
 """
 
 import json
 import os
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, Tuple, Optional
 import pandas as pd
@@ -38,6 +40,17 @@ class SmartStrategy:
     def __init__(self, config: dict = None):
         self.config = config or {}
         
+        # Logger
+        self.logger = logging.getLogger('SmartStrategy')
+        
+        # =====================================================
+        # CONFIGURAÇÕES DO BOT (do YAML)
+        # Cada bot pode ter configs diferentes!
+        # =====================================================
+        self.bot_type = self.config.get('bot_type', 'unknown')
+        self.bot_rsi_config = self.config.get('rsi', {})
+        self.bot_risk_config = self.config.get('risk', {})
+        
         # Carrega perfis das moedas
         self.profiles = self._load_crypto_profiles()
         
@@ -45,16 +58,326 @@ class SmartStrategy:
         self.last_trade_time: Dict[str, datetime] = {}
         self.positions_open_time: Dict[str, datetime] = {}
         
-        # Configurações - SUPER AGRESSIVO PARA VENDER MAIS
-        self.stop_loss_pct = -0.6  # -0.6% stop loss (mais apertado)
-        self.stop_loss_apertado = -0.3  # -0.3% se ficar muito tempo sem lucro
-        self.max_take_pct = 2.0    # +2% máximo (trava lucro mais cedo)
-        self.max_hold_minutes = 5  # Máx 5 min segurando (era 10)
-        self.min_profit_to_hold = 0.05  # Mín 0.05% para vender (quase nada)
-        self.trailing_stop_pct = 0.15  # Trailing stop de 0.15% (mais apertado)
+        # =====================================================
+        # CONFIGURAÇÕES ESPECÍFICAS POR CRIPTO
+        # Baseadas em: ESTUDO_CLASSIFICACAO_CRYPTO.md
+        # CoinMarketCap volatility data + TradingView analysis
+        # =====================================================
+        self.crypto_configs = {
+            # === CATEGORIA: ESTÁVEL (vol 1-3%) ===
+            # BTC - Líder do mercado, $1.77T cap, baixa volatilidade
+            'BTCUSDT': {
+                'stop_loss': -0.5,
+                'take_profit': 0.3,
+                'max_hold_min': 240,
+                'rsi_buy': 40,
+                'rsi_sell': 60,
+                'rsi_urgency_factor': 0.8,
+                'min_profit': 0.10,
+                'category': 'stable',
+            },
+            # ETH - Smart contracts base, correlação 0.85+ c/ BTC
+            'ETHUSDT': {
+                'stop_loss': -0.5,
+                'take_profit': 0.3,
+                'max_hold_min': 240,
+                'rsi_buy': 40,
+                'rsi_sell': 60,
+                'rsi_urgency_factor': 0.8,
+                'min_profit': 0.10,
+                'category': 'stable',
+            },
+            # LTC - Digital silver, correlação 0.80+ c/ BTC
+            'LTCUSDT': {
+                'stop_loss': -0.5,
+                'take_profit': 0.3,
+                'max_hold_min': 240,
+                'rsi_buy': 38,
+                'rsi_sell': 62,
+                'rsi_urgency_factor': 0.9,
+                'min_profit': 0.10,
+                'category': 'stable',
+            },
+            # UNI - DeFi líder, Uniswap
+            'UNIUSDT': {
+                'stop_loss': -0.5,
+                'take_profit': 0.35,
+                'max_hold_min': 240,
+                'rsi_buy': 38,
+                'rsi_sell': 62,
+                'rsi_urgency_factor': 0.9,
+                'min_profit': 0.10,
+                'category': 'stable',
+            },
+            # AAVE - DeFi lending
+            'AAVEUSDT': {
+                'stop_loss': -0.5,
+                'take_profit': 0.35,
+                'max_hold_min': 240,
+                'rsi_buy': 38,
+                'rsi_sell': 62,
+                'rsi_urgency_factor': 0.9,
+                'min_profit': 0.10,
+                'category': 'stable',
+            },
+            # MKR - Maker governance
+            'MKRUSDT': {
+                'stop_loss': -0.6,
+                'take_profit': 0.4,
+                'max_hold_min': 240,
+                'rsi_buy': 38,
+                'rsi_sell': 62,
+                'rsi_urgency_factor': 0.9,
+                'min_profit': 0.12,
+                'category': 'stable',
+            },
+            
+            # === CATEGORIA: MÉDIO (vol 3-5%) ===
+            # SOL - Layer 1 rápida, ecossistema crescente
+            'SOLUSDT': {
+                'stop_loss': -1.0,
+                'take_profit': 0.7,
+                'max_hold_min': 180,
+                'rsi_buy': 35,
+                'rsi_sell': 65,
+                'rsi_urgency_factor': 1.0,
+                'min_profit': 0.20,
+                'category': 'medium',
+            },
+            # BNB - Exchange token, utilidade forte
+            'BNBUSDT': {
+                'stop_loss': -1.0,
+                'take_profit': 0.7,
+                'max_hold_min': 180,
+                'rsi_buy': 35,
+                'rsi_sell': 65,
+                'rsi_urgency_factor': 1.0,
+                'min_profit': 0.20,
+                'category': 'medium',
+            },
+            # LINK - Oracle DeFi fundamental
+            'LINKUSDT': {
+                'stop_loss': -1.0,
+                'take_profit': 0.7,
+                'max_hold_min': 180,
+                'rsi_buy': 35,
+                'rsi_sell': 65,
+                'rsi_urgency_factor': 1.0,
+                'min_profit': 0.20,
+                'category': 'medium',
+            },
+            # ATOM - Cosmos, interoperabilidade
+            'ATOMUSDT': {
+                'stop_loss': -1.0,
+                'take_profit': 0.7,
+                'max_hold_min': 180,
+                'rsi_buy': 34,
+                'rsi_sell': 66,
+                'rsi_urgency_factor': 1.0,
+                'min_profit': 0.20,
+                'category': 'medium',
+            },
+            # AVAX - Avalanche, Layer 1
+            'AVAXUSDT': {
+                'stop_loss': -1.0,
+                'take_profit': 0.75,
+                'max_hold_min': 180,
+                'rsi_buy': 34,
+                'rsi_sell': 66,
+                'rsi_urgency_factor': 1.0,
+                'min_profit': 0.20,
+                'category': 'medium',
+            },
+            # DOT - Polkadot, parachains
+            'DOTUSDT': {
+                'stop_loss': -1.0,
+                'take_profit': 0.7,
+                'max_hold_min': 180,
+                'rsi_buy': 34,
+                'rsi_sell': 66,
+                'rsi_urgency_factor': 1.0,
+                'min_profit': 0.20,
+                'category': 'medium',
+            },
+            # NEAR - Near Protocol
+            'NEARUSDT': {
+                'stop_loss': -1.0,
+                'take_profit': 0.75,
+                'max_hold_min': 180,
+                'rsi_buy': 33,
+                'rsi_sell': 67,
+                'rsi_urgency_factor': 1.1,
+                'min_profit': 0.22,
+                'category': 'medium',
+            },
+            
+            # === CATEGORIA: VOLÁTIL (vol 5-8%) ===
+            # XRP - Pagamentos, notícias legais causam pumps
+            'XRPUSDT': {
+                'stop_loss': -1.2,
+                'take_profit': 1.0,
+                'max_hold_min': 120,
+                'rsi_buy': 30,
+                'rsi_sell': 70,
+                'rsi_urgency_factor': 1.3,
+                'min_profit': 0.25,
+                'category': 'volatile',
+            },
+            # TRX - DApp ecosystem, movimentos bruscos
+            'TRXUSDT': {
+                'stop_loss': -1.2,
+                'take_profit': 1.0,
+                'max_hold_min': 120,
+                'rsi_buy': 30,
+                'rsi_sell': 70,
+                'rsi_urgency_factor': 1.3,
+                'min_profit': 0.25,
+                'category': 'volatile',
+            },
+            # XLM - Stellar, pagamentos
+            'XLMUSDT': {
+                'stop_loss': -1.2,
+                'take_profit': 1.0,
+                'max_hold_min': 120,
+                'rsi_buy': 30,
+                'rsi_sell': 70,
+                'rsi_urgency_factor': 1.3,
+                'min_profit': 0.25,
+                'category': 'volatile',
+            },
+            # FTM - Fantom, DeFi rápido
+            'FTMUSDT': {
+                'stop_loss': -1.3,
+                'take_profit': 1.1,
+                'max_hold_min': 120,
+                'rsi_buy': 28,
+                'rsi_sell': 72,
+                'rsi_urgency_factor': 1.4,
+                'min_profit': 0.28,
+                'category': 'volatile',
+            },
+            # SAND - Sandbox, metaverso
+            'SANDUSDT': {
+                'stop_loss': -1.3,
+                'take_profit': 1.2,
+                'max_hold_min': 100,
+                'rsi_buy': 28,
+                'rsi_sell': 72,
+                'rsi_urgency_factor': 1.4,
+                'min_profit': 0.30,
+                'category': 'volatile',
+            },
+            # MANA - Decentraland
+            'MANAUSDT': {
+                'stop_loss': -1.3,
+                'take_profit': 1.2,
+                'max_hold_min': 100,
+                'rsi_buy': 28,
+                'rsi_sell': 72,
+                'rsi_urgency_factor': 1.4,
+                'min_profit': 0.30,
+                'category': 'volatile',
+            },
+            # GALA - Gaming
+            'GALAUSDT': {
+                'stop_loss': -1.4,
+                'take_profit': 1.2,
+                'max_hold_min': 90,
+                'rsi_buy': 27,
+                'rsi_sell': 73,
+                'rsi_urgency_factor': 1.5,
+                'min_profit': 0.32,
+                'category': 'volatile',
+            },
+            # APE - ApeCoin, NFT/Gaming
+            'APEUSDT': {
+                'stop_loss': -1.4,
+                'take_profit': 1.3,
+                'max_hold_min': 90,
+                'rsi_buy': 27,
+                'rsi_sell': 73,
+                'rsi_urgency_factor': 1.5,
+                'min_profit': 0.32,
+                'category': 'volatile',
+            },
+            
+            # === CATEGORIA: MEME (vol 8%+) ===
+            # DOGE - Original meme, Elon effect, $25B cap
+            'DOGEUSDT': {
+                'stop_loss': -1.5,
+                'take_profit': 1.5,
+                'max_hold_min': 60,
+                'rsi_buy': 25,
+                'rsi_sell': 75,
+                'rsi_urgency_factor': 1.8,
+                'min_profit': 0.40,
+                'category': 'meme',
+            },
+            # SHIB - Shiba Inu
+            'SHIBUSDT': {
+                'stop_loss': -1.5,
+                'take_profit': 1.5,
+                'max_hold_min': 60,
+                'rsi_buy': 25,
+                'rsi_sell': 75,
+                'rsi_urgency_factor': 1.8,
+                'min_profit': 0.40,
+                'category': 'meme',
+            },
+            # PEPE - Nova geração meme
+            'PEPEUSDT': {
+                'stop_loss': -1.6,
+                'take_profit': 1.8,
+                'max_hold_min': 45,
+                'rsi_buy': 23,
+                'rsi_sell': 77,
+                'rsi_urgency_factor': 2.0,
+                'min_profit': 0.50,
+                'category': 'meme',
+            },
+            # FLOKI - Meme Viking
+            'FLOKIUSDT': {
+                'stop_loss': -1.6,
+                'take_profit': 1.8,
+                'max_hold_min': 45,
+                'rsi_buy': 23,
+                'rsi_sell': 77,
+                'rsi_urgency_factor': 2.0,
+                'min_profit': 0.50,
+                'category': 'meme',
+            },
+            # BONK - Meme Solana
+            'BONKUSDT': {
+                'stop_loss': -1.7,
+                'take_profit': 2.0,
+                'max_hold_min': 40,
+                'rsi_buy': 22,
+                'rsi_sell': 78,
+                'rsi_urgency_factor': 2.2,
+                'min_profit': 0.55,
+                'category': 'meme',
+            },
+        }
         
-        # Controle de picos de preço (para trailing stop)
-        self.price_peaks: Dict[str, float] = {}  # {symbol: highest_price_since_entry}
+        # Configuração padrão para moedas não listadas
+        self.default_config = {
+            'stop_loss': -0.6,
+            'take_profit': 0.4,
+            'max_hold_min': 6,
+            'rsi_urgency_factor': 1.3,
+            'min_profit': 0.10,
+        }
+        
+        # Configurações globais - MAIS AGRESSIVO
+        self.stop_loss_pct = -0.6  # -0.6% stop loss base
+        self.stop_loss_apertado = -0.3  # -0.3% se ficar muito tempo
+        self.max_take_pct = 2.0    # +2% máximo
+        self.max_hold_minutes = 5  # Máx 5 min base
+        self.min_profit_to_hold = 0.05  # Mín 0.05% para vender
+        self.trailing_stop_pct = 0.15  # Trailing stop 0.15%
+        
+        # Controle de picos de preço
+        self.price_peaks: Dict[str, float] = {}
         
         # Estatísticas do dia
         self.daily_stats = {
@@ -66,9 +389,73 @@ class SmartStrategy:
             'last_reset': datetime.now().date()
         }
         
-        print(f"✅ {self.name} inicializada")
+        # Hora de início do dia (para calcular urgência)
+        self.day_start = datetime.now().replace(hour=0, minute=0, second=0)
+        
+        print(f"✅ {self.name} inicializada [{self.bot_type}]")
         print(f"   Biblioteca TA: {'SIM' if HAS_TA else 'NÃO'}")
         print(f"   Moedas com perfil: {len(self.profiles)}")
+        print(f"   📊 Configs específicas: {len(self.crypto_configs)} moedas")
+        if self.bot_risk_config:
+            print(f"   ⚙️ Risk do Bot: SL={self.bot_risk_config.get('stop_loss')}% TP={self.bot_risk_config.get('take_profit')}%")
+    
+    
+    def get_crypto_config(self, symbol: str) -> dict:
+        """
+        Retorna configuração específica da cripto.
+        PRIORIDADE:
+        1. Configuração do BOT (do YAML) - se existir
+        2. Configuração específica da crypto
+        3. Configuração default
+        """
+        key = symbol.replace('/', '')
+        crypto_config = self.crypto_configs.get(key, self.default_config).copy()
+        
+        # SOBRESCREVE com configurações do bot (se existirem)
+        if self.bot_risk_config:
+            if 'stop_loss' in self.bot_risk_config:
+                crypto_config['stop_loss'] = self.bot_risk_config['stop_loss']
+            if 'take_profit' in self.bot_risk_config:
+                crypto_config['take_profit'] = self.bot_risk_config['take_profit']
+            if 'max_hold_minutes' in self.bot_risk_config:
+                crypto_config['max_hold_min'] = self.bot_risk_config['max_hold_minutes']
+            if 'min_profit' in self.bot_risk_config:
+                crypto_config['min_profit'] = self.bot_risk_config['min_profit']
+            if 'trailing_stop' in self.bot_risk_config:
+                crypto_config['trailing_stop'] = self.bot_risk_config['trailing_stop']
+        
+        if self.bot_rsi_config:
+            if 'oversold' in self.bot_rsi_config:
+                crypto_config['rsi_buy'] = self.bot_rsi_config['oversold']
+            if 'overbought' in self.bot_rsi_config:
+                crypto_config['rsi_sell'] = self.bot_rsi_config['overbought']
+            if 'urgency_factor' in self.bot_rsi_config:
+                crypto_config['rsi_urgency_factor'] = self.bot_rsi_config['urgency_factor']
+        
+        return crypto_config
+    
+    
+    def get_day_urgency_factor(self) -> float:
+        """
+        Calcula fator de urgência baseado na hora do dia
+        
+        Início do dia (00:00-08:00): Fator 1.0 (normal)
+        Meio do dia (08:00-16:00): Fator 1.3 (mais agressivo)
+        Final do dia (16:00-20:00): Fator 1.6 (bem agressivo)
+        Noite (20:00-24:00): Fator 2.0 (máxima urgência)
+        """
+        hour = datetime.now().hour
+        
+        if hour < 8:
+            return 1.0
+        elif hour < 12:
+            return 1.2
+        elif hour < 16:
+            return 1.4
+        elif hour < 20:
+            return 1.7
+        else:
+            return 2.0
     
     
     def _load_crypto_profiles(self) -> dict:
@@ -236,12 +623,25 @@ class SmartStrategy:
     
     def get_adjusted_buy_rsi(self, symbol: str) -> float:
         """
-        Retorna RSI de compra ajustado com base no tempo sem trades
-        (Sistema de Urgência)
+        Retorna RSI de compra ajustado com base em:
+        1. Configuração específica da crypto (rsi_buy do estudo)
+        2. Tempo sem trades (urgência por inatividade)
+        3. Hora do dia (urgência temporal - mais agressivo à noite)
+        4. Fator de urgência da crypto (volatilidade)
         """
         profile = self.get_profile(symbol)
-        base_rsi = profile.get('buy_rsi', 38)
+        crypto_config = self.get_crypto_config(symbol)
+        
+        # ===== NOVO: Usa rsi_buy do estudo se disponível =====
+        # Cada crypto tem RSI específico baseado em sua volatilidade
+        base_rsi = crypto_config.get('rsi_buy', profile.get('buy_rsi', 38))
         mean_rsi = profile.get('rsi_mean', 50)
+        
+        # Fator de urgência específico da crypto (0.8 estável a 1.8 meme)
+        crypto_urgency = crypto_config.get('rsi_urgency_factor', 1.0)
+        
+        # Fator de urgência do dia (1.0 manhã -> 2.0 noite)
+        day_urgency = self.get_day_urgency_factor()
         
         # Quanto tempo sem trade nessa moeda?
         last_time = self.last_trade_time.get(symbol)
@@ -251,23 +651,47 @@ class SmartStrategy:
         else:
             minutes_idle = (datetime.now() - last_time).total_seconds() / 60
         
-        # Ajusta RSI baseado no tempo parado
-        adjustment = 0
-        
+        # Ajuste base por tempo parado
+        idle_adjustment = 0
         if minutes_idle > 5:
-            adjustment = 1
+            idle_adjustment = 1
         if minutes_idle > 10:
-            adjustment = 2
+            idle_adjustment = 2
+        if minutes_idle > 15:
+            idle_adjustment = 3
         if minutes_idle > 20:
-            adjustment = 3
+            idle_adjustment = 4
         if minutes_idle > 30:
-            adjustment = 4
-        if minutes_idle > 60:
-            adjustment = 5
+            idle_adjustment = 5
+        if minutes_idle > 45:
+            idle_adjustment = 6
         
-        # RSI ajustado (mas nunca passa do RSI médio - 5)
-        adjusted_rsi = base_rsi + adjustment
-        max_allowed = mean_rsi - 5  # Nunca compra em zona neutra
+        # ===== Aplica multiplicadores de urgência =====
+        # Cryptos estáveis: relaxa pouco (urgency 0.8)
+        # Cryptos voláteis: relaxa mais (urgency 1.3-1.8)
+        total_adjustment = idle_adjustment * day_urgency * crypto_urgency
+        
+        # RSI ajustado
+        adjusted_rsi = base_rsi + total_adjustment
+        
+        # Limite máximo baseado na categoria da crypto
+        # Estáveis: max mais conservador
+        # Memes: max mais agressivo
+        category = crypto_config.get('category', 'medium')
+        category_max_bonus = {
+            'stable': 5,    # Conservador
+            'medium': 10,   # Balanceado
+            'volatile': 15, # Agressivo
+            'meme': 20      # Muito agressivo
+        }
+        
+        base_max = mean_rsi - 5
+        urgency_bonus = (day_urgency - 1.0) * category_max_bonus.get(category, 10) * crypto_urgency
+        max_allowed = base_max + urgency_bonus
+        
+        # Log para debug
+        self.logger.debug(f"[{symbol}] RSI Compra: base={base_rsi} ({category}), adj={adjusted_rsi:.1f}, "
+                         f"day_urg={day_urgency:.1f}, crypto_urg={crypto_urgency}, max={max_allowed:.1f}")
         
         return min(adjusted_rsi, max_allowed)
     
@@ -347,27 +771,53 @@ class SmartStrategy:
         """
         Decide se deve vender a posição
         
-        LÓGICA PRINCIPAL:
-        - Stop Loss: SEMPRE ativo (-1.5%)
-        - Segura enquanto tendência for ALTA
-        - Vende quando tendência VIRAR para QUEDA
-        
-        MODO AGRESSIVO (quando positions_full=True):
-        - Critério de venda mais flexível (RSI 50+ em vez de 60+)
-        - Aceita vender em tendência LATERAL
-        - MAS NUNCA vende no prejuízo (preço atual >= preço entrada)
+        🏪 ESTRATÉGIA DE FEIRA (NOVO!):
+        - Com o tempo, o Take Profit DIMINUI (feirante baixando preço)
+        - Só vende quando tendência SAI de ALTA para LATERAL/QUEDA
+        - Cryptos diferentes têm fatores diferentes:
+          * BTC/ETH: HOLD (fator 0.3) - blue chips, segura mais
+          * DOGE/SHIB: FEIRA AGRESSIVA (fator 0.9) - vende rápido
+          * LINK/SOL: FEIRA MODERADA (fator 0.5-0.7)
         
         PROTEÇÃO DE CAPITAL:
-        - Stop loss normal: -1.0%
-        - Stop loss apertado após 10min sem lucro: -0.5%
-        - Trailing stop: Protege lucro quando sobe
+        - Nunca vende no prejuízo (a menos que atinja stop loss)
+        - Stop loss protege contra quedas bruscas
+        - Trailing stop protege lucro já conquistado
         """
         
         # Calcula lucro/prejuízo
         profit_pct = ((current_price - entry_price) / entry_price) * 100
         
         profile = self.get_profile(symbol)
-        sell_rsi = profile.get('sell_rsi', 65)
+        crypto_config = self.get_crypto_config(symbol)
+        
+        # ===== ESTRATÉGIA DE FEIRA - FATOR POR CRYPTO =====
+        # Carrega config da feira se existir
+        feira_factors = {
+            'BTCUSDT': 0.3, 'ETHUSDT': 0.3,  # Blue chips - HOLD
+            'BNBUSDT': 0.4, 'LTCUSDT': 0.7,  # Médio
+            'SOLUSDT': 0.5, 'XRPUSDT': 0.5,  # Voláteis - FEIRA MODERADA
+            'LINKUSDT': 0.7, 'AVAXUSDT': 0.6,  # Alta vol + baixo volume
+            'DOTUSDT': 0.6, 'NEARUSDT': 0.6, 'ADAUSDT': 0.5, 'TRXUSDT': 0.5,
+            'DOGEUSDT': 0.9, 'SHIBUSDT': 0.9, 'PEPEUSDT': 0.9,  # Memes - FEIRA AGRESSIVA
+            'UNIUSDT': 0.5, 'AAVEUSDT': 0.5,
+        }
+        feira_factor = feira_factors.get(symbol, 0.5)
+        
+        # ===== PARÂMETROS ESPECÍFICOS DA CRYPTO (baseado no estudo) =====
+        # Cada categoria tem configs diferentes:
+        # - Estáveis (BTC, ETH): stops apertados, takes pequenos, hold longo
+        # - Médios (SOL, BNB): stops/takes médios
+        # - Voláteis (XRP, TRX): stops/takes largos, hold curto
+        # - Memes (DOGE): stops/takes muito largos, hold muito curto
+        crypto_stop_loss = crypto_config.get('stop_loss', -1.0)
+        crypto_take_profit = crypto_config.get('take_profit', 0.5)
+        crypto_max_hold = crypto_config.get('max_hold_min', 120)
+        crypto_min_profit = crypto_config.get('min_profit', 0.15)
+        crypto_rsi_sell = crypto_config.get('rsi_sell', profile.get('sell_rsi', 65))
+        crypto_category = crypto_config.get('category', 'medium')
+        
+        sell_rsi = crypto_rsi_sell  # Usa RSI de venda específico da crypto
         
         # Calcula indicadores
         df = self.calculate_indicators(df)
@@ -382,6 +832,9 @@ class SmartStrategy:
         if position_time:
             minutes_open = (datetime.now() - position_time).total_seconds() / 60
         
+        # Urgência do dia (mais agressivo à noite)
+        day_urgency = self.get_day_urgency_factor()
+        
         # ===== 0. TRAILING STOP (PROTEGE LUCRO) =====
         # Atualiza pico de preço
         if symbol not in self.price_peaks:
@@ -392,43 +845,74 @@ class SmartStrategy:
         peak_price = self.price_peaks.get(symbol, current_price)
         drawdown_from_peak = ((current_price - peak_price) / peak_price) * 100
         
-        # Se subiu mais de 0.3% e agora caiu 0.15% do pico → VENDE
+        # Se subiu mais que take_profit e agora caiu 0.15% do pico → VENDE
         profit_from_entry_to_peak = ((peak_price - entry_price) / entry_price) * 100
-        if profit_from_entry_to_peak > 0.3 and drawdown_from_peak < -self.trailing_stop_pct:
+        trailing_trigger = crypto_take_profit * 0.6  # 60% do take profit
+        if profit_from_entry_to_peak > trailing_trigger and drawdown_from_peak < -self.trailing_stop_pct:
             # Limpa o pico
             self.price_peaks.pop(symbol, None)
             return True, f"📉 TRAILING STOP (caiu {drawdown_from_peak:.2f}% do pico) +{profit_pct:.2f}%"
         
-        # ===== 0.5. LUCRO MÍNIMO GARANTIDO (VENDE COM QUALQUER LUCRO) =====
-        if profit_pct >= 0.1:  # Com apenas 0.1% de lucro já considera vender
+        # ===== 0.5. LUCRO MÍNIMO GARANTIDO (ESPECÍFICO POR CRYPTO) =====
+        if profit_pct >= crypto_min_profit:
             # Se RSI está subindo muito ou descendo, vende
             if rsi > 55 or (trend == 'QUEDA' and strength >= 2):
                 self.price_peaks.pop(symbol, None)
-                return True, f"💰 LUCRO RÁPIDO +{profit_pct:.2f}% (RSI: {rsi:.1f})"
+                return True, f"💰 LUCRO RÁPIDO +{profit_pct:.2f}% (min: {crypto_min_profit}%)"
         
-        # ===== 1. STOP LOSS PROGRESSIVO =====
+        # ===== 1. STOP LOSS ESPECÍFICO POR CRYPTO =====
+        current_stop = crypto_stop_loss
+        
         # Stop mais apertado se ficar muito tempo sem lucro
-        current_stop = self.stop_loss_pct  # -1.0%
+        if minutes_open > crypto_max_hold and profit_pct < 0.2:
+            current_stop = crypto_stop_loss * 0.5
         
-        if minutes_open > 10 and profit_pct < 0.2:
-            # Após 10min sem lucro → stop mais apertado
-            current_stop = self.stop_loss_apertado  # -0.5%
-        
-        if minutes_open > 5 and profit_pct < -0.3:
-            # Se estiver caindo rápido (já -0.3% em 5min) → vende logo
-            current_stop = -0.5
+        if minutes_open > crypto_max_hold * 0.5 and profit_pct < -0.3:
+            current_stop = max(crypto_stop_loss * 0.5, -0.5)
         
         if profit_pct <= current_stop:
-            # Limpa o pico
             self.price_peaks.pop(symbol, None)
-            return True, f"🛑 STOP LOSS {profit_pct:.2f}% (limite: {current_stop}%)"
+            return True, f"🛑 STOP LOSS {profit_pct:.2f}% (limite: {current_stop:.2f}%)"
         
-        # ===== 2. TAKE PROFIT MÁXIMO =====
-        if profit_pct >= self.max_take_pct:
+        # ===== 2. 🏪 TAKE PROFIT DINÂMICO (ESTRATÉGIA FEIRA) =====
+        # Com o tempo, o TP DIMINUI (feirante baixando preço)
+        time_factor = min(1.0, minutes_open / crypto_max_hold)
+        tp_reduction = time_factor * feira_factor  # Quanto reduzir (0 a feira_factor)
+        tp_dinamico = crypto_take_profit * (1 - tp_reduction * 0.7)  # Reduz até 70% do TP
+        tp_dinamico = max(tp_dinamico, 0.2)  # Mínimo 0.2%
+        
+        # REGRA DA FEIRA: Só vende quando tendência SAI de ALTA
+        pode_vender_feira = False
+        
+        if trend == 'ALTA':
+            # Em ALTA: SEGURA! (a menos que tempo muito longo)
+            if time_factor > 0.9:  # Mais de 90% do tempo max
+                pode_vender_feira = True
+                motivo_feira = f"⏰ Tempo longo ({minutes_open:.0f}m) - liberando capital"
+            else:
+                pode_vender_feira = False
+                motivo_feira = f"📈 ALTA - segurando (TP feira: {tp_dinamico:.2f}%)"
+        elif trend == 'LATERAL':
+            # LATERAL: Pode vender no TP dinâmico
+            pode_vender_feira = True
+            motivo_feira = f"➖ LATERAL - TP feira: {tp_dinamico:.2f}%"
+        else:  # QUEDA
+            # QUEDA: Vende mais rápido ainda
+            pode_vender_feira = True
+            tp_dinamico = max(0.1, tp_dinamico * 0.5)  # Reduz mais
+            motivo_feira = f"📉 QUEDA - vendendo rápido (TP: {tp_dinamico:.2f}%)"
+        
+        # Verifica se atingiu TP dinâmico E pode vender
+        if profit_pct >= tp_dinamico and pode_vender_feira:
             self.price_peaks.pop(symbol, None)
-            return True, f"💰 TAKE MAX +{profit_pct:.2f}%"
+            return True, f"🏪 FEIRA {motivo_feira} +{profit_pct:.2f}%"
         
-        # ===== 3. TEMPO + TENDÊNCIA (NÃO VENDE FORÇADO, SÓ SE TENDÊNCIA VIRAR) =====
+        # Se não pode vender (em ALTA), mostra status
+        if profit_pct >= tp_dinamico and not pode_vender_feira:
+            # Logga que está segurando
+            pass  # Continua segurando
+        
+        # ===== 3. TEMPO + TENDÊNCIA (ESPECÍFICO POR CRYPTO) =====
         if position_time:
             # Detecta queda brusca (caiu mais de 0.3% nos últimos candles)
             if len(df) >= 3:
@@ -437,8 +921,11 @@ class SmartStrategy:
             else:
                 queda_brusca = 0
             
-            # Após 3 minutos: vende se tendência não for mais ALTA ou queda brusca
-            if minutes_open > 3 and profit_pct >= 0:
+            # Tempo de hold ajustado pela urgência do dia (mais curto à noite)
+            adjusted_max_hold = crypto_max_hold / day_urgency
+            
+            # Após 60% do tempo max: vende se tendência não for mais ALTA ou queda brusca
+            if minutes_open > adjusted_max_hold * 0.6 and profit_pct >= 0:
                 if trend != 'ALTA':  # Tendência virou para LATERAL ou QUEDA
                     self.price_peaks.pop(symbol, None)
                     return True, f"⚡ TEND VIROU ({minutes_open:.0f}min) {trend} +{profit_pct:.2f}%"
@@ -446,16 +933,16 @@ class SmartStrategy:
                     self.price_peaks.pop(symbol, None)
                     return True, f"📉 QUEDA BRUSCA ({queda_brusca:.2f}%) +{profit_pct:.2f}%"
             
-            # Após 5 minutos: mesma lógica, mas também vende se no prejuízo com tendência ruim
-            if minutes_open > self.max_hold_minutes:
+            # Após tempo max: mesma lógica, mas também vende se no prejuízo com tendência ruim
+            if minutes_open > adjusted_max_hold:
                 if trend != 'ALTA':  # Tendência não é mais de alta
                     self.price_peaks.pop(symbol, None)
-                    return True, f"⏰ TEMPO+TEND ({minutes_open:.0f}min) {trend} {profit_pct:+.2f}%"
+                    return True, f"⏰ TEMPO+TEND ({minutes_open:.0f}min/{adjusted_max_hold:.0f}max) {trend} {profit_pct:+.2f}%"
                 if queda_brusca < -0.3:  # Queda brusca
                     self.price_peaks.pop(symbol, None)
                     return True, f"⏰ TEMPO+QUEDA ({minutes_open:.0f}min) {queda_brusca:.2f}% {profit_pct:+.2f}%"
-                # Se ainda está em ALTA após 5min, segura mais um pouco (até 8min máx)
-                if minutes_open > 8:
+                # Se ainda está em ALTA após max_hold, segura mais 60% do tempo
+                if minutes_open > adjusted_max_hold * 1.6:
                     self.price_peaks.pop(symbol, None)
                     return True, f"⏰ TEMPO MAX ({minutes_open:.0f}min) {profit_pct:+.2f}%"
         

@@ -1,0 +1,508 @@
+"""
+============================================================
+COORDENADOR MULTI-BOT - R7_V1
+============================================================
+
+Responsabilidades:
+1. Gerenciar os 4 bots especializados
+2. Distribuir capital entre os bots
+3. Monitorar performance geral
+4. Salvar estatísticas unificadas
+5. Controlar limites de segurança
+
+============================================================
+"""
+
+import os
+import sys
+import yaml
+import json
+import time
+import logging
+import threading
+from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Adiciona o diretório raiz ao path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Carrega variáveis de ambiente
+load_dotenv('config/.env')
+
+from src.core.exchange_client import ExchangeClient
+
+
+@dataclass
+class BotStats:
+    """Estatísticas de um bot individual"""
+    name: str
+    bot_type: str
+    enabled: bool = True
+    
+    # Capital
+    allocated_capital: float = 0.0
+    current_capital: float = 0.0
+    
+    # Trades
+    total_trades: int = 0
+    wins: int = 0
+    losses: int = 0
+    win_rate: float = 0.0
+    
+    # PnL
+    total_pnl: float = 0.0
+    daily_pnl: float = 0.0
+    monthly_pnl: float = 0.0
+    
+    # Posições
+    open_positions: int = 0
+    max_positions: int = 5
+    
+    # Timestamps
+    last_trade_time: str = ""
+    last_update: str = ""
+    
+    # Status
+    status: str = "idle"  # idle, running, paused, error
+    error_message: str = ""
+    
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class CoordinatorStats:
+    """Estatísticas globais do coordenador"""
+    # Capital total
+    total_capital: float = 0.0
+    available_capital: float = 0.0
+    invested_capital: float = 0.0
+    
+    # PnL Global
+    total_pnl: float = 0.0
+    daily_pnl: float = 0.0
+    monthly_pnl: float = 0.0
+    
+    # Trades globais
+    total_trades: int = 0
+    total_wins: int = 0
+    total_losses: int = 0
+    global_win_rate: float = 0.0
+    
+    # Bots
+    active_bots: int = 0
+    total_open_positions: int = 0
+    
+    # Status
+    status: str = "stopped"  # stopped, running, paused
+    start_time: str = ""
+    last_update: str = ""
+    
+    # Por bot
+    bots: Dict[str, BotStats] = field(default_factory=dict)
+    
+    def to_dict(self):
+        result = asdict(self)
+        result['bots'] = {k: v.to_dict() if hasattr(v, 'to_dict') else v for k, v in self.bots.items()}
+        return result
+
+
+class MultiBot:
+    """
+    Classe que representa um bot especializado.
+    Cada bot opera com um conjunto específico de cryptos.
+    """
+    
+    def __init__(self, bot_type: str, config: dict, exchange_client: ExchangeClient, logger: logging.Logger):
+        self.bot_type = bot_type
+        self.config = config
+        self.exchange = exchange_client
+        self.logger = logger
+        
+        # Configurações do bot
+        self.name = config.get('name', f'Bot {bot_type}')
+        self.enabled = config.get('enabled', True)
+        self.portfolio = config.get('portfolio', [])
+        self.trading_config = config.get('trading', {})
+        self.rsi_config = config.get('rsi', {})
+        self.risk_config = config.get('risk', {})
+        
+        # Estado
+        self.positions: Dict[str, dict] = {}
+        self.stats = BotStats(
+            name=self.name,
+            bot_type=bot_type,
+            enabled=self.enabled,
+            max_positions=self.trading_config.get('max_positions', 5)
+        )
+        
+        # Importa estratégia
+        from src.strategies.smart_strategy import SmartStrategy
+        
+        # PASSA AS CONFIGURAÇÕES DO BOT PARA A ESTRATÉGIA
+        strategy_config = {
+            'bot_type': bot_type,
+            'rsi': self.rsi_config,
+            'risk': self.risk_config,
+        }
+        self.strategy = SmartStrategy(config=strategy_config)
+        
+        # Configura estratégia com parâmetros do bot
+        self._configure_strategy()
+        
+    def _configure_strategy(self):
+        """Configura a estratégia com os parâmetros específicos do bot"""
+        # Parâmetros de risco
+        self.strategy.stop_loss_pct = self.risk_config.get('stop_loss', -1.0)
+        self.strategy.max_take_pct = self.risk_config.get('take_profit', 0.5)
+        self.strategy.trailing_stop_pct = self.risk_config.get('trailing_stop', 0.15)
+        self.strategy.max_hold_minutes = self.risk_config.get('max_hold_minutes', 5)
+        self.strategy.min_profit_to_hold = self.risk_config.get('min_profit', 0.15)
+        
+    def get_symbols(self) -> List[str]:
+        """Retorna lista de símbolos que este bot opera"""
+        return [crypto['symbol'] for crypto in self.portfolio]
+    
+    def analyze_symbol(self, symbol: str, df) -> tuple:
+        """Analisa um símbolo específico"""
+        # Ajusta RSI baseado na configuração do bot
+        rsi_oversold = self.rsi_config.get('oversold', 35)
+        rsi_overbought = self.rsi_config.get('overbought', 65)
+        
+        signal, reason, indicators = self.strategy.analyze(df, symbol)
+        
+        return signal, reason, indicators
+    
+    def should_sell_position(self, symbol: str, entry_price: float, current_price: float, 
+                            df, position_time: datetime) -> tuple:
+        """Verifica se deve vender uma posição"""
+        positions_full = len(self.positions) >= self.stats.max_positions
+        return self.strategy.should_sell(symbol, entry_price, current_price, df, 
+                                         position_time, positions_full)
+    
+    def update_stats(self, pnl: float, is_win: bool):
+        """Atualiza estatísticas do bot"""
+        self.stats.total_trades += 1
+        self.stats.total_pnl += pnl
+        self.stats.daily_pnl += pnl
+        
+        if is_win:
+            self.stats.wins += 1
+        else:
+            self.stats.losses += 1
+        
+        if self.stats.total_trades > 0:
+            self.stats.win_rate = (self.stats.wins / self.stats.total_trades) * 100
+        
+        self.stats.last_trade_time = datetime.now().isoformat()
+        self.stats.last_update = datetime.now().isoformat()
+
+
+class BotCoordinator:
+    """
+    Coordenador principal que gerencia todos os bots.
+    """
+    
+    def __init__(self, config_path: str = "config/bots_config.yaml"):
+        self.config_path = config_path
+        self.config = self._load_config()
+        
+        # Setup logging
+        self._setup_logging()
+        
+        # Exchange client (compartilhado)
+        self.exchange = self._setup_exchange()
+        
+        # Bots
+        self.bots: Dict[str, MultiBot] = {}
+        
+        # Estatísticas globais
+        self.stats = CoordinatorStats()
+        
+        # Controle
+        self.running = False
+        self.threads: List[threading.Thread] = []
+        
+        # Paths
+        self.data_path = Path("data")
+        self.stats_file = self.data_path / "coordinator_stats.json"
+        
+        # Inicializa bots
+        self._init_bots()
+        
+        # Carrega estado anterior
+        self._load_state()
+        
+    def _load_config(self) -> dict:
+        """Carrega configuração do arquivo YAML"""
+        config_file = Path(self.config_path)
+        if not config_file.exists():
+            raise FileNotFoundError(f"Arquivo de configuração não encontrado: {self.config_path}")
+        
+        with open(config_file, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+    
+    def _setup_logging(self):
+        """Configura logging"""
+        log_config = self.config.get('coordinator', {}).get('logging', {})
+        log_level = getattr(logging, log_config.get('level', 'INFO'))
+        
+        self.logger = logging.getLogger('Coordinator')
+        self.logger.setLevel(log_level)
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        self.logger.addHandler(console_handler)
+        
+        # File handler
+        if log_config.get('save_to_file', True):
+            log_path = Path(log_config.get('file_path', 'logs/coordinator.log'))
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(log_path)
+            file_handler.setFormatter(logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            ))
+            self.logger.addHandler(file_handler)
+    
+    def _setup_exchange(self) -> ExchangeClient:
+        """Configura cliente da exchange"""
+        global_config = self.config.get('global', {})
+        
+        # Verifica se é testnet ou produção
+        is_testnet = global_config.get('testnet', True)
+        
+        # Carrega credenciais das variáveis de ambiente (.env)
+        if is_testnet:
+            api_key = os.getenv('BINANCE_TESTNET_API_KEY', '')
+            api_secret = os.getenv('BINANCE_TESTNET_API_SECRET', '')
+            self.logger.info("[TESTNET] Modo TESTNET ativado")
+        else:
+            api_key = os.getenv('BINANCE_API_KEY', '')
+            api_secret = os.getenv('BINANCE_API_SECRET', '')
+            self.logger.warning("[PRODUCAO] MODO PRODUCAO - DINHEIRO REAL!")
+        
+        if not api_key or not api_secret:
+            env_type = "TESTNET" if is_testnet else "PRODUCAO"
+            self.logger.warning(f"Credenciais da API ({env_type}) nao encontradas no .env!")
+        
+        return ExchangeClient(
+            exchange_name=global_config.get('exchange', 'binance'),
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=is_testnet
+        )
+    
+    def _init_bots(self):
+        """Inicializa os 4 bots especializados"""
+        bot_types = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']
+        
+        for bot_type in bot_types:
+            if bot_type in self.config:
+                bot_config = self.config[bot_type]
+                if bot_config.get('enabled', True):
+                    self.bots[bot_type] = MultiBot(
+                        bot_type=bot_type,
+                        config=bot_config,
+                        exchange_client=self.exchange,
+                        logger=self.logger
+                    )
+                    self.logger.info(f"[OK] {bot_config.get('name', bot_type)} inicializado")
+                else:
+                    self.logger.info(f"[PAUSED] {bot_config.get('name', bot_type)} desabilitado")
+    
+    def _load_state(self):
+        """Carrega estado anterior do arquivo"""
+        if self.stats_file.exists():
+            try:
+                with open(self.stats_file, 'r') as f:
+                    data = json.load(f)
+                    
+                # Restaura estatísticas globais
+                self.stats.total_pnl = data.get('total_pnl', 0.0)
+                self.stats.monthly_pnl = data.get('monthly_pnl', 0.0)
+                self.stats.total_trades = data.get('total_trades', 0)
+                self.stats.total_wins = data.get('total_wins', 0)
+                self.stats.total_losses = data.get('total_losses', 0)
+                
+                # Restaura estatísticas por bot
+                bots_data = data.get('bots', {})
+                for bot_type, bot_stats in bots_data.items():
+                    if bot_type in self.bots:
+                        self.bots[bot_type].stats.total_pnl = bot_stats.get('total_pnl', 0.0)
+                        self.bots[bot_type].stats.total_trades = bot_stats.get('total_trades', 0)
+                        self.bots[bot_type].stats.wins = bot_stats.get('wins', 0)
+                        self.bots[bot_type].stats.losses = bot_stats.get('losses', 0)
+                
+                self.logger.info("[STATE] Estado anterior restaurado")
+            except Exception as e:
+                self.logger.warning(f"⚠️ Erro ao carregar estado: {e}")
+    
+    def save_state(self):
+        """Salva estado atual no arquivo"""
+        self.data_path.mkdir(parents=True, exist_ok=True)
+        
+        # Atualiza estatísticas globais
+        self._update_global_stats()
+        
+        data = self.stats.to_dict()
+        
+        with open(self.stats_file, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+    
+    def _update_global_stats(self):
+        """Atualiza estatísticas globais baseado nos bots"""
+        self.stats.total_pnl = 0
+        self.stats.daily_pnl = 0
+        self.stats.total_trades = 0
+        self.stats.total_wins = 0
+        self.stats.total_losses = 0
+        self.stats.total_open_positions = 0
+        self.stats.active_bots = 0
+        
+        for bot_type, bot in self.bots.items():
+            self.stats.total_pnl += bot.stats.total_pnl
+            self.stats.daily_pnl += bot.stats.daily_pnl
+            self.stats.total_trades += bot.stats.total_trades
+            self.stats.total_wins += bot.stats.wins
+            self.stats.total_losses += bot.stats.losses
+            self.stats.total_open_positions += bot.stats.open_positions
+            
+            if bot.enabled:
+                self.stats.active_bots += 1
+            
+            # Adiciona stats do bot
+            self.stats.bots[bot_type] = bot.stats
+        
+        if self.stats.total_trades > 0:
+            self.stats.global_win_rate = (self.stats.total_wins / self.stats.total_trades) * 100
+        
+        self.stats.last_update = datetime.now().isoformat()
+    
+    def get_all_symbols(self) -> List[str]:
+        """Retorna todos os símbolos de todos os bots"""
+        symbols = []
+        for bot in self.bots.values():
+            symbols.extend(bot.get_symbols())
+        return list(set(symbols))  # Remove duplicatas
+    
+    def get_bot_for_symbol(self, symbol: str) -> Optional[MultiBot]:
+        """Retorna o bot responsável por um símbolo"""
+        for bot in self.bots.values():
+            if symbol in bot.get_symbols():
+                return bot
+        return None
+    
+    def get_stats_for_dashboard(self) -> dict:
+        """Retorna estatísticas formatadas para o dashboard"""
+        self._update_global_stats()
+        
+        return {
+            'global': {
+                'total_pnl': self.stats.total_pnl,
+                'daily_pnl': self.stats.daily_pnl,
+                'monthly_pnl': self.stats.monthly_pnl,
+                'total_trades': self.stats.total_trades,
+                'win_rate': self.stats.global_win_rate,
+                'active_bots': self.stats.active_bots,
+                'open_positions': self.stats.total_open_positions,
+                'status': self.stats.status,
+                'last_update': self.stats.last_update
+            },
+            'bots': {
+                bot_type: {
+                    'name': bot.stats.name,
+                    'enabled': bot.stats.enabled,
+                    'total_pnl': bot.stats.total_pnl,
+                    'daily_pnl': bot.stats.daily_pnl,
+                    'trades': bot.stats.total_trades,
+                    'wins': bot.stats.wins,
+                    'losses': bot.stats.losses,
+                    'win_rate': bot.stats.win_rate,
+                    'open_positions': bot.stats.open_positions,
+                    'max_positions': bot.stats.max_positions,
+                    'status': bot.stats.status,
+                    'portfolio': [c['symbol'] for c in bot.portfolio]
+                }
+                for bot_type, bot in self.bots.items()
+            }
+        }
+    
+    def reset_daily_stats(self):
+        """Reseta estatísticas diárias de todos os bots"""
+        for bot in self.bots.values():
+            bot.stats.daily_pnl = 0.0
+        self.stats.daily_pnl = 0.0
+        self.logger.info("📊 Estatísticas diárias resetadas")
+    
+    def add_crypto_to_bot(self, bot_type: str, symbol: str, name: str, weight: int = 10):
+        """Adiciona uma crypto ao portfolio de um bot"""
+        if bot_type not in self.bots:
+            self.logger.error(f"Bot {bot_type} não encontrado")
+            return False
+        
+        bot = self.bots[bot_type]
+        
+        # Verifica se já existe
+        existing = [c for c in bot.portfolio if c['symbol'] == symbol]
+        if existing:
+            self.logger.warning(f"{symbol} já existe no {bot.name}")
+            return False
+        
+        # Adiciona
+        bot.portfolio.append({
+            'symbol': symbol,
+            'name': name,
+            'weight': weight
+        })
+        
+        self.logger.info(f"[OK] {symbol} adicionado ao {bot.name}")
+        return True
+    
+    def remove_crypto_from_bot(self, bot_type: str, symbol: str):
+        """Remove uma crypto do portfolio de um bot"""
+        if bot_type not in self.bots:
+            self.logger.error(f"Bot {bot_type} não encontrado")
+            return False
+        
+        bot = self.bots[bot_type]
+        bot.portfolio = [c for c in bot.portfolio if c['symbol'] != symbol]
+        
+        self.logger.info(f"🗑️ {symbol} removido do {bot.name}")
+        return True
+
+
+# Singleton para acesso global
+_coordinator_instance: Optional[BotCoordinator] = None
+
+def get_coordinator() -> BotCoordinator:
+    """Retorna instância global do coordenador"""
+    global _coordinator_instance
+    if _coordinator_instance is None:
+        _coordinator_instance = BotCoordinator()
+    return _coordinator_instance
+
+
+if __name__ == "__main__":
+    # Teste básico
+    coordinator = BotCoordinator()
+    
+    print("\n" + "="*60)
+    print("🎖️  COORDENADOR MULTI-BOT - R7_V1")
+    print("="*60)
+    
+    print(f"\n📊 Bots ativos: {len(coordinator.bots)}")
+    
+    for bot_type, bot in coordinator.bots.items():
+        print(f"\n{bot.name}")
+        print(f"   Cryptos: {', '.join(bot.get_symbols())}")
+        print(f"   Stop: {bot.risk_config.get('stop_loss')}% | Take: {bot.risk_config.get('take_profit')}%")
+    
+    print("\n" + "="*60)
+    print("✅ Coordenador inicializado com sucesso!")
+    print("="*60)

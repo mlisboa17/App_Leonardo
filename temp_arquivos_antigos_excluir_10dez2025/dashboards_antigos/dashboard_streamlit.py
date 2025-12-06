@@ -310,6 +310,87 @@ def get_bot_stats():
         'date': datetime.now().strftime('%Y-%m-%d')
     }
 
+def get_accumulated_pnl():
+    """Calcula PnL acumulado do mês e geral a partir dos backups"""
+    backups_dir = os.path.join(os.path.dirname(__file__), '../data/backups')
+    
+    monthly_pnl = 0.0
+    total_pnl = 0.0
+    monthly_trades = 0
+    total_trades = 0
+    days_traded = set()
+    
+    current_month = datetime.now().strftime('%Y%m')
+    
+    # Também verifica arquivos de histórico
+    history_dir = os.path.join(os.path.dirname(__file__), '../data/history')
+    
+    # Dicionário para guardar o último PnL de cada dia
+    daily_pnl_records = {}
+    
+    # Processa backups de stats diárias
+    if os.path.exists(backups_dir):
+        try:
+            for filename in os.listdir(backups_dir):
+                if filename.startswith('daily_stats_backup_') and filename.endswith('.json'):
+                    # Extrai data do filename: daily_stats_backup_20251204_010702.json
+                    try:
+                        date_part = filename.replace('daily_stats_backup_', '').replace('.json', '')
+                        file_date = date_part[:8]  # YYYYMMDD
+                        file_month = file_date[:6]  # YYYYMM
+                        
+                        filepath = os.path.join(backups_dir, filename)
+                        with open(filepath, 'r') as f:
+                            data = json.load(f)
+                        
+                        pnl = data.get('daily_pnl', 0) or data.get('total_pnl', 0) or 0
+                        trades = data.get('total_trades', 0) or 0
+                        
+                        # Guarda o registro mais recente de cada dia
+                        if file_date not in daily_pnl_records or filename > daily_pnl_records[file_date]['filename']:
+                            daily_pnl_records[file_date] = {
+                                'filename': filename,
+                                'pnl': pnl,
+                                'trades': trades,
+                                'month': file_month
+                            }
+                    except:
+                        continue
+        except:
+            pass
+    
+    # Soma os PnLs diários únicos
+    for date, record in daily_pnl_records.items():
+        total_pnl += record['pnl']
+        total_trades += record['trades']
+        days_traded.add(date)
+        
+        if record['month'] == current_month:
+            monthly_pnl += record['pnl']
+            monthly_trades += record['trades']
+    
+    # Adiciona o dia atual se não estiver nos backups
+    today = datetime.now().strftime('%Y%m%d')
+    if today not in daily_pnl_records:
+        current_stats = get_bot_stats()
+        current_pnl = current_stats.get('daily_pnl', 0)
+        current_trades = current_stats.get('total_trades', 0)
+        
+        total_pnl += current_pnl
+        total_trades += current_trades
+        monthly_pnl += current_pnl
+        monthly_trades += current_trades
+        days_traded.add(today)
+    
+    return {
+        'monthly_pnl': monthly_pnl,
+        'total_pnl': total_pnl,
+        'monthly_trades': monthly_trades,
+        'total_trades': total_trades,
+        'days_traded': len(days_traded),
+        'current_month': datetime.now().strftime('%B %Y')
+    }
+
 def get_trade_history():
     """Busca histórico de trades"""
     history_paths = [
@@ -602,6 +683,9 @@ if balance_data:
     total_crypto = sum(v['value'] for v in crypto_values.values())
     total_value = usdt_balance + total_crypto
     
+    # Busca PnL acumulado
+    accumulated = get_accumulated_pnl()
+    
     # ========================================
     # MÉTRICAS PRINCIPAIS
     # ========================================
@@ -637,6 +721,49 @@ if balance_data:
             label="📈 Lucro do Dia",
             value=f"${daily_pnl:,.2f}",
             delta=f"{(daily_pnl/total_value*100):.2f}%" if total_value > 0 else "0%"
+        )
+    
+    # ========================================
+    # 📊 PNL ACUMULADO - DIA / MÊS / GERAL
+    # ========================================
+    
+    st.markdown("### 📊 Lucro Acumulado")
+    
+    col_pnl1, col_pnl2, col_pnl3, col_pnl4 = st.columns(4)
+    
+    monthly_pnl = accumulated.get('monthly_pnl', 0)
+    total_pnl_all = accumulated.get('total_pnl', 0)
+    days_traded = accumulated.get('days_traded', 0)
+    
+    with col_pnl1:
+        delta_day = f"+${daily_pnl:.2f}" if daily_pnl >= 0 else f"-${abs(daily_pnl):.2f}"
+        st.metric(
+            label="📅 Hoje",
+            value=f"${daily_pnl:,.2f}",
+            delta=f"{bot_stats.get('total_trades', 0)} trades"
+        )
+    
+    with col_pnl2:
+        delta_month = f"+${monthly_pnl:.2f}" if monthly_pnl >= 0 else f"-${abs(monthly_pnl):.2f}"
+        st.metric(
+            label=f"📆 Mês ({datetime.now().strftime('%b')})",
+            value=f"${monthly_pnl:,.2f}",
+            delta=f"{accumulated.get('monthly_trades', 0)} trades"
+        )
+    
+    with col_pnl3:
+        st.metric(
+            label="💰 Total Geral",
+            value=f"${total_pnl_all:,.2f}",
+            delta=f"{accumulated.get('total_trades', 0)} trades"
+        )
+    
+    with col_pnl4:
+        avg_daily = total_pnl_all / days_traded if days_traded > 0 else 0
+        st.metric(
+            label="📊 Média/Dia",
+            value=f"${avg_daily:,.2f}",
+            delta=f"{days_traded} dias operados"
         )
     
     # ========================================

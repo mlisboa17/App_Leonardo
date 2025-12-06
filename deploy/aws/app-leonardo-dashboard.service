@@ -1,0 +1,19 @@
+[Unit]
+Description=App Leonardo Dashboard (Streamlit)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app-leonardo
+Environment="PATH=/home/ubuntu/app-leonardo/venv/bin"
+ExecStart=/home/ubuntu/app-leonardo/venv/bin/streamlit run frontend/dashboard_multibot.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+Restart=always
+RestartSec=10
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

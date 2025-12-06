@@ -1,0 +1,23 @@
+[Unit]
+Description=App Leonardo Trading Bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app-leonardo
+Environment="PATH=/home/ubuntu/app-leonardo/venv/bin"
+EnvironmentFile=/home/ubuntu/app-leonardo/.env
+ExecStart=/home/ubuntu/app-leonardo/venv/bin/python main_multibot.py
+Restart=always
+RestartSec=10
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+
+# Limites
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

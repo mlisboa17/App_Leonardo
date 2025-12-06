@@ -1,0 +1,400 @@
+# ============================================================
+# CONFIGURAÇÃO DO SISTEMA MULTI-BOT - R7_V1
+# ============================================================
+# 
+# 🎯 META: 7.5% AO MÊS = $75/mês com $1000
+# ✅ ESTRATÉGIA SEMI-AGRESSIVA - $2.50/dia
+#
+# PROBLEMA ANTERIOR: TP muito baixo = lucro de $0.07/trade
+# SOLUÇÃO: TP aumentado para lucrar $0.70-1.20/trade
+#
+# ============================================================
+
+# ===== CONFIGURAÇÕES GLOBAIS =====
+global:
+  exchange: "binance"
+  testnet: false  # PRODUÇÃO - Dinheiro Real!
+  total_capital: 1000
+  
+  # ===== MODO SEMI-AGRESSIVO 7.5% =====
+  aggressive_mode: true
+  target_monthly_return: 7.5  # 7.5% ao mês = $75
+  
+  # ===== ESTRATÉGIA HÍBRIDA =====
+  strategy_mode: "spot"  # "spot" ou "hybrid"
+  hybrid_config:
+    spot_percentage: 100    # FASE 1: 100% Spot Agressivo
+    futures_percentage: 0
+    futures_leverage: 2     # Quando ativar, máximo 2x
+  
+  # ===== METAS SEMI-AGRESSIVAS (7.5% MÊS) =====
+  monthly_targets:
+    super: 100             # 🏆 SUPER: $100/mês (10%)
+    target: 75             # ✅ META: $75/mês (7.5%)
+    good: 60               # 📊 BOM: $60/mês (6%)
+    minimum: 40            # ⚠️ MÍNIMO: $40/mês (4%)
+  
+  # ===== META DIÁRIA ($75/30 = $2.50/dia) =====
+  daily_target:
+    target: 2.50           # Meta principal: $2.50/dia
+    minimum: 1.25          # Mínimo: $1.25/dia
+    alert_at: 70           # Alerta quando atingir 70% da meta
+  
+  # ===== PROTEÇÕES DE SEGURANÇA (AJUSTADAS) =====
+  safety:
+    max_daily_loss_pct: 5.0        # PARA se perder 5% no dia (era 3%)
+    max_weekly_loss_pct: 10.0      # PARA se perder 10% na semana
+    max_monthly_loss_pct: 15.0     # Stop mensal (era 10%)
+    max_drawdown_pct: 20.0         # Drawdown máximo (era 15%)
+    emergency_stop_loss: 25.0      # Stop de emergência total
+    cool_down_after_losses: 3      # 3 min pausa após losses
+    consecutive_losses_pause: 4    # Pausa após 4 losses seguidos
+  
+  # ===== DISTRIBUIÇÃO DE CAPITAL (MAIS AGRESSIVA) =====
+  capital_distribution:
+    poupanca: 10           # 10% RESERVA ($100) - menos reserva
+    bot_estavel: 30        # 30% estáveis ($300)
+    bot_medio: 35          # 35% médias ($350) - mais aqui
+    bot_volatil: 20        # 20% voláteis ($200) - mais agressivo
+    bot_meme: 5            # 5% meme coins ($50)
+  
+  # ===== AUTO-TUNER + MODO OPORTUNISTA =====
+  auto_tuner:
+    enabled: true
+    adjustment_interval: 180   # Analisa a cada 3 minutos (era 5)
+    opportunistic_mode: true   # 🆕 Modo Oportunista ativo
+    
+    # Ajustes por volatilidade (mais agressivos)
+    volatility_adjustments:
+      low:
+        stop_loss_mult: 0.8
+        take_profit_mult: 0.9
+        position_mult: 1.4     # Posição maior em vol baixa
+      normal:
+        stop_loss_mult: 1.0
+        take_profit_mult: 1.0
+        position_mult: 1.2     # Posição aumentada
+      high:
+        stop_loss_mult: 1.2
+        take_profit_mult: 1.3  # TP maior em vol alta
+        position_mult: 0.8
+      extreme:
+        stop_loss_mult: 1.4
+        take_profit_mult: 1.5
+        position_mult: 0.5
+    
+    # Ajustes por tendência (mais agressivos)
+    trend_adjustments:
+      strong_up:
+        rsi_buy_mult: 1.15     # Compra RSI mais alto
+        take_profit_mult: 1.5  # TP 50% maior
+      up:
+        rsi_buy_mult: 1.1
+        take_profit_mult: 1.3
+      neutral:
+        rsi_buy_mult: 1.0
+        take_profit_mult: 1.0
+      down:
+        rsi_buy_mult: 0.85     # Compra só oversold forte
+        take_profit_mult: 0.9
+      strong_down:
+        rsi_buy_mult: 0.8
+        take_profit_mult: 0.7
+  
+  # ===== POUPANÇA / RESERVA (DESATIVADA) =====
+  # Removida para liberar mais capital para trading
+  poupanca:
+    enabled: false          # DESATIVADO - capital livre para trades
+    percentual: 0           # 0% reserva
+    min_balance: 0
+    super_opportunity_threshold: 20
+    max_use_per_trade: 0
+    cryptos_allowed:
+      - "BTCUSDT"
+      - "ETHUSDT"
+    recovery_rate: 0
+  
+  # ===== INICIALIZAÇÃO =====
+  startup:
+    sell_all_positions: false
+    wait_after_sell: 5
+    log_initial_balance: true
+  
+  # Horário de operação (24/7)
+  trading_hours:
+    start: "00:00"
+    end: "23:59"
+    active_days: [0, 1, 2, 3, 4, 5, 6]
+
+# ===== BOT 1: ESTÁVEIS (Baixa Volatilidade 1-3%) =====
+# 🎯 Meta: 6-8% de contribuição para os 10%
+bot_estavel:
+  name: "Bot Estavel"
+  description: "Cryptos estáveis - Scalping AGRESSIVO"
+  enabled: true
+  
+  portfolio:
+    - symbol: "BTCUSDT"
+      name: "Bitcoin"
+      weight: 40
+    - symbol: "ETHUSDT"
+      name: "Ethereum"
+      weight: 30
+    - symbol: "BNBUSDT"
+      name: "BNB"
+      weight: 15
+    - symbol: "LTCUSDT"
+      name: "Litecoin"
+      weight: 15
+  
+  trading:
+    amount_per_trade: 70   # $70 por trade (aumentado de $60)
+    max_positions: 4       # 4 posições (era 3)
+    timeframe: "5m"
+  
+  rsi:
+    oversold: 28           # Compra RSI < 28 (MUITO seletivo - menos ansioso)
+    overbought: 72         # Vende RSI > 72 (deixa subir mais)
+    urgency_factor: 0.6    # Menos urgente
+
+  risk:
+    stop_loss: -1.2        # Stop -1.2%
+    take_profit: 1.8       # Take +1.8% ← META 7.5%
+    trailing_stop: 0.45    # Trailing
+    max_hold_minutes: 180  # Tempo para atingir TP
+    min_profit: 0.6        # Min profit
+    min_interval_minutes: 30  # Espera 30min entre compras
+    sma_periods: [20, 50, 200]
+  
+  # Estratégia: 3-4 trades/dia
+  # Win rate esperado: 55-60%
+  # Lucro médio/trade: ~$0.80
+
+# ===== BOT 2: MÉDIOS (Volatilidade Média 3-5%) =====
+# 🎯 Meta: 35-40% de contribuição para os 10%
+bot_medio:
+  name: "Bot Medio"
+  description: "Cryptos média volatilidade - PRINCIPAL para 10%"
+  enabled: true
+  
+  portfolio:
+    - symbol: "SOLUSDT"
+      name: "Solana"
+      weight: 25
+    - symbol: "LINKUSDT"
+      name: "Chainlink"
+      weight: 20
+    - symbol: "AVAXUSDT"
+      name: "Avalanche"
+      weight: 20
+    - symbol: "DOTUSDT"
+      name: "Polkadot"
+      weight: 20
+    - symbol: "NEARUSDT"
+      name: "Near"
+      weight: 15
+  
+  trading:
+    amount_per_trade: 65   # $65 por trade (aumentado de $55)
+    max_positions: 4       # 4 posições (era 3)
+    timeframe: "5m"
+  
+  rsi:
+    oversold: 26           # RSI < 26 (MUITO seletivo - menos ansioso)
+    overbought: 74         # RSI > 74 (deixa subir mais)
+    urgency_factor: 0.7    # Menos urgente
+
+  risk:
+    stop_loss: -1.5        # Stop -1.5%
+    take_profit: 2.3       # Take +2.3% ← META 7.5%
+    trailing_stop: 0.55    # Trailing
+    max_hold_minutes: 120  # Tempo para atingir TP
+    min_profit: 0.8        # Min profit
+    min_interval_minutes: 20  # Espera 20min entre compras# ===== BOT 3: VOLÁTEIS (Alta Volatilidade 5-8%) =====
+# 🎯 Meta: 35-40% de contribuição para os 10%
+bot_volatil:
+  name: "Bot Volatil"
+  description: "Cryptos alta volatilidade - AGRESSIVO"
+  enabled: true
+  
+  portfolio:
+    - symbol: "XRPUSDT"
+      name: "XRP"
+      weight: 35
+    - symbol: "ADAUSDT"
+      name: "Cardano"
+      weight: 35
+    - symbol: "TRXUSDT"
+      name: "Tron"
+      weight: 30
+  
+  trading:
+    amount_per_trade: 45   # $45 por trade (era $25)
+    max_positions: 3       # 3 posições (era 2)
+    timeframe: "5m"
+  
+  rsi:
+    oversold: 30           # RSI < 30 (era 28)
+    overbought: 70         # RSI > 70 (era 72)
+    urgency_factor: 1.3
+  
+  risk:
+    stop_loss: -2.0        # Stop -2.0%
+    take_profit: 3.0       # Take +3.0% ← META 7.5%
+    trailing_stop: 0.7     # Trailing
+    max_hold_minutes: 100  # Tempo para atingir TP
+    min_profit: 1.0        # Min profit
+
+# ===== BOT 4: MEME COINS =====
+# 🎯 Meta: 15-20% de contribuição - Alto risco, alto retorno
+bot_meme:
+  name: "Bot Meme"
+  description: "Meme coins - YOLO controlado"
+  enabled: true
+  
+  portfolio:
+    - symbol: "DOGEUSDT"
+      name: "Dogecoin"
+      weight: 40
+    - symbol: "SHIBUSDT"
+      name: "Shiba"
+      weight: 30
+    - symbol: "PEPEUSDT"
+      name: "Pepe"
+      weight: 30
+  
+  trading:
+    amount_per_trade: 25   # $25 por trade (era $15)
+    max_positions: 2       # 2 posições (era 1)
+    timeframe: "5m"
+  
+  rsi:
+    oversold: 25           # RSI < 25 (era 22)
+    overbought: 75         # RSI > 75 (era 78)
+    urgency_factor: 1.6
+  
+  risk:
+    stop_loss: -2.5        # Stop -2.5%
+    take_profit: 4.0       # Take +4.0% ← META 7.5%
+    trailing_stop: 0.9     # Trailing
+    max_hold_minutes: 60   # Tempo para atingir TP
+    min_profit: 1.2        # Min profit
+
+# ============================================================
+# CONTROLE DO USUÁRIO vs IA
+# ============================================================
+# Esta seção permite que o USUÁRIO mantenha controle mesmo
+# quando a IA está ativa. A IA NUNCA pode alterar estes campos.
+# ============================================================
+user_control:
+  # ===== PARÂMETROS BLOQUEADOS (IA NÃO PODE ALTERAR) =====
+  locked_params:
+    - "stop_loss"          # IA não pode mudar stop loss
+    - "take_profit"        # IA não pode mudar take profit
+    - "amount_per_trade"   # IA não pode mudar tamanho das ordens
+    - "max_positions"      # IA não pode mudar número de posições
+  
+  # ===== PERMISSÕES DA IA =====
+  ai_permissions:
+    can_adjust_rsi: true           # IA pode ajustar RSI? (compra/venda)
+    can_adjust_trailing: true      # IA pode ajustar trailing stop?
+    can_adjust_urgency: true       # IA pode ajustar urgência?
+    can_enable_disable_bots: false # IA pode habilitar/desabilitar bots?
+    can_change_portfolio: false    # IA pode mudar cryptos do portfolio?
+    can_use_poupanca: false        # IA pode usar poupança?
+    can_change_timeframe: false    # IA pode mudar timeframe?
+  
+  # ===== LIMITES MÁXIMOS DE AJUSTE DA IA =====
+  # Mesmo para parâmetros permitidos, a IA tem limites
+  ai_adjustment_limits:
+    rsi_max_change: 5              # IA pode ajustar RSI em ±5 pontos
+    trailing_max_change: 0.2       # IA pode ajustar trailing em ±0.2%
+    urgency_max_change: 0.3        # IA pode ajustar urgência em ±0.3
+  
+  # ===== OVERRIDE MANUAL =====
+  # Se true, mudanças manuais no config SEMPRE prevalecem
+  # A IA espera 24h antes de sugerir alterações em campos editados
+  manual_override_enabled: true
+  override_cooldown_hours: 24
+  
+  # ===== NOTIFICAÇÕES =====
+  notify_user_on_ai_change: true   # Avisar quando IA fizer mudanças
+  require_approval: false          # Requerer aprovação antes de aplicar?
+
+# ===== PORTFOLIO EXPANDIDO (Cryptos Disponíveis para Adicionar) =====
+available_cryptos:
+  # Estáveis (adicionar ao bot_estavel)
+  stable:
+    - { symbol: "UNIUSDT", name: "Uniswap", volatility: "low" }
+    - { symbol: "AAVEUSDT", name: "Aave", volatility: "low" }
+    - { symbol: "MKRUSDT", name: "Maker", volatility: "low" }
+  
+  # Médias (adicionar ao bot_medio)
+  medium:
+    - { symbol: "ATOMUSDT", name: "Cosmos", volatility: "medium" }
+    - { symbol: "ALGOUSDT", name: "Algorand", volatility: "medium" }
+    - { symbol: "XLMUSDT", name: "Stellar", volatility: "medium" }
+    - { symbol: "VETUSDT", name: "VeChain", volatility: "medium" }
+    - { symbol: "ICPUSDT", name: "Internet Computer", volatility: "medium" }
+  
+  # Voláteis (adicionar ao bot_volatil)
+  volatile:
+    - { symbol: "FTMUSDT", name: "Fantom", volatility: "high" }
+    - { symbol: "SANDUSDT", name: "Sandbox", volatility: "high" }
+    - { symbol: "MANAUSDT", name: "Decentraland", volatility: "high" }
+    - { symbol: "AXSUSDT", name: "Axie Infinity", volatility: "high" }
+    - { symbol: "GALAUSDT", name: "Gala", volatility: "high" }
+  
+  # Meme/Especulativos (adicionar ao bot_meme)
+  meme:
+    - { symbol: "WIFUSDT", name: "Dogwifhat", volatility: "extreme" }
+    - { symbol: "BOMEUSDT", name: "Book of Meme", volatility: "extreme" }
+    - { symbol: "MEMEUSDT", name: "Memecoin", volatility: "extreme" }
+
+# ===== CONFIGURAÇÕES DO COORDENADOR =====
+coordinator:
+  name: "🎖️ Coordenador"
+  
+  # Balanceamento de capital
+  rebalance:
+    enabled: true
+    interval_hours: 4     # Rebalanceia a cada 4 horas
+    threshold_pct: 10     # Só rebalanceia se diferença > 10%
+  
+  # Métricas e alertas
+  alerts:
+    telegram_enabled: false
+    telegram_token: ""
+    telegram_chat_id: ""
+    
+    # Alertas
+    alert_on_daily_profit: 50      # Alerta quando lucro > $50
+    alert_on_daily_loss: -30       # Alerta quando perda > $30
+    alert_on_win_streak: 5         # Alerta após 5 wins seguidos
+    alert_on_loss_streak: 3        # Alerta após 3 losses seguidos
+  
+  # Logs
+  logging:
+    level: "INFO"
+    save_to_file: true
+    file_path: "logs/coordinator.log"
+    
+  # Dashboard
+  dashboard:
+    port: 8501
+    refresh_interval: 5   # Segundos
+    show_charts: true
+    show_positions: true
+    show_history: true
+
+# ===== REGRAS DE URGÊNCIA POR HORA =====
+urgency_by_hour:
+  # Multiplica o RSI threshold baseado na hora
+  # Mais tarde = mais urgente = aceita mais trades
+  "00-06": 1.0    # Madrugada - conservador
+  "06-09": 1.1    # Manhã cedo
+  "09-12": 1.2    # Manhã
+  "12-15": 1.3    # Almoço/Tarde
+  "15-18": 1.4    # Tarde
+  "18-21": 1.6    # Noite
+  "21-24": 1.8    # Noite tarde - mais agressivo

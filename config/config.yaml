@@ -4,7 +4,7 @@ data:
   csv_reports: data/reports
 exchange:
   name: binance
-  testnet: true
+  testnet: false  # ⚠️ PRODUÇÃO - Dinheiro Real!
 execution:
   dry_run: false
   interval_seconds: 3
@@ -14,8 +14,8 @@ indicators:
     signal: 9
     slow: 26
   rsi:
-    overbought: 55
-    oversold: 45
+    overbought: 65
+    oversold: 35
     period: 14
   sma:
     periods:
@@ -26,14 +26,14 @@ logging:
   file: logs/trading_bot.log
   level: INFO
 safety:
-  max_daily_loss: 100.0
+  max_daily_loss: 150.0
   max_drawdown: 25
   price_deviation_limit: 30.0
 strategy:
   type: smart
 trading:
   amount_per_trade: 500.0
-  daily_profit_target: 200.0
+  daily_profit_target: 100.0
   max_positions: 15
   max_total_investment: 100000.0
   symbols:
