@@ -50,13 +50,14 @@ global:
     cool_down_after_losses: 3      # 3 min pausa após losses
     consecutive_losses_pause: 4    # Pausa após 4 losses seguidos
   
-  # ===== DISTRIBUIÇÃO DE CAPITAL (MAIS AGRESSIVA) =====
+  # ===== DISTRIBUIÇÃO DE CAPITAL (APENAS 2 BOTS ATIVOS) =====
+  # Bot Estavel e Bot Meme PAUSADOS por baixo desempenho
   capital_distribution:
-    poupanca: 10           # 10% RESERVA ($100) - menos reserva
-    bot_estavel: 30        # 30% estáveis ($300)
-    bot_medio: 35          # 35% médias ($350) - mais aqui
-    bot_volatil: 20        # 20% voláteis ($200) - mais agressivo
-    bot_meme: 5            # 5% meme coins ($50)
+    poupanca: 10           # 10% RESERVA ($100)
+    bot_estavel: 0         # PAUSADO - Win rate 0%
+    bot_medio: 50          # 50% médias ($500) - Bot #2 (55% WR)
+    bot_volatil: 40        # 40% voláteis ($400) - Bot #1 (67% WR)
+    bot_meme: 0            # PAUSADO - Win rate 45%
   
   # ===== AUTO-TUNER + MODO OPORTUNISTA =====
   auto_tuner:
@@ -128,10 +129,11 @@ global:
 
 # ===== BOT 1: ESTÁVEIS (Baixa Volatilidade 1-3%) =====
 # 🎯 Meta: 6-8% de contribuição para os 10%
+# ⚠️ PAUSADO: Win rate 0% - Apenas 1 trade (loss)
 bot_estavel:
   name: "Bot Estavel"
   description: "Cryptos estáveis - Scalping AGRESSIVO"
-  enabled: true
+  enabled: false  # PAUSADO - Pior desempenho
   
   portfolio:
     - symbol: "BTCUSDT"
@@ -247,10 +249,11 @@ bot_volatil:
 
 # ===== BOT 4: MEME COINS =====
 # 🎯 Meta: 15-20% de contribuição - Alto risco, alto retorno
+# ⚠️ PAUSADO: Win rate 45.45% - Segundo pior desempenho
 bot_meme:
   name: "Bot Meme"
   description: "Meme coins - YOLO controlado"
-  enabled: true
+  enabled: false  # PAUSADO - Win rate abaixo de 50%
   
   portfolio:
     - symbol: "DOGEUSDT"

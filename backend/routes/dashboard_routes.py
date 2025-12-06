@@ -37,26 +37,25 @@ async def get_dashboard_summary(
     """
     # Carregar dados
     balances = load_json_file("data/dashboard_balances.json", {})
-    daily_stats = load_json_file("data/daily_stats.json", {})
     positions = load_json_file("data/multibot_positions.json", {})
     coordinator = load_json_file("data/coordinator_stats.json", {})
     
-    # Calcular totais
-    total_balance = balances.get("total_usdt", 0)
-    available = balances.get("available_usdt", 0)
-    in_positions = balances.get("in_positions", 0)
+    # Calcular totais - usando campos corretos do dashboard_balances.json
+    total_balance = balances.get("total_balance", 0)
+    available = balances.get("usdt_balance", 0)
+    in_positions = balances.get("crypto_balance", 0)
     
-    # PnL
-    pnl_today = daily_stats.get("pnl_today", 0)
-    pnl_week = daily_stats.get("pnl_week", 0)
-    pnl_month = daily_stats.get("pnl_month", 0)
+    # PnL do coordinator_stats
+    pnl_today = coordinator.get("daily_pnl", 0)
+    pnl_week = coordinator.get("total_pnl", 0)  # Aproximação
+    pnl_month = coordinator.get("monthly_pnl", 0)
     
-    # Stats
-    total_trades = daily_stats.get("total_trades", 0)
-    win_rate = daily_stats.get("win_rate", 0)
+    # Stats do coordinator
+    total_trades = coordinator.get("total_trades", 0)
+    win_rate = coordinator.get("global_win_rate", 0)
     
     # Posições e bots
-    open_positions = len(positions.get("positions", []))
+    open_positions = coordinator.get("total_open_positions", 0)
     active_bots = coordinator.get("active_bots", 0)
     
     return DashboardSummary(
@@ -179,15 +178,15 @@ async def get_bots_status(
     result = []
     for bot_name, bot_data in bots.items():
         result.append({
-            "name": bot_name,
+            "name": bot_data.get("name", bot_name),
             "status": bot_data.get("status", "unknown"),
-            "pnl_today": bot_data.get("pnl_today", 0),
-            "pnl_total": bot_data.get("pnl_total", 0),
-            "trades_today": bot_data.get("trades_today", 0),
+            "pnl_today": bot_data.get("daily_pnl", 0),
+            "pnl_total": bot_data.get("total_pnl", 0),
+            "trades_today": bot_data.get("total_trades", 0),
             "win_rate": bot_data.get("win_rate", 0),
             "open_positions": bot_data.get("open_positions", 0),
-            "capital_allocated": bot_data.get("capital", 0),
-            "last_trade": bot_data.get("last_trade")
+            "capital_allocated": bot_data.get("allocated_capital", 0),
+            "last_trade": bot_data.get("last_trade_time")
         })
     
     return {"bots": result}
