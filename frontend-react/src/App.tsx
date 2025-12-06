@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Positions from './pages/Positions'
 import Trades from './pages/Trades'
 import Config from './pages/Config'
+import BotControl from './pages/BotControl'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="positions" element={<Positions />} />
         <Route path="trades" element={<Trades />} />
+        <Route path="bots" element={<BotControl />} />
         <Route path="config" element={<Config />} />
       </Route>
     </Routes>

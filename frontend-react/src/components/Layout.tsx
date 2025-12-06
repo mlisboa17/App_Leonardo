@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { 
   LayoutDashboard, Activity, History, Settings, 
-  LogOut, Bot, User, Bell, AlertOctagon 
+  LogOut, Bot, User, Bell, AlertOctagon, Zap 
 } from 'lucide-react'
 import { actionsApi } from '../services/api'
 import { useState } from 'react'
@@ -32,6 +32,7 @@ export default function Layout() {
     { to: '/', icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard' },
     { to: '/positions', icon: <Activity className="w-5 h-5" />, label: 'Posições' },
     { to: '/trades', icon: <History className="w-5 h-5" />, label: 'Histórico' },
+    { to: '/bots', icon: <Zap className="w-5 h-5" />, label: 'Controle Bots' },
     { to: '/config', icon: <Settings className="w-5 h-5" />, label: 'Config' },
   ]
 

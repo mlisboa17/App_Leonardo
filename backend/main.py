@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .routes import auth_routes, dashboard_routes, config_routes, actions_routes
+from .routes import auth_routes, dashboard_routes, config_routes, actions_routes, bot_control_routes
 
 
 # Lifespan para startup/shutdown
@@ -103,6 +103,7 @@ app.include_router(auth_routes.router, prefix="/api")
 app.include_router(dashboard_routes.router, prefix="/api")
 app.include_router(config_routes.router, prefix="/api")
 app.include_router(actions_routes.router, prefix="/api")
+app.include_router(bot_control_routes.router, prefix="/api")
 
 
 # Rota raiz
