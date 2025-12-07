@@ -224,3 +224,93 @@ async def get_pnl_chart(
         chart_data["cumulative_pnl"].append(cumulative)
     
     return chart_data
+
+
+@router.get("/indicators")
+async def get_indicators(
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Obter indicadores técnicos de todas as moedas monitoradas
+    """
+    import yaml
+    
+    # Carregar configuração dos bots
+    bots_config_path = Path("config/bots_config.yaml")
+    bots_config = {}
+    if bots_config_path.exists():
+        with open(bots_config_path, 'r', encoding='utf-8') as f:
+            bots_config = yaml.safe_load(f) or {}
+    
+    # Extrair configuração de indicadores de cada bot
+    bots_indicator_config = []
+    all_symbols = set()
+    symbol_to_bot = {}
+    
+    for bot_key in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+        bot = bots_config.get(bot_key, {})
+        if not bot:
+            continue
+            
+        symbols = [p.get('symbol', '') for p in bot.get('portfolio', [])]
+        all_symbols.update(symbols)
+        
+        for symbol in symbols:
+            symbol_to_bot[symbol] = bot.get('name', bot_key)
+        
+        bots_indicator_config.append({
+            'name': bot.get('name', bot_key),
+            'speed_profile': bot.get('speed_profile', 'medium'),
+            'strategy_type': bot.get('strategy_type', 'unknown'),
+            'symbols': symbols,
+            'buy_conditions': bot.get('indicators', {}).get('buy_conditions', 'majority'),
+            'sell_conditions': bot.get('indicators', {}).get('sell_conditions', 'majority')
+        })
+    
+    # Carregar indicadores calculados (se existir arquivo de cache)
+    indicators_cache = load_json_file("data/cache/indicators.json", {})
+    
+    # Carregar profiles de crypto
+    crypto_profiles = load_json_file("data/crypto_profiles.json", {})
+    
+    indicators = []
+    for symbol in sorted(all_symbols):
+        cached = indicators_cache.get(symbol, {})
+        profile = crypto_profiles.get(symbol, {})
+        
+        # Dados do cache ou valores mock para demonstração
+        rsi = cached.get('rsi', profile.get('rsi_mean', 50))
+        macd = cached.get('macd', 0)
+        macd_signal = cached.get('macd_signal', 0)
+        trend = cached.get('trend', 'LATERAL')
+        trend_strength = cached.get('trend_strength', 2)
+        
+        # Determinar sinais baseados nos indicadores
+        buy_rsi = profile.get('buy_rsi', 38)
+        sell_rsi = profile.get('sell_rsi', 62)
+        
+        buy_signal = rsi < buy_rsi and macd > macd_signal
+        sell_signal = rsi > sell_rsi or (trend == 'QUEDA' and trend_strength >= 3)
+        
+        indicators.append({
+            'symbol': symbol,
+            'price': cached.get('price', 0),
+            'rsi': rsi,
+            'macd': macd,
+            'macd_signal': macd_signal,
+            'trend': trend,
+            'trend_strength': trend_strength,
+            'sma20': cached.get('sma20', 0),
+            'ema9': cached.get('ema9', 0),
+            'ema21': cached.get('ema21', 0),
+            'volume_ratio': cached.get('volume_ratio', 1.0),
+            'buy_signal': buy_signal,
+            'sell_signal': sell_signal,
+            'bot_assigned': symbol_to_bot.get(symbol)
+        })
+    
+    return {
+        'indicators': indicators,
+        'bots_config': bots_indicator_config,
+        'last_update': indicators_cache.get('_timestamp', datetime.now().isoformat())
+    }

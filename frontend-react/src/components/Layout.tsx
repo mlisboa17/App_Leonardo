@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { 
   LayoutDashboard, Activity, History, Settings, 
-  LogOut, Bot, User, Bell, AlertOctagon, Zap 
+  LogOut, Bot, User, Bell, AlertOctagon, Zap, BarChart2 
 } from 'lucide-react'
 import { actionsApi } from '../services/api'
 import { useState } from 'react'
@@ -10,7 +10,7 @@ import { useState } from 'react'
 export default function Layout() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
-  const [showEmergency, setShowEmergency] = useState(false)
+  const [_showEmergency, _setShowEmergency] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -33,6 +33,7 @@ export default function Layout() {
     { to: '/positions', icon: <Activity className="w-5 h-5" />, label: 'Posições' },
     { to: '/trades', icon: <History className="w-5 h-5" />, label: 'Histórico' },
     { to: '/bots', icon: <Zap className="w-5 h-5" />, label: 'Controle Bots' },
+    { to: '/indicators', icon: <BarChart2 className="w-5 h-5" />, label: 'Indicadores' },
     { to: '/config', icon: <Settings className="w-5 h-5" />, label: 'Config' },
   ]
 

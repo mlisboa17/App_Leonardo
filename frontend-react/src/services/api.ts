@@ -53,6 +53,7 @@ export const dashboardApi = {
     api.get('/dashboard/trades', { params: { page, per_page: perPage } }),
   getBotsStatus: () => api.get('/dashboard/bots/status'),
   getPnlChart: (period = '30d') => api.get('/dashboard/chart/pnl', { params: { period } }),
+  getIndicators: () => api.get('/dashboard/indicators'),
 }
 
 // Config

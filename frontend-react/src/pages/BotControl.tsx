@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { 
   Bot, Power, PowerOff, Zap, AlertTriangle, 
-  Settings, RefreshCw, CheckCircle, XCircle,
+  RefreshCw, CheckCircle, XCircle,
   ArrowRight, Shield
 } from 'lucide-react'
 

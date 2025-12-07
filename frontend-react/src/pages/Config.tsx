@@ -51,7 +51,7 @@ export default function Config() {
     
     try {
       for (const [name, config] of Object.entries(bots)) {
-        await configApi.updateBot(name, config as Record<string, unknown>)
+        await configApi.updateBot(name, config as unknown as Record<string, unknown>)
       }
       await configApi.updateGlobal(globalConfig)
       setMessage({ type: 'success', text: 'Configurações salvas com sucesso!' })

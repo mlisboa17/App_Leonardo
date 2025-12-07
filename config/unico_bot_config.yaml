@@ -1,60 +1,99 @@
+# ============================================================
+# UNICO BOT CONFIG - Bot unificado para TODAS as cryptos
+# ============================================================
+# Quando enabled: true, este bot assume TUDO
+# Os 4 bots separados ficam DESABILITADOS automaticamente
+# ============================================================
+
 enabled: true
 unico_bot:
   crypto_profiles:
-    ADAUSDT:
-      buy_rsi: 35
-      rsi_mean: 48
-      sell_rsi: 60
+    # === ESTÁVEIS (RSI mais relaxado - compra mais fácil) ===
+    BTCUSDT:
+      buy_rsi: 44
+      rsi_mean: 50
+      sell_rsi: 56
+      category: estavel
+    ETHUSDT:
+      buy_rsi: 44
+      rsi_mean: 50
+      sell_rsi: 56
+      category: estavel
+    BNBUSDT:
+      buy_rsi: 43
+      rsi_mean: 50
+      sell_rsi: 57
+      category: estavel
+    LTCUSDT:
+      buy_rsi: 43
+      rsi_mean: 50
+      sell_rsi: 57
+      category: estavel
+    # === MÉDIAS (RSI balanceado) ===
+    SOLUSDT:
+      buy_rsi: 41
+      rsi_mean: 50
+      sell_rsi: 59
+      category: medio
+    LINKUSDT:
+      buy_rsi: 41
+      rsi_mean: 50
+      sell_rsi: 59
+      category: medio
     AVAXUSDT:
+      buy_rsi: 40
+      rsi_mean: 50
+      sell_rsi: 60
+      category: medio
+    DOTUSDT:
+      buy_rsi: 40
+      rsi_mean: 50
+      sell_rsi: 60
+      category: medio
+    NEARUSDT:
+      buy_rsi: 40
+      rsi_mean: 50
+      sell_rsi: 60
+      category: medio
+    UNIUSDT:
+      buy_rsi: 41
+      rsi_mean: 50
+      sell_rsi: 59
+      category: medio
+    AAVEUSDT:
+      buy_rsi: 41
+      rsi_mean: 50
+      sell_rsi: 59
+      category: medio
+    # === VOLÁTEIS (RSI mais agressivo) ===
+    XRPUSDT:
       buy_rsi: 38
       rsi_mean: 50
       sell_rsi: 62
-    BNBUSDT:
-      buy_rsi: 40
-      rsi_mean: 50
-      sell_rsi: 60
-    BTCUSDT:
-      buy_rsi: 40
-      rsi_mean: 51
+      category: volatil
+    ADAUSDT:
+      buy_rsi: 37
+      rsi_mean: 48
       sell_rsi: 63
+      category: volatil
+    TRXUSDT:
+      buy_rsi: 37
+      rsi_mean: 48
+      sell_rsi: 63
+      category: volatil
+    # === MEMES (RSI muito agressivo) ===
     DOGEUSDT:
       buy_rsi: 35
       rsi_mean: 50
-      sell_rsi: 61
-    DOTUSDT:
-      buy_rsi: 38
-      rsi_mean: 50
-      sell_rsi: 62
-    ETHUSDT:
-      buy_rsi: 40
-      rsi_mean: 50
-      sell_rsi: 61
-    LINKUSDT:
-      buy_rsi: 38
-      rsi_mean: 51
-      sell_rsi: 62
-    LTCUSDT:
-      buy_rsi: 40
-      rsi_mean: 49
-      sell_rsi: 60
-    NEARUSDT:
-      buy_rsi: 38
-      rsi_mean: 50
-      sell_rsi: 62
-    SOLUSDT:
-      buy_rsi: 38
-      rsi_mean: 50
-      sell_rsi: 63
-    TRXUSDT:
-      buy_rsi: 35
+      sell_rsi: 65
+      category: meme
+    SHIBUSDT:
+      buy_rsi: 33
       rsi_mean: 48
-      sell_rsi: 60
-    XRPUSDT:
-      buy_rsi: 35
-      rsi_mean: 51
-      sell_rsi: 63
-  description: Bot unificado com Smart Strategy - Todas as carteiras
-  enabled: false
+      sell_rsi: 67
+      category: meme
+  description: Bot unificado com Smart Strategy - TODAS as carteiras e TODO o saldo
+  enabled: true
   indicators:
     bollinger:
       period: 20
@@ -80,7 +119,9 @@ unico_bot:
     save_snapshots: true
     save_trades: true
   name: UnicoBot
+  # Portfolio com TODAS as cryptos que você tem saldo
   portfolio:
+  # === ESTÁVEIS ===
   - category: estavel
     name: Bitcoin
     symbol: BTCUSDT
@@ -96,19 +137,20 @@ unico_bot:
   - category: estavel
     name: Litecoin
     symbol: LTCUSDT
-    weight: 5
+    weight: 8
+  # === MÉDIAS ===
   - category: medio
     name: Solana
     symbol: SOLUSDT
-    weight: 12
+    weight: 10
   - category: medio
     name: Chainlink
     symbol: LINKUSDT
-    weight: 10
+    weight: 6
   - category: medio
     name: Avalanche
     symbol: AVAXUSDT
-    weight: 8
+    weight: 6
   - category: medio
     name: Polkadot
     symbol: DOTUSDT
@@ -116,42 +158,63 @@ unico_bot:
   - category: medio
     name: Near
     symbol: NEARUSDT
+    weight: 6
+  - category: medio
+    name: Uniswap
+    symbol: UNIUSDT
     weight: 5
+  - category: medio
+    name: Aave
+    symbol: AAVEUSDT
+    weight: 5
+  # === VOLÁTEIS ===
   - category: volatil
     name: XRP
     symbol: XRPUSDT
-    weight: 8
+    weight: 4
   - category: volatil
     name: Cardano
     symbol: ADAUSDT
-    weight: 5
+    weight: 3
   - category: volatil
     name: Tron
     symbol: TRXUSDT
-    weight: 4
+    weight: 2
+  # === MEMES ===
+  - category: meme
+    name: Shiba Inu
+    symbol: SHIBUSDT
+    weight: 2
   safety:
-    cool_down_minutes: 5
-    max_consecutive_losses: 5
-    max_daily_loss_pct: 5.0
-    max_drawdown_pct: 15.0
+    cool_down_minutes: 2
+    max_consecutive_losses: 4
+    max_daily_loss_pct: 3.0
+    max_drawdown_pct: 10.0
   smart_strategy:
-    max_hold_minutes: 5
+    # === ESTRATÉGIA OTIMIZADA PARA 5%+ MENSAL ===
+    # Regra dos 2 USDT - segura se lucro > $2 e tendência ALTA
+    min_profit_usdt_hold: 1.5
+    max_hold_minutes: 30
     max_take_pct: 2.0
     rsi_config:
       estavel:
-        mean: 51
-        overbought: 63
-        oversold: 40
+        mean: 50
+        overbought: 58
+        oversold: 42
       medio:
         mean: 50
-        overbought: 62
-        oversold: 38
+        overbought: 60
+        oversold: 40
       volatil:
         mean: 48
-        overbought: 60
-        oversold: 35
-    stop_loss_pct: -0.6
-    stop_loss_tight: -0.3
+        overbought: 62
+        oversold: 36
+      meme:
+        mean: 50
+        overbought: 65
+        oversold: 32
+    stop_loss_pct: -0.8
+    stop_loss_tight: -0.4
     trailing_stop_pct: 0.15
     urgency_system:
       enabled: true
@@ -162,14 +225,17 @@ unico_bot:
       idle_60min_adjustment: 5
       max_rsi_increase: 8
   targets:
-    daily_profit: 100
-    min_trade_profit: 0.05
-    monthly_profit: 2500
+    # Meta realista: 5% mensal = ~$50
+    daily_profit: 2.5
+    min_trade_profit: 0.15
+    monthly_profit: 50
   trading:
-    amount_per_trade: 500
-    interval_seconds: 3
+    # $25 por trade = até 12 trades com USDT livre
+    # Mais trades = mais chances de acertar
+    amount_per_trade: 25
+    interval_seconds: 5
     max_positions: 15
-    max_total_investment: 10000
+    max_total_investment: 500
     timeframe: 1m
   trend_detection:
     signals:

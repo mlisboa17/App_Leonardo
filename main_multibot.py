@@ -35,6 +35,14 @@ from src.core.exchange_client import ExchangeClient
 from src.strategies.smart_strategy import SmartStrategy
 from src.indicators.technical_indicators import TechnicalIndicators
 
+# ===== IMPORTAÇÃO DO UNICO BOT =====
+try:
+    from src.strategies.unico_bot import UnicoBot, should_use_unico_bot
+    UNICO_BOT_AVAILABLE = True
+except ImportError as e:
+    UNICO_BOT_AVAILABLE = False
+    print(f"⚠️ UnicoBot não disponível: {e}")
+
 # ===== IMPORTAÇÃO DA IA =====
 try:
     from src.ai import get_ai_manager, AIManager
@@ -56,10 +64,33 @@ class MultiBotEngine:
     """
     Engine principal que executa todos os bots em paralelo.
     Agora com IA adaptativa e AUTO-TUNER integrados!
+    
+    MODOS DE OPERAÇÃO:
+    1. UNICO BOT: Um único bot gerencia TODAS as cryptos e TODO o saldo
+    2. MULTI BOT: 4 bots especializados (estável, médio, volátil, meme)
     """
     
     def __init__(self):
-        # Coordenador
+        # ===== VERIFICA MODO DE OPERAÇÃO =====
+        self.unico_bot_mode = False
+        self.unico_bot = None
+        
+        if UNICO_BOT_AVAILABLE and should_use_unico_bot():
+            self.unico_bot_mode = True
+            self.unico_bot = UnicoBot()
+            if self.unico_bot.enabled:
+                print("=" * 60)
+                print("🤖 MODO UNICO BOT ATIVADO")
+                print("=" * 60)
+                print(f"   → {self.unico_bot.name} gerenciando TODAS as cryptos")
+                print(f"   → Símbolos: {len(self.unico_bot.portfolio)}")
+                print(f"   → Max posições: {self.unico_bot.trading_config.get('max_positions', 15)}")
+                print("=" * 60)
+            else:
+                self.unico_bot_mode = False
+                print("⚠️ UnicoBot está desabilitado no config")
+        
+        # Coordenador (usado para exchange e configs gerais)
         self.coordinator = get_coordinator()
         
         # Exchange compartilhada
@@ -853,6 +884,228 @@ class MultiBotEngine:
             self.logger.error(f"Erro ao obter saldo: {e}")
             return 0
     
+    def _sync_positions_with_exchange(self):
+        """
+        Sincroniza posições locais com o saldo real na exchange.
+        Detecta cryptos que temos mas não estão registradas.
+        """
+        print("   🔄 Sincronizando posições com a exchange...")
+        
+        try:
+            balance = self.exchange.fetch_balance()
+            if not balance:
+                print("   ⚠️ Não foi possível obter saldo")
+                return
+            
+            synced = 0
+            for asset, data in balance.items():
+                if asset in ['USDT', 'info', 'free', 'used', 'total', 'debt', 'timestamp', 'datetime']:
+                    continue
+                
+                total_amount = data.get('free', 0) + data.get('used', 0)
+                if total_amount > 0.0001:
+                    symbol = f"{asset}USDT"
+                    
+                    # Se não está nas nossas posições registradas, adiciona
+                    if symbol not in self.positions:
+                        try:
+                            ticker = self.exchange.fetch_ticker(symbol)
+                            if ticker:
+                                current_price = ticker.get('last', ticker.get('close', 0))
+                                value_usd = total_amount * current_price
+                                
+                                if value_usd > 1:  # Só registra se valor > $1
+                                    self.positions[symbol] = {
+                                        'bot_type': 'unico_bot' if self.unico_bot_mode else 'unknown',
+                                        'entry_price': current_price,  # Usa preço atual como referência
+                                        'amount': total_amount,
+                                        'amount_usd': value_usd,
+                                        'time': datetime.now(),
+                                        'synced': True  # Marca que foi sincronizado
+                                    }
+                                    synced += 1
+                                    print(f"      ✅ {symbol}: {total_amount:.6f} (${value_usd:.2f})")
+                        except:
+                            pass
+            
+            if synced > 0:
+                print(f"   📊 {synced} posições sincronizadas")
+                self._save_positions()
+            else:
+                print(f"   ✅ Posições já estavam sincronizadas ({len(self.positions)} registradas)")
+                
+        except Exception as e:
+            self.logger.error(f"Erro ao sincronizar: {e}")
+    
+    def _run_unico_bot_cycle(self):
+        """
+        Executa um ciclo completo do UnicoBot.
+        Processa TODAS as cryptos do portfolio.
+        """
+        if not self.unico_bot or not self.unico_bot.enabled:
+            return
+        
+        import pandas as pd
+        
+        # Configurações do UnicoBot
+        trading_config = self.unico_bot.trading_config
+        max_positions = trading_config.get('max_positions', 15)
+        amount_per_trade = trading_config.get('amount_per_trade', 50)
+        
+        # Conta posições abertas
+        open_positions = len(self.positions)
+        
+        # ===== 1. VERIFICA POSIÇÕES EXISTENTES (VENDER?) =====
+        positions_to_close = []
+        
+        for symbol, pos in list(self.positions.items()):
+            try:
+                # Obtém preço atual
+                ticker = self.exchange.fetch_ticker(symbol)
+                if not ticker:
+                    continue
+                
+                current_price = ticker.get('last', ticker.get('close', 0))
+                entry_price = pos.get('entry_price', current_price)
+                entry_time = pos.get('time', datetime.now())
+                
+                if isinstance(entry_time, str):
+                    entry_time = datetime.fromisoformat(entry_time)
+                
+                # Calcula PnL
+                pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                pnl_usd = pos.get('amount_usd', 0) * (pnl_pct / 100)
+                
+                # Obtém dados para análise
+                ohlcv = self.exchange.fetch_ohlcv(symbol, '1m', limit=100)
+                df = None
+                if ohlcv and len(ohlcv) > 0:
+                    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                
+                # Verifica se deve vender
+                should_close, reason = self.unico_bot.should_close(
+                    symbol=symbol,
+                    entry_price=entry_price,
+                    current_price=current_price,
+                    entry_time=entry_time,
+                    df=df
+                )
+                
+                if should_close:
+                    positions_to_close.append({
+                        'symbol': symbol,
+                        'reason': reason,
+                        'pnl_pct': pnl_pct,
+                        'pnl_usd': pnl_usd,
+                        'current_price': current_price
+                    })
+                    
+            except Exception as e:
+                self.logger.warning(f"⚠️ Erro ao verificar {symbol}: {e}")
+        
+        # Executa vendas
+        for close_info in positions_to_close:
+            symbol = close_info['symbol']
+            try:
+                pos = self.positions[symbol]
+                amount = pos.get('amount', 0)
+                
+                # Executa venda
+                order = self.exchange.create_market_order(
+                    symbol=symbol,
+                    side='sell',
+                    amount=amount
+                )
+                
+                if order:
+                    pnl_emoji = "✅" if close_info['pnl_usd'] >= 0 else "❌"
+                    print(f"{pnl_emoji} VENDA {symbol}: {close_info['reason']} | PnL: ${close_info['pnl_usd']:+.2f}")
+                    
+                    # Registra trade
+                    trade = {
+                        'symbol': symbol,
+                        'side': 'sell',
+                        'amount': amount,
+                        'price': close_info['current_price'],
+                        'pnl_pct': close_info['pnl_pct'],
+                        'pnl_usd': close_info['pnl_usd'],
+                        'reason': close_info['reason'],
+                        'bot_type': 'unico_bot'
+                    }
+                    self._save_bot_trade('unico_bot', trade)
+                    
+                    # Remove da lista de posições
+                    del self.positions[symbol]
+                    open_positions -= 1
+                    
+            except Exception as e:
+                print(f"❌ Erro ao vender {symbol}: {e}")
+        
+        # ===== 2. PROCURA NOVAS OPORTUNIDADES (COMPRAR?) =====
+        if open_positions < max_positions:
+            # Verifica saldo disponível
+            usdt_balance = self.get_balance()
+            
+            if usdt_balance >= amount_per_trade:
+                for crypto in self.unico_bot.portfolio:
+                    if open_positions >= max_positions:
+                        break
+                    
+                    symbol = crypto['symbol']
+                    
+                    # Pula se já tem posição
+                    if symbol in self.positions:
+                        continue
+                    
+                    try:
+                        # Obtém dados
+                        ohlcv = self.exchange.fetch_ohlcv(symbol, '1m', limit=100)
+                        if not ohlcv or len(ohlcv) < 50:
+                            continue
+                        
+                        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                        
+                        # Analisa
+                        signal, reason, indicators = self.unico_bot.analyze_symbol(symbol, df)
+                        
+                        if signal == 'BUY':
+                            # Calcula quantidade
+                            current_price = df.iloc[-1]['close']
+                            trade_amount = min(amount_per_trade, usdt_balance)
+                            crypto_amount = trade_amount / current_price
+                            
+                            # Executa compra
+                            order = self.exchange.create_market_order(
+                                symbol=symbol,
+                                side='buy',
+                                amount=crypto_amount
+                            )
+                            
+                            if order:
+                                print(f"🟢 COMPRA {symbol}: {reason} | ${trade_amount:.2f}")
+                                
+                                # Registra posição
+                                self.positions[symbol] = {
+                                    'bot_type': 'unico_bot',
+                                    'entry_price': current_price,
+                                    'amount': crypto_amount,
+                                    'amount_usd': trade_amount,
+                                    'time': datetime.now(),
+                                    'reason': reason
+                                }
+                                
+                                # Atualiza tempo do último trade
+                                self.unico_bot.update_trade_time(symbol)
+                                
+                                open_positions += 1
+                                usdt_balance -= trade_amount
+                                
+                    except Exception as e:
+                        self.logger.warning(f"⚠️ Erro ao analisar {symbol}: {e}")
+        
+        # Salva posições
+        self._save_positions()
+    
     # ===== MÉTODOS DO AUTO-TUNER =====
     
     def get_autotuner_status(self) -> dict:
@@ -1226,82 +1479,114 @@ class MultiBotEngine:
     
     def print_summary(self):
         """Imprime resumo do estado atual"""
-        stats = self.coordinator.get_stats_for_dashboard()
         
         print("\n" + "="*70)
-        print(f"📊 RESUMO MULTI-BOT - Iteração #{self.iteration} - {datetime.now().strftime('%H:%M:%S')}")
+        print(f"📊 RESUMO - Iteração #{self.iteration} - {datetime.now().strftime('%H:%M:%S')}")
         print("="*70)
         
-        # Global
-        g = stats['global']
-        print(f"\n🎖️  GLOBAL:")
-        print(f"   PnL Total: ${g['total_pnl']:.2f} | PnL Dia: ${g['daily_pnl']:.2f}")
-        print(f"   Trades: {g['total_trades']} | Win Rate: {g['win_rate']:.1f}%")
-        print(f"   Posições: {g['open_positions']} abertas | Bots: {g['active_bots']} ativos")
-        
-        # Poupança
-        if self.poupanca.get('initial', 0) > 0:
-            print(f"\n💰 POUPANÇA:")
-            print(f"   Saldo: ${self.poupanca['balance']:.2f} / ${self.poupanca['initial']:.2f}")
-            print(f"   Usado: ${self.poupanca['used']:.2f} | Recuperado: ${self.poupanca['recovered']:.2f}")
-        
-        # Por bot
-        print(f"\n{'─'*70}")
-        for bot_type, bot_stats in stats['bots'].items():
-            emoji = bot_stats['name'].split()[0] if bot_stats['name'] else "🤖"
-            status_emoji = "🟢" if bot_stats['status'] == 'idle' else "🔄"
+        if self.unico_bot_mode:
+            # ===== MODO UNICO BOT =====
+            print(f"\n🤖 UNICO BOT:")
+            print(f"   Posições abertas: {len(self.positions)}/{self.unico_bot.trading_config.get('max_positions', 15)}")
             
-            print(f"\n{emoji} {bot_stats['name']}:")
-            print(f"   PnL: ${bot_stats['total_pnl']:.2f} | Dia: ${bot_stats['daily_pnl']:.2f}")
-            print(f"   Trades: {bot_stats['trades']} (✅{bot_stats['wins']} | ❌{bot_stats['losses']}) | WR: {bot_stats['win_rate']:.1f}%")
-            print(f"   Posições: {bot_stats['open_positions']}/{bot_stats['max_positions']} | Status: {status_emoji}")
+            # Calcula PnL total das posições
+            total_pnl = 0
+            for symbol, pos in self.positions.items():
+                try:
+                    ticker = self.exchange.fetch_ticker(symbol)
+                    if ticker:
+                        current_price = ticker.get('last', ticker.get('close', 0))
+                        entry_price = pos.get('entry_price', current_price)
+                        pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                        pnl_usd = pos.get('amount_usd', 0) * (pnl_pct / 100)
+                        total_pnl += pnl_usd
+                except:
+                    pass
+            
+            print(f"   PnL Aberto: ${total_pnl:+.2f}")
+            
+            # Lista posições
+            if self.positions:
+                print(f"\n   📈 Posições:")
+                for symbol, pos in list(self.positions.items())[:10]:  # Mostra até 10
+                    try:
+                        ticker = self.exchange.fetch_ticker(symbol)
+                        if ticker:
+                            current_price = ticker.get('last', ticker.get('close', 0))
+                            entry_price = pos.get('entry_price', current_price)
+                            pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                            emoji = "🟢" if pnl_pct >= 0 else "🔴"
+                            print(f"      {emoji} {symbol}: {pnl_pct:+.2f}%")
+                    except:
+                        print(f"      ⚪ {symbol}: --")
+        else:
+            # ===== MODO MULTI-BOT =====
+            stats = self.coordinator.get_stats_for_dashboard()
+            
+            # Global
+            g = stats['global']
+            print(f"\n🎖️  GLOBAL:")
+            print(f"   PnL Total: ${g['total_pnl']:.2f} | PnL Dia: ${g['daily_pnl']:.2f}")
+            print(f"   Trades: {g['total_trades']} | Win Rate: {g['win_rate']:.1f}%")
+            print(f"   Posições: {g['open_positions']} abertas | Bots: {g['active_bots']} ativos")
+            
+            # Por bot
+            print(f"\n{'─'*70}")
+            for bot_type, bot_stats in stats['bots'].items():
+                emoji = bot_stats['name'].split()[0] if bot_stats['name'] else "🤖"
+                status_emoji = "🟢" if bot_stats['status'] == 'idle' else "🔄"
+                
+                print(f"\n{emoji} {bot_stats['name']}:")
+                print(f"   PnL: ${bot_stats['total_pnl']:.2f} | Dia: ${bot_stats['daily_pnl']:.2f}")
+                print(f"   Trades: {bot_stats['trades']} (✅{bot_stats['wins']} | ❌{bot_stats['losses']}) | WR: {bot_stats['win_rate']:.1f}%")
+                print(f"   Posições: {bot_stats['open_positions']}/{bot_stats['max_positions']} | Status: {status_emoji}")
         
         print("\n" + "="*70)
     
     def run(self, interval: int = 3):
         """
-        Loop principal - executa todos os bots em sequência.
+        Loop principal - executa bots em sequência.
+        
+        MODOS:
+        - UNICO BOT: Processa todas as cryptos com um único bot
+        - MULTI BOT: Processa cryptos divididas entre 4 bots
         """
         self.running = True
         self.coordinator.stats.status = "running"
         self.coordinator.stats.start_time = datetime.now().isoformat()
         
         print("\n" + "="*70)
-        print("🚀 INICIANDO SISTEMA MULTI-BOT - App Leonardo v3.0")
-        print("="*70)
-        print(f"   Bots ativos: {len(self.coordinator.bots)}")
-        print(f"   Cryptos monitoradas: {len(self.coordinator.get_all_symbols())}")
+        if self.unico_bot_mode:
+            print("🤖 INICIANDO UNICO BOT - App Leonardo v3.0")
+            print("="*70)
+            print(f"   Modo: UNICO BOT (todas as cryptos)")
+            print(f"   Cryptos: {len(self.unico_bot.portfolio)}")
+        else:
+            print("🚀 INICIANDO SISTEMA MULTI-BOT - App Leonardo v3.0")
+            print("="*70)
+            print(f"   Bots ativos: {len(self.coordinator.bots)}")
+            print(f"   Cryptos monitoradas: {len(self.coordinator.get_all_symbols())}")
         print(f"   Intervalo: {interval}s")
         print("="*70)
         
-        # ===== FASE 1: LIQUIDAÇÃO INICIAL =====
+        # ===== FASE 1: NÃO LIQUIDA - GERENCIA POSIÇÕES EXISTENTES =====
         startup_config = self.coordinator.config.get('global', {}).get('startup', {})
         
-        if startup_config.get('sell_all_positions', True):
-            print("\n🔴 FASE 1: LIQUIDAÇÃO INICIAL")
-            self.liquidate_all_positions()
-            
-            # Aguarda após liquidação
-            wait_time = startup_config.get('wait_after_sell', 5)
-            print(f"\n⏳ Aguardando {wait_time}s após liquidação...")
-            time.sleep(wait_time)
+        # REMOVIDO: Liquidação automática
+        # Agora o bot gerencia as posições existentes
+        print("\n📊 FASE 1: VERIFICANDO POSIÇÕES EXISTENTES")
+        self._sync_positions_with_exchange()
         
-        # ===== FASE 2: INICIALIZAÇÃO DA POUPANÇA =====
-        print("\n💰 FASE 2: CONFIGURANDO POUPANÇA")
+        # ===== FASE 2: POUPANÇA DESABILITADA POR ENQUANTO =====
+        print("\n💰 FASE 2: POUPANÇA (DESABILITADA)")
         
         # Obtém saldo atual
         total_balance = self.get_balance()
         print(f"   Saldo USDT disponível: ${total_balance:.2f}")
+        print(f"   Poupança: DESABILITADA")
         
-        # Inicializa poupança
-        poupanca_value = self.initialize_poupanca(total_balance)
-        
-        # Capital disponível para os bots (total - poupança)
-        capital_para_bots = total_balance - poupanca_value
-        print(f"\n📊 DISTRIBUIÇÃO FINAL:")
-        print(f"   Capital total: ${total_balance:.2f}")
-        print(f"   Poupança: ${poupanca_value:.2f}")
-        print(f"   Para bots: ${capital_para_bots:.2f}")
+        capital_para_bots = total_balance
+        print(f"\n📊 CAPITAL TOTAL DISPONÍVEL: ${capital_para_bots:.2f}")
         
         # ===== FASE 3: LOOP PRINCIPAL =====
         print("\n" + "="*70)
@@ -1312,23 +1597,29 @@ class MultiBotEngine:
             while self.running:
                 self.iteration += 1
                 
-                # Executa cada bot em sequência
-                for bot_type in self.coordinator.bots.keys():
-                    if not self.running:
-                        break
-                    self.run_bot_cycle(bot_type)
-                
-                # Atualiza posições abertas nos stats
-                for bot in self.coordinator.bots.values():
-                    bot.stats.open_positions = sum(
-                        1 for pos in self.positions.values() 
-                        if pos['bot_type'] == bot.bot_type
-                    )
+                # ===== EXECUTA NO MODO APROPRIADO =====
+                if self.unico_bot_mode:
+                    # Modo UnicoBot - processa todas as cryptos
+                    self._run_unico_bot_cycle()
+                else:
+                    # Modo MultiBots - processa cada bot separadamente
+                    for bot_type in self.coordinator.bots.keys():
+                        if not self.running:
+                            break
+                        self.run_bot_cycle(bot_type)
+                    
+                    # Atualiza posições abertas nos stats
+                    for bot in self.coordinator.bots.values():
+                        bot.stats.open_positions = sum(
+                            1 for pos in self.positions.values() 
+                            if pos['bot_type'] == bot.bot_type
+                        )
                 
                 # Salva estado
                 self.coordinator.save_state()
                 
                 # Salva dados para o dashboard (saldos, meta diária)
+                self._save_dashboard_data()
                 self._save_dashboard_data()
                 
                 # Imprime resumo

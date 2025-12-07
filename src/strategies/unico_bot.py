@@ -378,20 +378,22 @@ class SmartStrategy:
 
 class UnicoBot:
     """
-    Bot Unificado que gerencia todas as carteiras
+    Bot Unificado que gerencia TODAS as carteiras e TODO o saldo
     
-    ⚠️ DESATIVADO POR PADRÃO
-    Deve ser ativado manualmente no config
+    Quando habilitado, os 4 bots separados são desabilitados automaticamente.
     """
     
     def __init__(self, config_path: str = "config/unico_bot_config.yaml"):
         """Inicializa o UnicoBot"""
         
         self.config_path = config_path
-        self.config = self._load_config()
+        self.full_config = self._load_full_config()
+        self.config = self.full_config.get('unico_bot', {})
         
-        # Verifica se está habilitado
-        self.enabled = self.config.get('enabled', False)
+        # Verifica se está habilitado (verifica ambos os campos)
+        top_enabled = self.full_config.get('enabled', False)
+        bot_enabled = self.config.get('enabled', False)
+        self.enabled = top_enabled and bot_enabled
         
         if not self.enabled:
             logger.warning("⚠️ UnicoBot está DESATIVADO. Ative em unico_bot_config.yaml")
@@ -422,8 +424,8 @@ class UnicoBot:
         logger.info(f"   Moedas: {len(self.portfolio)}")
         logger.info(f"   Max posições: {self.trading_config.get('max_positions', 15)}")
     
-    def _load_config(self) -> dict:
-        """Carrega configuração do arquivo YAML"""
+    def _load_full_config(self) -> dict:
+        """Carrega configuração completa do arquivo YAML"""
         config_file = Path(self.config_path)
         
         if not config_file.exists():
@@ -431,9 +433,11 @@ class UnicoBot:
             return {}
         
         with open(config_file, 'r', encoding='utf-8') as f:
-            full_config = yaml.safe_load(f)
-        
-        return full_config.get('unico_bot', {})
+            return yaml.safe_load(f)
+    
+    def _load_config(self) -> dict:
+        """Carrega configuração do arquivo YAML (apenas unico_bot)"""
+        return self.full_config.get('unico_bot', {})
     
     def get_symbols(self) -> List[str]:
         """Retorna lista de símbolos do portfólio"""
@@ -492,7 +496,11 @@ def should_use_unico_bot() -> bool:
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
     
-    return config.get('unico_bot', {}).get('enabled', False)
+    # Verifica enabled no topo E dentro de unico_bot
+    top_enabled = config.get('enabled', False)
+    bot_enabled = config.get('unico_bot', {}).get('enabled', False)
+    
+    return top_enabled and bot_enabled
 
 
 # ===== TESTE =====

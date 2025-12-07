@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { useDashboardStore } from '../stores/dashboardStore'
-import { 
-  TrendingUp, TrendingDown, DollarSign, Activity, 
-  Target, Percent, Bot, AlertTriangle 
+import {
+  TrendingUp, TrendingDown, DollarSign, Activity,
+  Target, Bot
 } from 'lucide-react'
 import PnlChart from '../components/PnlChart'
 import BotCard from '../components/BotCard'
