@@ -177,11 +177,11 @@ class MultiBot:
         return signal, reason, indicators
     
     def should_sell_position(self, symbol: str, entry_price: float, current_price: float, 
-                            df, position_time: datetime) -> tuple:
+                            df, position_time: datetime, position_size: float = None) -> tuple:
         """Verifica se deve vender uma posição"""
         positions_full = len(self.positions) >= self.stats.max_positions
         return self.strategy.should_sell(symbol, entry_price, current_price, df, 
-                                         position_time, positions_full)
+                                         position_time, positions_full, position_size)
     
     def update_stats(self, pnl: float, is_win: bool):
         """Atualiza estatísticas do bot"""

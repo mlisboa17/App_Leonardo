@@ -767,7 +767,8 @@ class SmartStrategy:
     
     def should_sell(self, symbol: str, entry_price: float, current_price: float, 
                     df: pd.DataFrame, position_time: datetime = None,
-                    positions_full: bool = False) -> Tuple[bool, str]:
+                    positions_full: bool = False,
+                    position_size: float = None) -> Tuple[bool, str]:
         """
         Decide se deve vender a posição
         
@@ -779,6 +780,10 @@ class SmartStrategy:
           * DOGE/SHIB: FEIRA AGRESSIVA (fator 0.9) - vende rápido
           * LINK/SOL: FEIRA MODERADA (fator 0.5-0.7)
         
+        💰 REGRA DOS 2 USDT (NOVO!):
+        - Se lucro > 2 USDT e tendência ALTA → SEGURA
+        - Se lucro > 2 USDT e tendência LATERAL/QUEDA → VENDE
+        
         PROTEÇÃO DE CAPITAL:
         - Nunca vende no prejuízo (a menos que atinja stop loss)
         - Stop loss protege contra quedas bruscas
@@ -787,6 +792,11 @@ class SmartStrategy:
         
         # Calcula lucro/prejuízo
         profit_pct = ((current_price - entry_price) / entry_price) * 100
+        
+        # Calcula lucro em USDT (se position_size fornecido)
+        profit_usdt = 0
+        if position_size:
+            profit_usdt = position_size * (profit_pct / 100)
         
         profile = self.get_profile(symbol)
         crypto_config = self.get_crypto_config(symbol)
@@ -826,6 +836,21 @@ class SmartStrategy:
         
         # Detecta tendência
         trend, strength, reasons = self.detect_trend(df)
+        
+        # ===== 💰 REGRA DOS 2 USDT - HOLD EM ALTA, VENDE EM NEUTRO/BAIXA =====
+        # Se lucro > 2 USDT: só vende quando tendência sair de ALTA
+        MIN_PROFIT_USDT_HOLD = 2.0  # Lucro mínimo em USDT para aplicar regra
+        
+        if profit_usdt >= MIN_PROFIT_USDT_HOLD:
+            if trend == 'ALTA':
+                # Tendência de ALTA → SEGURA para maximizar lucro
+                self.logger.info(f"💰 [{symbol}] Lucro ${profit_usdt:.2f} com tendência ALTA - SEGURANDO!")
+                return False, f"💰 HOLD ALTA: ${profit_usdt:.2f} lucro ({strength}/4 sinais alta) - Segurando!"
+            else:
+                # Tendência LATERAL ou QUEDA → VENDE para garantir lucro
+                self.price_peaks.pop(symbol, None)
+                self.logger.info(f"💰 [{symbol}] Lucro ${profit_usdt:.2f} com tendência {trend} - VENDENDO!")
+                return True, f"💰 VENDA {trend}: ${profit_usdt:.2f} lucro (+{profit_pct:.2f}%) - Tendência virou!"
         
         # Tempo da posição aberta
         minutes_open = 0

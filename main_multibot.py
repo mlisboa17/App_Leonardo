@@ -980,13 +980,17 @@ class MultiBotEngine:
                 if symbol in self.positions:
                     pos = self.positions[symbol]
                     
+                    # Calcula o tamanho da posição em USDT
+                    position_size = pos.get('amount', 0) * pos.get('entry_price', 0)
+                    
                     # Verifica se deve vender
                     should_sell, reason = bot.should_sell_position(
                         symbol=symbol,
                         entry_price=pos['entry_price'],
                         current_price=current_price,
                         df=df,
-                        position_time=pos['time']
+                        position_time=pos['time'],
+                        position_size=position_size
                     )
                     
                     if should_sell:
