@@ -13,14 +13,16 @@ TP = {
     'bot_estavel': 1.8,
     'bot_medio': 2.3,
     'bot_volatil': 3.0,
-    'bot_meme': 4.0
+    'bot_meme': 4.0,
+    'unico_bot': 2.0  # UnicoBot
 }
 
 SL = {
     'bot_estavel': -1.2,
     'bot_medio': -1.5,
     'bot_volatil': -2.0,
-    'bot_meme': -2.5
+    'bot_meme': -2.5,
+    'unico_bot': -1.5  # UnicoBot
 }
 
 print("="*70)
