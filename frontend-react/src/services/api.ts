@@ -54,6 +54,7 @@ export const dashboardApi = {
   getBotsStatus: () => api.get('/dashboard/bots/status'),
   getPnlChart: (period = '30d') => api.get('/dashboard/chart/pnl', { params: { period } }),
   getIndicators: () => api.get('/dashboard/indicators'),
+  getBotComparison: () => api.get('/dashboard/comparison'),
 }
 
 // Config

@@ -7,6 +7,7 @@ import Trades from './pages/Trades'
 import Config from './pages/Config'
 import BotControl from './pages/BotControl'
 import Indicators from './pages/Indicators'
+import BotComparison from './pages/BotComparison'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -31,6 +32,7 @@ function App() {
         <Route path="trades" element={<Trades />} />
         <Route path="bots" element={<BotControl />} />
         <Route path="indicators" element={<Indicators />} />
+        <Route path="comparison" element={<BotComparison />} />
         <Route path="config" element={<Config />} />
       </Route>
     </Routes>

@@ -314,3 +314,117 @@ async def get_indicators(
         'bots_config': bots_indicator_config,
         'last_update': indicators_cache.get('_timestamp', datetime.now().isoformat())
     }
+
+
+@router.get("/comparison")
+async def get_bot_comparison(
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """
+    Comparação de performance entre todos os bots (incluindo UnicoBot)
+    """
+    import yaml
+    
+    # Carregar histórico de trades
+    history = load_json_file("data/multibot_history.json", [])
+    if isinstance(history, dict):
+        history = history.get("trades", [])
+    
+    # Carregar configurações
+    bots_config_path = Path("config/bots_config.yaml")
+    bots_config = {}
+    if bots_config_path.exists():
+        with open(bots_config_path, 'r', encoding='utf-8') as f:
+            bots_config = yaml.safe_load(f) or {}
+    
+    unico_config_path = Path("config/unico_bot_config.yaml")
+    unico_config = {}
+    if unico_config_path.exists():
+        with open(unico_config_path, 'r', encoding='utf-8') as f:
+            unico_config = yaml.safe_load(f) or {}
+    
+    # Definir todos os bots (incluindo UnicoBot)
+    bot_names = {
+        'unico_bot': '🤖 UnicoBot',
+        'bot_estavel': '🐢 Bot Estável',
+        'bot_medio': '⚖️ Bot Médio',
+        'bot_volatil': '⚡ Bot Volátil',
+        'bot_meme': '🚀 Bot Meme'
+    }
+    
+    # Calcular performance de cada bot
+    performances = []
+    
+    for bot_type, bot_name in bot_names.items():
+        # Filtrar trades deste bot
+        bot_trades = [t for t in history if t.get('bot_type') == bot_type]
+        
+        total_trades = len(bot_trades)
+        wins = sum(1 for t in bot_trades if t.get('pnl_usd', 0) > 0)
+        losses = sum(1 for t in bot_trades if t.get('pnl_usd', 0) <= 0)
+        win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+        
+        total_pnl = sum(t.get('pnl_usd', 0) for t in bot_trades)
+        
+        # PnL do dia
+        today = datetime.now().strftime('%Y-%m-%d')
+        today_trades = [t for t in bot_trades if t.get('exit_time', '')[:10] == today]
+        daily_pnl = sum(t.get('pnl_usd', 0) for t in today_trades)
+        
+        # Média por trade
+        avg_profit = total_pnl / total_trades if total_trades > 0 else 0
+        
+        # Duração média
+        durations = [t.get('duration_min', 0) for t in bot_trades if t.get('duration_min')]
+        avg_duration = sum(durations) / len(durations) if durations else 0
+        
+        # Melhor e pior trade
+        pnls = [t.get('pnl_usd', 0) for t in bot_trades]
+        best_trade = max(pnls) if pnls else 0
+        worst_trade = min(pnls) if pnls else 0
+        
+        # Streak atual (últimos trades consecutivos de win ou loss)
+        current_streak = 0
+        if bot_trades:
+            sorted_trades = sorted(bot_trades, key=lambda x: x.get('exit_time', ''), reverse=True)
+            last_was_win = sorted_trades[0].get('pnl_usd', 0) > 0 if sorted_trades else True
+            for trade in sorted_trades:
+                is_win = trade.get('pnl_usd', 0) > 0
+                if is_win == last_was_win:
+                    current_streak += 1 if is_win else -1
+                else:
+                    break
+        
+        # Verificar se está habilitado
+        enabled = False
+        if bot_type == 'unico_bot':
+            enabled = unico_config.get('enabled', False)
+        else:
+            bot_cfg = bots_config.get(bot_type, {})
+            enabled = bot_cfg.get('enabled', False)
+        
+        performances.append({
+            'bot_type': bot_type,
+            'bot_name': bot_name,
+            'total_trades': total_trades,
+            'wins': wins,
+            'losses': losses,
+            'win_rate': win_rate,
+            'total_pnl': total_pnl,
+            'daily_pnl': daily_pnl,
+            'avg_profit_per_trade': avg_profit,
+            'avg_duration_min': avg_duration,
+            'best_trade': best_trade,
+            'worst_trade': worst_trade,
+            'current_streak': current_streak,
+            'enabled': enabled
+        })
+    
+    # Ordenar por PnL total
+    performances.sort(key=lambda x: x['total_pnl'], reverse=True)
+    
+    return {
+        'performances': performances,
+        'total_bots': len(performances),
+        'last_update': datetime.now().isoformat()
+    }
