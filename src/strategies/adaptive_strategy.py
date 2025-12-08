@@ -398,6 +398,16 @@ class AdaptiveStrategy:
                     return True, f"Tempo máximo estendido - Prejuízo {profit_pct:.2f}%"
         
         # 3. SUA ESTRATÉGIA: Só vende se tendência virou QUEDA
+        # Ajusta sell_rsi_threshold com base no mapeamento dinâmico, se houver
+        sell_rsi_threshold = profile.get('sell_rsi_threshold', 65)
+        if self.dynamic_factor and self.bot_key:
+            dyn_rsi = self.dynamic_factor.get_dynamic_rsi_by_name(self.bot_key, minutes_open)
+            if dyn_rsi and isinstance(dyn_rsi, dict) and 'venda' in dyn_rsi:
+                try:
+                    sell_rsi_threshold = int(dyn_rsi['venda'])
+                except Exception:
+                    pass
+
         if profit_pct > 0.3:  # Tem pelo menos 0.3% de lucro
             
             queda_signals = 0
@@ -414,7 +424,7 @@ class AdaptiveStrategy:
                 queda_reasons.append("< SMA20")
             
             # Sinal 3: RSI acima do threshold de venda (overbought para essa moeda)
-            if rsi > profile['sell_rsi_threshold']:
+            if rsi > sell_rsi_threshold:
                 queda_signals += 1
                 queda_reasons.append(f"RSI {rsi:.1f} > {profile['sell_rsi_threshold']:.1f}")
             

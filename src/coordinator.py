@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+from threading import Event
 from dotenv import load_dotenv
 
 # Adiciona o diretório raiz ao path
@@ -31,6 +32,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Carrega variáveis de ambiente
 load_dotenv('config/.env')
+
+# Importa módulo de auditoria
+from src.audit import get_audit_logger, AuditEvent
+
+# Importa observabilidade
+from src.observability import get_metrics, measure_execution_time
 
 from src.core.exchange_client import ExchangeClient
 
@@ -229,12 +236,31 @@ class BotCoordinator:
         # Paths
         self.data_path = Path("data")
         self.stats_file = self.data_path / "coordinator_stats.json"
+        # Bot status file watcher
+        self.bot_status_file = Path("data/bot_status.json")
+        self._watcher_stop_event = Event()
+        self._last_seen_action = None
+        self._watcher_thread = threading.Thread(target=self._watch_bot_status_loop, daemon=True)
+        
+        # Auditoria
+        self.audit = get_audit_logger()
+        self.audit.logger.info("=== Coordenador inicializado ===")
+        
+        # Observabilidade
+        self.metrics = get_metrics()
         
         # Inicializa bots
         self._init_bots()
         
         # Carrega estado anterior
         self._load_state()
+
+        # Inicia watcher de bot_status.json para reinicios/stop automáticos
+        try:
+            self._watcher_thread.start()
+            self.logger.info("[WATCHER] Bot status watcher iniciado")
+        except Exception:
+            self.logger.exception("[WATCHER] Falha ao inicializar watcher")
         
     def _load_config(self) -> dict:
         """Carrega configuração do arquivo YAML"""
@@ -322,15 +348,13 @@ class BotCoordinator:
             try:
                 with open(self.stats_file, 'r') as f:
                     data = json.load(f)
-                    
                 # Restaura estatísticas globais
                 self.stats.total_pnl = data.get('total_pnl', 0.0)
                 self.stats.monthly_pnl = data.get('monthly_pnl', 0.0)
                 self.stats.total_trades = data.get('total_trades', 0)
                 self.stats.total_wins = data.get('total_wins', 0)
                 self.stats.total_losses = data.get('total_losses', 0)
-                
-                # Restaura estatísticas por bot
+                # Restaura estatísticas e posições por bot
                 bots_data = data.get('bots', {})
                 for bot_type, bot_stats in bots_data.items():
                     if bot_type in self.bots:
@@ -338,8 +362,10 @@ class BotCoordinator:
                         self.bots[bot_type].stats.total_trades = bot_stats.get('total_trades', 0)
                         self.bots[bot_type].stats.wins = bot_stats.get('wins', 0)
                         self.bots[bot_type].stats.losses = bot_stats.get('losses', 0)
-                
-                self.logger.info("[STATE] Estado anterior restaurado")
+                        # Restaurar posições abertas
+                        if 'positions' in bot_stats:
+                            self.bots[bot_type].positions = bot_stats['positions']
+                self.logger.info("[STATE] Estado anterior restaurado (incluindo posições)")
             except Exception as e:
                 self.logger.warning(f"⚠️ Erro ao carregar estado: {e}")
     
@@ -351,9 +377,256 @@ class BotCoordinator:
         self._update_global_stats()
         
         data = self.stats.to_dict()
-        
+        # Adiciona posições dos bots
+        for bot_type, bot in self.bots.items():
+            if 'bots' not in data:
+                data['bots'] = {}
+            if bot_type not in data['bots']:
+                data['bots'][bot_type] = {}
+            data['bots'][bot_type]['positions'] = bot.positions
         with open(self.stats_file, 'w') as f:
             json.dump(data, f, indent=2, default=str)
+
+    def reload_config(self):
+        """Recarrega YAML de configuração em memória e atualiza bots."""
+        try:
+            self.config = self._load_config()
+            self._init_bots()
+            self.logger.info("🔁 Configuração recarregada e bots reconfigurados")
+            return True
+        except Exception as e:
+            self.logger.exception(f"Erro ao recarregar config: {e}")
+            return False
+
+    def reconfigure_bot(self, bot_type: str):
+        """Recria a instância do bot a partir do YAML e mantém enabled state."""
+        if bot_type not in self.config:
+            self.logger.error(f"Bot config não encontrada: {bot_type}")
+            return False
+        try:
+            bot_cfg = self.config.get(bot_type, {})
+            enabled = bot_cfg.get('enabled', True)
+            # Recreate instance
+            self.bots[bot_type] = MultiBot(bot_type=bot_type, config=bot_cfg, exchange_client=self.exchange, logger=self.logger)
+            self.bots[bot_type].enabled = enabled
+            self.logger.info(f"🔧 Bot {bot_type} reconfigurado com sucesso")
+            return True
+        except Exception as e:
+            self.logger.exception(f"Erro ao reconfigurar bot {bot_type}: {e}")
+            return False
+
+    def restart_bot(self, bot_type: str, reason: str = "config_change"):
+        """Reinicia um bot: reconfigura e marca como enabled conforme configuração."""
+        start_time = time.time()
+        self.logger.info(f"[RESTART] Solicitado reinício do bot {bot_type} (razão: {reason})")
+        self.audit.log_restart(bot_type=bot_type, reason=reason, source='coordinator')
+        
+        try:
+            # Safety: disable, reconfigure, enable
+            if bot_type in self.bots:
+                try:
+                    self.bots[bot_type].enabled = False
+                except Exception:
+                    pass
+            
+            # reload configuration from disk to pick up latest changes
+            self.config = self._load_config()
+            ok = self.reconfigure_bot(bot_type)
+            
+            elapsed_ms = (time.time() - start_time) * 1000
+            self.metrics.record_restart(bot_type, ok, elapsed_ms)
+            
+            if ok:
+                self.logger.info(f"[RESTART] Bot {bot_type} reiniciado com nova configuração ({elapsed_ms:.0f}ms)")
+                self.audit.log_event(AuditEvent(
+                    timestamp=datetime.now().isoformat(),
+                    event_type='restart',
+                    severity='info',
+                    source='coordinator',
+                    target=bot_type,
+                    action='restart_completed',
+                    details={'reason': reason, 'status': 'success', 'duration_ms': elapsed_ms}
+                ))
+            else:
+                self.audit.log_error(
+                    error_type='restart_failed',
+                    bot_type=bot_type,
+                    message=f"Falha ao reiniciar bot {bot_type}",
+                    source='coordinator'
+                )
+            return ok
+        except Exception as e:
+            elapsed_ms = (time.time() - start_time) * 1000
+            self.metrics.record_restart(bot_type, False, elapsed_ms)
+            self.audit.log_error(
+                error_type='restart_exception',
+                bot_type=bot_type,
+                message=f"Exceção ao reiniciar: {str(e)}",
+                traceback=str(e),
+                source='coordinator'
+            )
+            raise
+
+    def restart_all(self, reason: str = "config_change"):
+        """Reinicia todos os bots (reconfigura todas as instâncias)"""
+        start_time = time.time()
+        self.logger.info(f"[RESTART ALL] Reiniciando todos os bots (razão: {reason})")
+        self.audit.log_restart(bot_type=None, reason=reason, source='coordinator')
+        
+        self.config = self._load_config()
+        success_count = 0
+        failed_count = 0
+        
+        for bot_type in list(self.config.get('bots', {}).keys()) + ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+            try:
+                if self.reconfigure_bot(bot_type):
+                    success_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                failed_count += 1
+                self.audit.log_error(
+                    error_type='restart_failed',
+                    bot_type=bot_type,
+                    message=f"Falha ao reiniciar bot {bot_type}",
+                    traceback=str(e),
+                    source='coordinator'
+                )
+        
+        elapsed_ms = (time.time() - start_time) * 1000
+        success = failed_count == 0
+        
+        self.logger.info(f"[RESTART ALL] {success_count} bots reiniciados com sucesso ({elapsed_ms:.0f}ms)")
+        self.audit.log_event(AuditEvent(
+            timestamp=datetime.now().isoformat(),
+            event_type='restart',
+            severity='info',
+            source='coordinator',
+            target='all_bots',
+            action='restart_all_completed',
+            details={
+                'reason': reason,
+                'success_count': success_count,
+                'failed_count': failed_count,
+                'duration_ms': elapsed_ms
+            }
+        ))
+
+    def stop_bot(self, bot_type: str, reason: str = "user_request"):
+        """Para um bot definindo 'enabled' para False e atualizando estado."""
+        if bot_type not in self.bots:
+            self.logger.error(f"Bot não encontrado para stop: {bot_type}")
+            self.metrics.record_error('bot_not_found', 'coordinator')
+            self.audit.log_error(
+                error_type='bot_not_found',
+                bot_type=bot_type,
+                message=f"Bot {bot_type} não encontrado para stop",
+                source='coordinator'
+            )
+            return False
+        
+        self.bots[bot_type].enabled = False
+        self.metrics.record_stop(bot_type, True)
+        self.logger.info(f"[STOP] Bot {bot_type} parado (razão: {reason})")
+        self.audit.log_stop(bot_type=bot_type, reason=reason, source='coordinator')
+        return True
+
+    def _watch_bot_status_loop(self):
+        """Loop que observa `data/bot_status.json` e aplica ações (restart/stop) com coalescimento robusto."""
+        import time
+        last_applied = { 'action': None, 'target': None, 'at': None }
+        coalesce_delay = 2.0  # segundos - configurável via config
+        pending = None
+        coalesce_attempts = 0
+        max_coalesce_attempts = 5
+        
+        while not self._watcher_stop_event.is_set():
+            try:
+                if not self.bot_status_file.exists():
+                    time.sleep(1)
+                    continue
+                    
+                with open(self.bot_status_file, 'r') as f:
+                    data = json.load(f)
+                action = data.get('last_action')
+                target = data.get('target_bot')
+                at = data.get('last_action_at')
+                
+                # Detecção de nova ação
+                is_new_action = action and (
+                    last_applied['action'] != action or 
+                    last_applied['target'] != target or 
+                    last_applied['at'] != at
+                )
+                
+                if is_new_action:
+                    if pending:
+                        # Cancelar ação anterior e substituir pela nova
+                        self.logger.info(
+                            f"[WATCHER] Ação substituída: {pending['action']} target={pending['target']} "
+                            f"→ {action} target={target}"
+                        )
+                    else:
+                        self.logger.info(f"[WATCHER] Ação detectada: {action} target={target} at={at}")
+                    
+                    # Reinicia coalescimento
+                    pending = { 
+                        'action': action, 
+                        'target': target, 
+                        'at': at, 
+                        'ts': time.time()
+                    }
+                    coalesce_attempts = 0
+                
+                # Executar ação pendente após delay de coalescimento
+                if pending:
+                    elapsed = time.time() - pending['ts']
+                    
+                    # Verificar se mais ações chegaram (coalescing)
+                    if elapsed < coalesce_delay and is_new_action:
+                        coalesce_attempts += 1
+                        if coalesce_attempts <= max_coalesce_attempts:
+                            self.logger.debug(
+                                f"[WATCHER] Coalescimento: esperando {coalesce_delay:.1f}s "
+                                f"(tentativa {coalesce_attempts}/{max_coalesce_attempts})"
+                            )
+                    
+                    # Executar se delay passou
+                    elif elapsed >= coalesce_delay:
+                        act = pending['action']
+                        tgt = pending['target']
+                        
+                        self.logger.info(
+                            f"[WATCHER] Executando ação: {act} target={tgt} "
+                            f"(após coalescimento de {elapsed:.1f}s)"
+                        )
+                        
+                        try:
+                            if act == 'restart':
+                                if tgt:
+                                    self.restart_bot(tgt)
+                                else:
+                                    self.restart_all()
+                            elif act == 'stop':
+                                if tgt:
+                                    self.stop_bot(tgt)
+                                else:
+                                    for b in list(self.bots.keys()):
+                                        self.stop_bot(b)
+                            
+                            # Marca como aplicada
+                            last_applied = {'action': act, 'target': tgt, 'at': at}
+                            pending = None
+                            self.logger.info(f"[WATCHER] Ação {act} executada com sucesso")
+                        except Exception as e:
+                            self.logger.error(f"[WATCHER] Erro ao executar {act}: {e}")
+                            pending = None
+            except json.JSONDecodeError as e:
+                self.logger.warning(f"[WATCHER] Erro ao decodificar bot_status.json: {e}")
+            except Exception as e:
+                self.logger.exception(f"[WATCHER] Erro durante observação: {e}")
+            
+            time.sleep(1)
     
     def _update_global_stats(self):
         """Atualiza estatísticas globais baseado nos bots"""
@@ -493,7 +766,7 @@ if __name__ == "__main__":
     coordinator = BotCoordinator()
     
     print("\n" + "="*60)
-    print("🎖️  COORDENADOR MULTI-BOT - R7_V1")
+    print("🎖️  COORDENADOR MULTI-BOT - R7 TRADING BOT API")
     print("="*60)
     
     print(f"\n📊 Bots ativos: {len(coordinator.bots)}")

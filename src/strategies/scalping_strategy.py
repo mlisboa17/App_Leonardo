@@ -5,6 +5,7 @@ Múltiplas operações rápidas com lucros pequenos
 import pandas as pd
 import numpy as np
 from typing import Dict, Tuple, Optional
+from src.ai.dynamic_fair_factor import DynamicFairFactor
 from datetime import datetime, timedelta
 
 
@@ -20,7 +21,7 @@ class ScalpingStrategy:
     - Timeframe de 1 minuto
     """
     
-    def __init__(self):
+    def __init__(self, config: dict = None):
         self.name = "Scalping Strategy"
         
         # Parâmetros de scalping
@@ -41,6 +42,16 @@ class ScalpingStrategy:
         self.trades_today = 0
         self.profit_today = 0.0
         self.last_reset = datetime.now().date()
+        # DynamicFairFactor
+        self.bot_key = None
+        if isinstance(config, dict):
+            self.bot_key = config.get('bot_key')
+        else:
+            self.bot_key = getattr(config, 'bot_key', None) if config else None
+        try:
+            self.dynamic_factor = DynamicFairFactor()
+        except Exception:
+            self.dynamic_factor = None
     
     def reset_daily_stats(self):
         """Reseta estatísticas diárias"""
@@ -146,6 +157,29 @@ class ScalpingStrategy:
         # Calcula PnL
         pnl_pct = ((current_price - entry_price) / entry_price) * 100
         
+        # Calcular minutos desde último trade (estimativa de tempo aberto)
+        minutes_open = 0
+        last_time = self.last_trade_time.get(symbol)
+        if last_time:
+            minutes_open = int((datetime.now() - last_time).total_seconds() / 60)
+
+        # Ajusta TP e RSI com base nas configurações dinâmicas por bot, se disponíveis
+        dyn_tp_val = None
+        if self.dynamic_factor and self.bot_key:
+            dyn_tp_val = self.dynamic_factor.get_dynamic_take_profit_by_name(self.bot_key, minutes_open)
+            if dyn_tp_val is not None:
+                try:
+                    dyn_tp_val = float(dyn_tp_val)
+                    self.take_profit_pct = dyn_tp_val
+                except Exception:
+                    pass
+            dyn_rsi_val = self.dynamic_factor.get_dynamic_rsi_by_name(self.bot_key, minutes_open)
+            if dyn_rsi_val and isinstance(dyn_rsi_val, dict) and 'venda' in dyn_rsi_val:
+                try:
+                    self.rsi_overbought = int(dyn_rsi_val['venda'])
+                except Exception:
+                    pass
+
         # 1. TAKE PROFIT (0.8%)
         if pnl_pct >= self.take_profit_pct:
             return True, f"✅ TAKE PROFIT: +{pnl_pct:.2f}% (meta: {self.take_profit_pct}%)"

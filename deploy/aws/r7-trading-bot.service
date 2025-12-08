@@ -1,0 +1,20 @@
+[Unit]
+Description=R7 Trading Bot API - Main Process
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/r7-trading-bot
+Environment="PATH=/home/ubuntu/r7-trading-bot/venv/bin"
+EnvironmentFile=/home/ubuntu/r7-trading-bot/.env
+ExecStart=/home/ubuntu/r7-trading-bot/venv/bin/python main_multibot.py
+Restart=always
+RestartSec=10
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+
+# Limites
+LimitNOFILE=65536

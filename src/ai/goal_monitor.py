@@ -1,5 +1,5 @@
 """
-📊 MONITOR DE METAS - R7_V1 (META 10% AO MÊS)
+📊 MONITOR DE METAS - R7 TRADING BOT API (META 10% AO MÊS)
 =============================================
 Monitora progresso em relação às metas mensais AGRESSIVAS.
 
@@ -20,7 +20,7 @@ NÍVEIS DE META (FASE 2 - Híbrido com Futuros):
 ⚠️ RISCO: Metas agressivas = Risco maior de perdas
 🛡️ PROTEÇÃO: Daily stop 5%, Emergency stop 15%
 
-Autor: Sistema R7_V1
+Autor: Sistema R7 Trading Bot API
 """
 
 import json

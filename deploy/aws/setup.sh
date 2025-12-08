@@ -1,11 +1,11 @@
 #!/bin/bash
 # ==============================================
-# Script de Setup para AWS EC2 - App Leonardo
+# Script de Setup para AWS EC2 - R7 Trading Bot API
 # ==============================================
 
 set -e
 
-echo "🚀 Iniciando setup do App Leonardo na AWS..."
+echo "🚀 Iniciando setup do R7 Trading Bot API na AWS..."
 
 # Atualizar sistema
 echo "📦 Atualizando sistema..."
@@ -17,8 +17,8 @@ sudo apt install -y python3.11 python3.11-venv python3-pip git htop
 
 # Criar diretório
 echo "📁 Criando diretório..."
-mkdir -p ~/app-leonardo
-cd ~/app-leonardo
+mkdir -p ~/r7-trading-bot
+cd ~/r7-trading-bot
 
 # Criar ambiente virtual
 echo "🔧 Criando ambiente virtual..."
@@ -42,15 +42,15 @@ fi
 
 # Instalar serviços systemd
 echo "⚙️ Configurando serviços systemd..."
-sudo cp deploy/aws/app-leonardo-bot.service /etc/systemd/system/
-sudo cp deploy/aws/app-leonardo-dashboard.service /etc/systemd/system/
+sudo cp deploy/aws/r7-trading-bot.service /etc/systemd/system/
+sudo cp deploy/aws/r7-trading-dashboard.service /etc/systemd/system/
 
 # Recarregar systemd
 sudo systemctl daemon-reload
 
 # Habilitar serviços
-sudo systemctl enable app-leonardo-bot
-sudo systemctl enable app-leonardo-dashboard
+sudo systemctl enable r7-trading-bot
+sudo systemctl enable r7-trading-dashboard
 
 echo ""
 echo "✅ Setup concluído!"
@@ -60,11 +60,11 @@ echo "   1. Edite o arquivo .env com suas chaves da Binance:"
 echo "      nano .env"
 echo ""
 echo "   2. Inicie os serviços:"
-echo "      sudo systemctl start app-leonardo-bot"
-echo "      sudo systemctl start app-leonardo-dashboard"
+echo "      sudo systemctl start r7-trading-bot"
+echo "      sudo systemctl start r7-trading-dashboard"
 echo ""
 echo "   3. Verifique o status:"
-echo "      sudo systemctl status app-leonardo-bot"
+echo "      sudo systemctl status r7-trading-bot"
 echo ""
 echo "   4. Acesse o dashboard:"
 echo "      http://SEU_IP:8501"

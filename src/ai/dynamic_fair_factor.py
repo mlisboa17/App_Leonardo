@@ -77,6 +77,99 @@ class DynamicFairFactor:
             'bot_meme': 20
         }
         self.rsi_max_increment = 12  # Adiciona até 12 ao RSI com o tempo
+        # Tentar carregar configuração do arquivo YAML (config/bots_config.yaml)
+        try:
+            import yaml
+            from pathlib import Path
+            cfg_path = Path('config/bots_config.yaml')
+            if cfg_path.exists():
+                with open(cfg_path, 'r', encoding='utf-8') as f:
+                    cfg = yaml.safe_load(f) or {}
+                    bots = cfg.get('bots', {})
+                    # Carrega TP e RSI dinâmicos, caso existam
+                    rsi_cfg = {}
+                    tp_cfg = {}
+                    for k, v in bots.items():
+                        # mapeia chaves do YAML para as keys usadas pelo DynamicFairFactor
+                        key = k
+                        rsi_dyn = v.get('rsi_dinamico') or v.get('rsi_dynamics') or v.get('rsi_dynamic')
+                        tp_dyn = v.get('take_profit_dinamico') or v.get('take_profit_dynamic') or v.get('take_profit_dynamics')
+                        if rsi_dyn:
+                            # transforma strings para números se necessário
+                            mapped = {}
+                            for time_k, val in rsi_dyn.items():
+                                # time_k pode ser '0' ou string '60min' -> tenta extrair inteiro
+                                try:
+                                    t = int(str(time_k).replace('min', '').strip())
+                                except Exception:
+                                    try:
+                                        t = int(float(str(time_k)))
+                                    except Exception:
+                                        continue
+                                if isinstance(val, dict):
+                                    mapped[t] = { 'compra': int(str(val.get('compra', '')).replace('<=','').strip()), 'venda': int(str(val.get('venda', '')).replace('>=','').strip()) }
+                                else:
+                                    # valor escrito como string - tentar parse
+                                    # esperar no formato '{compra: <=35, venda: >=70}' no YAML; se for outra forma, ignore
+                                    continue
+                            rsi_cfg[key] = mapped
+                        if tp_dyn:
+                            mapped_tp = {}
+                            for time_k, val in tp_dyn.items():
+                                try:
+                                    t = int(str(time_k).replace('min','').strip())
+                                except Exception:
+                                    try:
+                                        t = int(float(str(time_k)))
+                                    except Exception:
+                                        continue
+                                try:
+                                    mapped_tp[t] = float(str(val).replace('%','').strip())
+                                except Exception:
+                                    continue
+                            tp_cfg[key] = mapped_tp
+                    self.rsi_config = rsi_cfg if rsi_cfg else None
+                    self.tp_config = tp_cfg if tp_cfg else None
+            else:
+                self.rsi_config = None
+                self.tp_config = None
+        except Exception:
+            # Se algo falhar, carrega mapeamento estático padrão (fallback)
+            self.rsi_config = None
+            self.tp_config = None
+
+        # Se config não veio do YAML, definimos fallback padrão
+        if not self.rsi_config:
+            self.rsi_config = {
+                "Bot_Estavel_Holder": {
+                    0: {"compra": 35, "venda": 70},
+                    60: {"compra": 40, "venda": 68},
+                    120: {"compra": 45, "venda": 65},
+                },
+                "Bot_Medio_Swing": {
+                    0: {"compra": 40, "venda": 65},
+                    30: {"compra": 43, "venda": 63},
+                    90: {"compra": 45, "venda": 60},
+                },
+                "Bot_Volatil_Momentum": {
+                    0: {"compra": 45, "venda": 75},
+                    20: {"compra": 48, "venda": 72},
+                    60: {"compra": 50, "venda": 70},
+                },
+                "Bot_Meme_Scalper": {
+                    0: {"compra": 50, "venda": 65},
+                    10: {"compra": 53, "venda": 63},
+                    20: {"compra": 55, "venda": 60},
+                },
+            }
+        # NOTE: tp_config is set below after validation; remove earlier duplicate definitions
+
+        self.tp_config = {
+            "Bot_Estavel_Holder": {0: 2.5, 60: 1.5, 120: 1.0},
+            "Bot_Medio_Swing": {0: 3.0, 30: 2.0, 90: 1.5},
+            "Bot_Volatil_Momentum": {0: 2.0, 20: 1.5, 60: 1.0},
+            "Bot_Meme_Scalper": {0: 1.2, 10: 0.8, 20: 0.5},
+        }
         
     def get_time_factor(self, minutes_open: float, bot_type: str) -> float:
         """
@@ -127,6 +220,41 @@ class DynamicFairFactor:
             motivo = f"📉 Tendência QUEDA - vendendo rápido (TP: {tp_dinamico:.2f}%)"
         
         return tp_dinamico, pode_vender, motivo
+
+    # ------------ Mapeamento por nome do bot (skeleton do usuário) ------------
+    def _normalize_bot_name(self, bot_name: str) -> str:
+        if bot_name in self.tp_config or bot_name in self.rsi_config:
+            return bot_name
+        # tenta converter camel/snake/nome para chave interna padrão
+        key = bot_name.replace('-', '_').replace(' ', '_')
+        if key in self.tp_config or key in self.rsi_config:
+            return key
+        # versão em CamelCase: bot_estavel -> Bot_Estavel_Holder tentativa
+        # Não é possível converter automaticamente para todas as variações,
+        # então retornamos o nome original.
+        return bot_name
+
+    def get_dynamic_take_profit_by_name(self, bot_name: str, minutes_open: float):
+        """Retorna TP ajustado conforme tempo da posição, baseado no mapeamento por bot."""
+        name = self._normalize_bot_name(bot_name)
+        config = self.tp_config.get(name) or self.tp_config.get(bot_name)
+        if not config:
+            return None
+        for t in sorted(config.keys(), reverse=True):
+            if minutes_open >= t:
+                return config[t]
+        return config.get(0)
+
+    def get_dynamic_rsi_by_name(self, bot_name: str, minutes_open: float):
+        """Retorna dicionário com RSI de compra/venda conforme tempo da posição, baseado no mapeamento por bot."""
+        name = self._normalize_bot_name(bot_name)
+        config = self.rsi_config.get(name) or self.rsi_config.get(bot_name)
+        if not config:
+            return None
+        for t in sorted(config.keys(), reverse=True):
+            if minutes_open >= t:
+                return config[t]
+        return config.get(0)
     
     def get_dynamic_rsi(self, base_rsi: float, minutes_waiting: float, 
                         bot_type: str) -> float:

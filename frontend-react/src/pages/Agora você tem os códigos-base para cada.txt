@@ -1,0 +1,8 @@
+Agora você tem os códigos-base para cada parte:
+• 	 → lógica de RSI/TP dinâmico.
+• 	 → configs iniciais + thresholds.
+• 	 → limites de risco.
+• 	 → controle global.
+• 	 → métricas e logs.
+
+

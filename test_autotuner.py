@@ -1,5 +1,5 @@
 """
-🧪 TESTE DO SISTEMA AUTO-TUNER + METAS - R7_V1
+🧪 TESTE DO SISTEMA AUTO-TUNER + METAS - R7 TRADING BOT API
 ==============================================
 Verifica se todos os componentes estão funcionando:
 1. Auto-Tuner (ajuste dinâmico)
@@ -203,7 +203,7 @@ def main():
     """Executa todos os testes"""
     print("\n")
     print("╔══════════════════════════════════════════════════════════════╗")
-    print("║        🧪 TESTE COMPLETO DO SISTEMA R7_V1                    ║")
+    print("║        🧪 TESTE COMPLETO DO SISTEMA R7 TRADING BOT API       ║")
     print("║                                                              ║")
     print("║  Este teste verifica:                                        ║")
     print("║  1. Conexão com Binance                                      ║")

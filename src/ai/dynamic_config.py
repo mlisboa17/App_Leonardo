@@ -1,5 +1,5 @@
 """
-🧠 CONFIGURADOR DINÂMICO - R7_V1
+🧠 CONFIGURADOR DINÂMICO - R7 TRADING BOT API
 ================================
 Sistema que ajusta automaticamente os parâmetros dos bots
 baseado nas condições REAIS do mercado em tempo real.
@@ -12,7 +12,7 @@ Fontes de dados:
 5. Correlação BTC
 6. Performance recente do bot
 
-Autor: Sistema R7_V1
+Autor: Sistema R7 Trading Bot API
 """
 
 import logging

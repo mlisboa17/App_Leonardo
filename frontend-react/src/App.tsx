@@ -9,6 +9,7 @@ import BotControl from './pages/BotControl'
 import Indicators from './pages/Indicators'
 import BotComparison from './pages/BotComparison'
 import Layout from './components/Layout'
+import Security from './pages/Security'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
@@ -33,6 +34,7 @@ function App() {
         <Route path="bots" element={<BotControl />} />
         <Route path="indicators" element={<Indicators />} />
         <Route path="comparison" element={<BotComparison />} />
+        <Route path="security" element={<Security />} />
         <Route path="config" element={<Config />} />
       </Route>
     </Routes>

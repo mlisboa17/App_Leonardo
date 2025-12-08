@@ -11,7 +11,7 @@ Fontes de dados:
 4. Correlações entre cryptos
 5. Momentum do mercado
 
-Autor: Sistema R7_V1
+Autor: Sistema R7 Trading Bot API
 """
 
 import logging
@@ -527,7 +527,7 @@ class MarketAnalyzer:
         
         return f"""
 ╔═══════════════════════════════════════════════════════════╗
-║              📊 ANÁLISE DE MERCADO R7_V1                  ║
+║              📊 ANÁLISE DE MERCADO R7 TRADING BOT API    ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  BTC: ${cond.btc_price:,.2f}                               
 ║  24h: {cond.btc_change_24h:+.2f}% | 1h: {cond.btc_change_1h:+.2f}%

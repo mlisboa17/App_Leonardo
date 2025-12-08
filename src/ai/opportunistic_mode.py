@@ -1,6 +1,6 @@
 """
 ╔═══════════════════════════════════════════════════════════════════════════════╗
-║                    🎯 MODO OPORTUNISTA - R7_V1                                ║
+║                    🎯 MODO OPORTUNISTA - R7 TRADING BOT API                   ║
 ║                                                                               ║
 ║  Sistema que detecta condições FAVORÁVEIS de mercado e aumenta               ║
 ║  automaticamente a agressividade dos bots para maximizar lucros.             ║

@@ -1,0 +1,40 @@
+bots_config:
+  Bot_Estavel_Holder:
+    estrategia: holder
+    moedas: [BTCUSDT, ETHUSDT, BNBUSDT, LTCUSDT]
+    valor_trade: 20
+    max_posicoes: 3
+    stop_loss: -0.8%
+    trailing_stop: 0.3-0.4%
+    take_profit_dinamico: {0: 2.5%, 60: 1.5%, 120: 1.0%}
+    rsi_dinamico: {0: {compra: <=35, venda: >=70}, 60: {compra: <=40, venda: >=68}, 120: {compra: <=45, venda: >=65}}
+
+  Bot_Medio_Swing:
+    estrategia: swing
+    moedas: [SOLUSDT, LINKUSDT, AVAXUSDT, DOTUSDT, NEARUSDT]
+    valor_trade: 25
+    max_posicoes: 4
+    stop_loss: -1.2%
+    trailing_stop: 0.4-0.5%
+    take_profit_dinamico: {0: 3.0%, 30: 2.0%, 90: 1.5%}
+    rsi_dinamico: {0: {compra: <=45, venda: >=65}, 30: {compra: <=43, venda: >=63}, 90: {compra: <=45, venda: >=60}}
+
+  Bot_Volatil_Momentum:
+    estrategia: momentum
+    moedas: [XRPUSDT, ADAUSDT, TRXUSDT]
+    valor_trade: 25
+    max_posicoes: 4
+    stop_loss: -1.5%
+    trailing_stop: 0.5-0.7%
+    take_profit_dinamico: {0: 2.0%, 20: 1.5%, 60: 1.0%}
+    rsi_dinamico: {0: {compra: <=50, venda: >=75}, 20: {compra: <=48, venda: >=72}, 60: {compra: <=50, venda: >=70}}
+
+  Bot_Meme_Scalper:
+    estrategia: scalper
+    moedas: [DOGEUSDT, SHIBUSDT, PEPEUSDT]
+    valor_trade: 15
+    max_posicoes: 5
+    stop_loss: -1.0%
+    trailing_stop: 0.2-0.3%
+    take_profit_dinamico: {0: 1.2%, 10: 0.8%, 20: 0.5%}
+    rsi_dinamico: {0: {compra: <=55, venda: >=65}, 10: {compra: <=53, venda: >=63}, 20: {compra: <=55, venda: >=60}}

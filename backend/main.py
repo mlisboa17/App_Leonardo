@@ -14,19 +14,23 @@ Endpoints:
 import uvicorn
 from contextlib import asynccontextmanager
 from datetime import datetime
+import time
+import os
+import json
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .routes import auth_routes, dashboard_routes, config_routes, actions_routes, bot_control_routes
+from .routes import auth_routes, dashboard_routes, config_routes, actions_routes, bot_control_routes, audit_routes
 
 
 # Lifespan para startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gerencia startup e shutdown"""
+    app.startup_time = time.time()
     print(f"""
 ╔═══════════════════════════════════════════════════════════╗
 ║           R7 TRADING BOT API - v{settings.VERSION}                ║
@@ -104,6 +108,7 @@ app.include_router(dashboard_routes.router, prefix="/api")
 app.include_router(config_routes.router, prefix="/api")
 app.include_router(actions_routes.router, prefix="/api")
 app.include_router(bot_control_routes.router, prefix="/api")
+app.include_router(audit_routes.router, prefix="/api")
 
 
 # Rota raiz
@@ -122,11 +127,41 @@ async def root():
 
 # Health check
 @app.get("/health")
+@app.get("/api/health")
 async def health_check():
-    """Verificação de saúde da API"""
+    """Verificação de saúde completa da API"""
+    uptime_seconds = int(time.time() - app.startup_time) if hasattr(app, 'startup_time') else 0
+    
+    # Verificar se arquivos de dados existem
+    data_exists = os.path.exists("data")
+    config_exists = os.path.exists("config/bots_config.yaml")
+    
+    # Calcular uso de disco
+    try:
+        total, used, free = os.statvfs("/") if os.name != 'nt' else (0, 0, 0)
+        disk_usage = round((used / total * 100), 2) if total > 0 else 0
+    except:
+        disk_usage = 0
+    
     return {
         "status": "healthy",
-        "timestamp": datetime.now().isoformat()
+        "version": settings.VERSION,
+        "timestamp": datetime.now().isoformat(),
+        "uptime_seconds": uptime_seconds,
+        "uptime_human": f"{uptime_seconds // 3600}h {(uptime_seconds % 3600) // 60}m",
+        "environment": {
+            "debug": settings.DEBUG,
+            "host": settings.HOST,
+            "port": settings.PORT,
+        },
+        "data": {
+            "data_dir_exists": data_exists,
+            "config_exists": config_exists,
+        },
+        "system": {
+            "disk_usage_percent": disk_usage,
+            "python_version": "3.11+",
+        }
     }
 
 

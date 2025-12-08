@@ -1,0 +1,75 @@
+🎯 RESPOSTA: DATABASE GRÁTIS!
+
+Sua pergunta: "Para que usar banco de dados agora? Podemos usar um que seja de graça?"
+
+✅ RESPOSTA: SIM! Existem opções GRÁTIS!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 OPÇÕES GRÁTIS
+
+1. JSON (AGORA - Funciona perfeitamente!)
+   └─ Custo: $0/mês PARA SEMPRE!
+
+2. SQLite (DEPOIS - Quando quiser melhorar)
+   └─ Custo: $0/mês PARA SEMPRE!
+
+3. PostgreSQL Render.com (ESCALAR)
+   └─ Custo: $0/mês (com restrições, pode pagar depois)
+
+4. PostgreSQL AWS RDS Free Tier (ESCALAR)
+   └─ Custo: $0/mês (12 meses), depois ~$15/mês
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 RECOMENDAÇÃO
+
+AGORA (v1.0):
+✅ Continuar com JSON (já funciona, não mude nada!)
+   - Zero custo
+   - Zero complicações
+   - Perfeito para produção
+
+v1.5 (Se quiser BD):
+✅ Adicionar SQLite (100% grátis)
+   - Migração simples (script pronto)
+   - Queries SQL
+   - Melhor performance
+   - Sem aumentar custo
+
+v2.0 (Se escalar muito):
+✅ PostgreSQL grátis (Render.com ou AWS RDS)
+   - Banco de dados profissional
+   - Sem custo (pelo menos 12 meses)
+   - Escala para milhões de registros
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 CUSTO TOTAL
+
+❌ Não gaste NADA com banco de dados!
+
+Seu stack completo:
+├─ Frontend: React (grátis)
+├─ Backend: FastAPI (grátis)
+├─ Database: JSON/SQLite (grátis PARA SEMPRE!)
+├─ Servidor: EC2 t3.micro (grátis 12m, depois ~$6/mês)
+└─ Backup: S3 (~$0.03/mês)
+   ────────────────────────────────────
+   TOTAL: $0-1/mês (primeiros 12 meses)
+   DEPOIS: $5-8/mês (muito barato!)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ CONCLUSÃO
+
+Arquivo atualizado: DATABASE_STRATEGY_FREE.md
+
+Tem tudo explicado:
+- ✅ Por que não gastar com banco de dados AGORA
+- ✅ 4 opções GRÁTIS para escalar
+- ✅ Script de migração JSON → SQLite (quando quiser)
+- ✅ Comparação de custos
+- ✅ Timeline SEM GASTAR NADA
+
+AÇÃO: Não mude nada! Use JSON agora, é gratuito e funciona! ✅

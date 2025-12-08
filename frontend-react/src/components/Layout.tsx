@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { 
   LayoutDashboard, Activity, History, Settings, 
-  LogOut, Bot, User, Bell, AlertOctagon, Zap, BarChart2, Trophy 
+  LogOut, Bot, User, Bell, AlertOctagon, Zap, BarChart2, Trophy, Shield 
 } from 'lucide-react'
 import { actionsApi } from '../services/api'
 import { useState } from 'react'
@@ -35,6 +35,7 @@ export default function Layout() {
     { to: '/bots', icon: <Zap className="w-5 h-5" />, label: 'Controle Bots' },
     { to: '/indicators', icon: <BarChart2 className="w-5 h-5" />, label: 'Indicadores' },
     { to: '/comparison', icon: <Trophy className="w-5 h-5" />, label: 'Comparação' },
+    { to: '/security', icon: <Shield className="w-5 h-5" />, label: 'Segurança' },
     { to: '/config', icon: <Settings className="w-5 h-5" />, label: 'Config' },
   ]
 

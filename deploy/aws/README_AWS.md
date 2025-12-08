@@ -1,4 +1,4 @@
-# 🚀 Deploy na AWS - App Leonardo Bot
+# 🚀 Deploy na AWS - R7 Trading Bot API
 
 ## Pré-requisitos
 
@@ -14,7 +14,7 @@
 
 1. Acesse AWS Console → EC2 → Launch Instance
 2. Configure:
-   - **Nome**: `app-leonardo-bot`
+   - **Nome**: `r7-trading-bot`
    - **AMI**: Ubuntu 22.04 LTS
    - **Tipo**: t3.micro (Free Tier) ou t3.small
    - **Key pair**: Selecione ou crie uma
@@ -39,8 +39,8 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3.11 python3.11-venv python3-pip git
 
 # Criar diretório
-mkdir -p ~/app-leonardo
-cd ~/app-leonardo
+mkdir -p ~/r7-trading-bot
+cd ~/r7-trading-bot
 ```
 
 ### Passo 4: Upload do Projeto
@@ -49,17 +49,17 @@ Do seu computador local:
 ```bash
 # Compactar projeto (excluindo venv)
 cd "c:\Users\gabri\OneDrive\Área de Trabalho\Projetos\ScanKripto\r7_v1"
-tar --exclude='venv_new' --exclude='__pycache__' --exclude='.git' -czvf app-leonardo.tar.gz .
+tar --exclude='venv_new' --exclude='__pycache__' --exclude='.git' -czvf r7-trading-bot.tar.gz .
 
 # Enviar para AWS
-scp -i "sua-chave.pem" app-leonardo.tar.gz ubuntu@SEU_IP:~/app-leonardo/
+scp -i "sua-chave.pem" r7-trading-bot.tar.gz ubuntu@SEU_IP:~/r7-trading-bot/
 ```
 
 No servidor AWS:
 ```bash
-cd ~/app-leonardo
-tar -xzvf app-leonardo.tar.gz
-rm app-leonardo.tar.gz
+cd ~/r7-trading-bot
+tar -xzvf r7-trading-bot.tar.gz
+rm r7-trading-bot.tar.gz
 ```
 
 ### Passo 5: Configurar Ambiente
@@ -91,31 +91,31 @@ BINANCE_API_SECRET=seu_secret_aqui
 
 ```bash
 # Copiar arquivos de serviço
-sudo cp deploy/aws/app-leonardo-bot.service /etc/systemd/system/
-sudo cp deploy/aws/app-leonardo-dashboard.service /etc/systemd/system/
+sudo cp deploy/aws/r7-trading-bot.service /etc/systemd/system/
+sudo cp deploy/aws/r7-trading-dashboard.service /etc/systemd/system/
 
 # Recarregar systemd
 sudo systemctl daemon-reload
 
 # Habilitar serviços
-sudo systemctl enable app-leonardo-bot
-sudo systemctl enable app-leonardo-dashboard
+sudo systemctl enable r7-trading-bot
+sudo systemctl enable r7-trading-dashboard
 
 # Iniciar serviços
-sudo systemctl start app-leonardo-bot
-sudo systemctl start app-leonardo-dashboard
+sudo systemctl start r7-trading-bot
+sudo systemctl start r7-trading-dashboard
 ```
 
 ### Passo 8: Verificar Status
 
 ```bash
 # Ver status
-sudo systemctl status app-leonardo-bot
-sudo systemctl status app-leonardo-dashboard
+sudo systemctl status r7-trading-bot
+sudo systemctl status r7-trading-dashboard
 
 # Ver logs
-sudo journalctl -u app-leonardo-bot -f
-sudo journalctl -u app-leonardo-dashboard -f
+sudo journalctl -u r7-trading-bot -f
+sudo journalctl -u r7-trading-dashboard -f
 ```
 
 ### Passo 9: Acessar Dashboard
@@ -131,32 +131,32 @@ http://SEU_IP_PUBLICO:8501
 
 ```bash
 # Reiniciar bot
-sudo systemctl restart app-leonardo-bot
+sudo systemctl restart r7-trading-bot
 
 # Parar bot
-sudo systemctl stop app-leonardo-bot
+sudo systemctl stop r7-trading-bot
 
 # Ver logs em tempo real
-sudo journalctl -u app-leonardo-bot -f --no-pager
+sudo journalctl -u r7-trading-bot -f --no-pager
 
 # Atualizar código
-cd ~/app-leonardo
+cd ~/r7-trading-bot
 git pull origin master  # ou re-upload manual
-sudo systemctl restart app-leonardo-bot
+sudo systemctl restart r7-trading-bot
 ```
 
 ---
 
 ## Backup Automático para S3 (Opcional)
 
-1. Criar bucket S3: `app-leonardo-backups`
+1. Criar bucket S3: `r7-trading-bot-backups`
 2. Configurar IAM role para EC2
 3. Adicionar ao crontab:
 
 ```bash
 crontab -e
 # Adicionar linha:
-0 */6 * * * aws s3 sync ~/app-leonardo/data s3://app-leonardo-backups/data --exclude "*.pyc"
+0 */6 * * * aws s3 sync ~/r7-trading-bot/data s3://r7-trading-bot-backups/data --exclude "*.pyc"
 ```
 
 ---

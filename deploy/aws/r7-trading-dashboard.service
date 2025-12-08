@@ -1,0 +1,19 @@
+[Unit]
+Description=R7 Trading Bot API - Dashboard (Streamlit)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/r7-trading-bot
+Environment="PATH=/home/ubuntu/r7-trading-bot/venv/bin"
+ExecStart=/home/ubuntu/r7-trading-bot/venv/bin/streamlit run frontend/dashboard_multibot.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+Restart=always
+RestartSec=10
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

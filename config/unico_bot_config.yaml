@@ -24,33 +24,13 @@ unico_bot:
       rsi_mean: 50
       sell_rsi: 57
       category: estavel
-    LTCUSDT:
-      buy_rsi: 43
-      rsi_mean: 50
-      sell_rsi: 57
-      category: estavel
     # === MÉDIAS (RSI balanceado) ===
     SOLUSDT:
       buy_rsi: 41
       rsi_mean: 50
       sell_rsi: 59
       category: medio
-    LINKUSDT:
-      buy_rsi: 41
-      rsi_mean: 50
-      sell_rsi: 59
-      category: medio
-    AVAXUSDT:
-      buy_rsi: 40
-      rsi_mean: 50
-      sell_rsi: 60
-      category: medio
     DOTUSDT:
-      buy_rsi: 40
-      rsi_mean: 50
-      sell_rsi: 60
-      category: medio
-    NEARUSDT:
       buy_rsi: 40
       rsi_mean: 50
       sell_rsi: 60
@@ -71,26 +51,11 @@ unico_bot:
       rsi_mean: 50
       sell_rsi: 62
       category: volatil
-    ADAUSDT:
-      buy_rsi: 37
-      rsi_mean: 48
-      sell_rsi: 63
-      category: volatil
-    TRXUSDT:
-      buy_rsi: 37
-      rsi_mean: 48
-      sell_rsi: 63
-      category: volatil
     # === MEMES (RSI muito agressivo) ===
     DOGEUSDT:
       buy_rsi: 35
       rsi_mean: 50
       sell_rsi: 65
-      category: meme
-    SHIBUSDT:
-      buy_rsi: 33
-      rsi_mean: 48
-      sell_rsi: 67
       category: meme
   description: Bot unificado com Smart Strategy - TODAS as carteiras e TODO o saldo
   enabled: true
@@ -119,72 +84,52 @@ unico_bot:
     save_snapshots: true
     save_trades: true
   name: UnicoBot
-  # Portfolio com TODAS as cryptos que você tem saldo
+  # Portfolio OTIMIZADO - Opção A Conservadora (10 cryptos)
+  # Estáveis: BTC, ETH, BNB (peso maior)
+  # Médias: SOL, DOT, AAVE, UNI
+  # Voláteis: XRP
+  # Memes: DOGE, SHIB (peso menor)
   portfolio:
-  # === ESTÁVEIS ===
+  # === ESTÁVEIS (3 posições, $40 cada) ===
   - category: estavel
     name: Bitcoin
     symbol: BTCUSDT
-    weight: 15
+    weight: 20
   - category: estavel
     name: Ethereum
     symbol: ETHUSDT
-    weight: 12
+    weight: 18
   - category: estavel
     name: BNB
     symbol: BNBUSDT
-    weight: 8
-  - category: estavel
-    name: Litecoin
-    symbol: LTCUSDT
-    weight: 8
-  # === MÉDIAS ===
+    weight: 12
+  # === MÉDIAS (3 posições, $30 cada) ===
   - category: medio
     name: Solana
     symbol: SOLUSDT
-    weight: 10
-  - category: medio
-    name: Chainlink
-    symbol: LINKUSDT
-    weight: 6
-  - category: medio
-    name: Avalanche
-    symbol: AVAXUSDT
-    weight: 6
+    weight: 12
   - category: medio
     name: Polkadot
     symbol: DOTUSDT
-    weight: 8
-  - category: medio
-    name: Near
-    symbol: NEARUSDT
-    weight: 6
+    weight: 10
   - category: medio
     name: Uniswap
     symbol: UNIUSDT
-    weight: 5
+    weight: 8
   - category: medio
     name: Aave
     symbol: AAVEUSDT
-    weight: 5
-  # === VOLÁTEIS ===
+    weight: 8
+  # === VOLÁTEIS (2 posições, $20 cada) ===
   - category: volatil
     name: XRP
     symbol: XRPUSDT
-    weight: 4
-  - category: volatil
-    name: Cardano
-    symbol: ADAUSDT
-    weight: 3
-  - category: volatil
-    name: Tron
-    symbol: TRXUSDT
-    weight: 2
-  # === MEMES ===
+    weight: 6
+  # === MEMES (1 posição, $15) ===
   - category: meme
-    name: Shiba Inu
-    symbol: SHIBUSDT
-    weight: 2
+    name: Dogecoin
+    symbol: DOGEUSDT
+    weight: 6
   safety:
     cool_down_minutes: 2
     max_consecutive_losses: 4
@@ -230,12 +175,16 @@ unico_bot:
     min_trade_profit: 0.15
     monthly_profit: 50
   trading:
-    # $25 por trade = até 12 trades com USDT livre
-    # Mais trades = mais chances de acertar
-    amount_per_trade: 25
+    # Opção A Conservadora: 9 posições, distribuição por perfil
+    # Estáveis: 3 pos x $40 = $120
+    # Médias: 3 pos x $30 = $90  
+    # Voláteis: 2 pos x $20 = $40
+    # Memes: 1 pos x $15 = $15
+    # Total máximo: $265 (mantém $400+ livre)
+    amount_per_trade: 35
     interval_seconds: 5
-    max_positions: 15
-    max_total_investment: 500
+    max_positions: 9
+    max_total_investment: 350
     timeframe: 1m
   trend_detection:
     signals:
