@@ -29,7 +29,7 @@ ai_monitoring:
     market_monitor: true
     opportunistic_mode: true
 enabled: true
-operation_mode: EQUIPE
+operation_mode: SOLO
 operation_modes:
   EQUIPE:
     behavior:

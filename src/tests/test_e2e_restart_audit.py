@@ -36,7 +36,7 @@ def coordinator(test_env):
     mock_config = {
         'global': {
             'exchange': 'binance',
-            'testnet': True
+            'testnet': False
         },
         'coordinator': {
             'logging': {'level': 'INFO', 'save_to_file': False}

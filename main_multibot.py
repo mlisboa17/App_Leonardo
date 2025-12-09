@@ -59,6 +59,14 @@ except ImportError as e:
     AUTOTUNER_AVAILABLE = False
     print(f"⚠️ AutoTuner não disponível: {e}")
 
+# ===== IMPORTAÇÃO DO AI MONITOR (MONITORA TODOS OS 5 BOTS) =====
+try:
+    from src.ai_monitor import get_ai_monitor, AdaptiveAIMonitor
+    AI_MONITOR_AVAILABLE = True
+except ImportError as e:
+    AI_MONITOR_AVAILABLE = False
+    print(f"⚠️ AI Monitor não disponível: {e}")
+
 
 class MultiBotEngine:
     """
@@ -129,6 +137,23 @@ class MultiBotEngine:
         else:
             self.autotuner_enabled = False
             print("⚠️ AutoTuner não disponível - configs estáticas")
+        
+        # ===== INICIALIZAÇÃO DO AI MONITOR (MONITORA TODOS OS 5 BOTS) =====
+        self.ai_monitor = None
+        self.ai_monitor_enabled = True
+        if AI_MONITOR_AVAILABLE:
+            try:
+                self.ai_monitor = get_ai_monitor()
+                self.ai_monitor.start()
+                print("🤖 AI Monitor inicializado!")
+                print("   → Monitorando TODOS os 5 bots (Estavel, Medio, Volatil, Meme, Unico)")
+                print("   → Ajustes adaptativos automáticos baseados em performance")
+            except Exception as e:
+                print(f"⚠️ Erro ao inicializar AI Monitor: {e}")
+                self.ai_monitor_enabled = False
+        else:
+            self.ai_monitor_enabled = False
+            print("⚠️ AI Monitor não disponível")
         
         # Controle
         self.running = False
@@ -1640,6 +1665,14 @@ class MultiBotEngine:
     def stop(self):
         """Para a execução"""
         self.running = False
+        
+        # Para AI Monitor
+        if self.ai_monitor_enabled and self.ai_monitor:
+            try:
+                self.ai_monitor.stop()
+                print("🛑 AI Monitor parado")
+            except Exception as e:
+                print(f"⚠️ Erro ao parar AI Monitor: {e}")
 
 
 def main():

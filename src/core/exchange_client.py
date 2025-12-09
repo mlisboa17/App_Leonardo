@@ -3,6 +3,7 @@ Módulo de Conexão com Exchanges via CCXT
 """
 import ccxt
 import logging
+import os
 from typing import Optional, Dict, List
 from datetime import datetime
 
@@ -19,9 +20,15 @@ TESTNET_BALANCE_CORRECTION = 10.0
 class ExchangeClient:
     """Cliente para conexão com exchanges"""
     
-    def __init__(self, exchange_name: str, api_key: str, api_secret: str, testnet: bool = True):
+    def __init__(self, exchange_name: str, api_key: str, api_secret: str, testnet: bool = None):
         self.exchange_name = exchange_name
-        self.testnet = testnet
+        
+        # Lê configuração de testnet do ambiente (.env)
+        if testnet is None:
+            use_testnet_env = os.getenv('USE_TESTNET', 'false').lower()
+            self.testnet = use_testnet_env == 'true'
+        else:
+            self.testnet = testnet
         
         # Inicializa exchange via CCXT
         exchange_class = getattr(ccxt, exchange_name)

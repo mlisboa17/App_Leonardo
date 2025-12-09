@@ -1,5 +1,159 @@
 # 📋 Histórico de Desenvolvimento - App Leonardo Bot
-## Sessão: 5 de Dezembro de 2025
+
+---
+
+## 📅 Sessão: 9 de Dezembro de 2025
+
+### 🎯 Objetivo Principal
+Deploy do sistema completo na AWS EC2
+
+---
+
+### ✅ Realizações
+
+#### 1. 🔐 Configuração AWS EC2
+- **Instância**: i-0754deeabc809cdea (r7_trade)
+- **Tipo**: Ubuntu 24.04 LTS
+- **IP Inicial**: 18.230.59.118
+- **IP Atual**: 18.228.12.103 (após reinicialização)
+- **SSH Key**: r7_trade_key.pem
+
+#### 2. 🔓 Abertura de Portas no Security Group
+Configuradas 3 regras de entrada:
+- **Porta 22** (SSH) - Acesso ao servidor ✅
+- **Porta 80** (HTTP) - Dashboard via Nginx ✅
+- **Porta 8503** (Streamlit) - Dashboard direto ✅
+
+**Origem**: 0.0.0.0/0 (acesso de qualquer IP)
+
+#### 3. 🔧 Troubleshooting da Instância
+- **Problema**: Verificação de acessibilidade da instância falhando
+- **Solução**: Reinicialização da instância EC2
+- **Resultado**: SSH funcionando corretamente
+
+#### 4. 📡 Teste de Conexão SSH
+```bash
+ssh -i "C:\Users\gabri\Downloads\r7_trade_key.pem" ubuntu@18.228.12.103
+```
+**Status**: ✅ Conexão estabelecida com sucesso
+```
+=== SSH CONECTADO ===
+ubuntu
+ip-172-31-14-233
+```
+
+#### 5. 📝 Documentação Criada
+- **ABRIR_PORTA_22_AWS.md** - Guia completo de abertura de portas
+  - Passo a passo com tradução em português
+  - Configuração de Security Groups
+  - Troubleshooting de conexão
+
+#### 6. 🔄 Atualização de Scripts
+Arquivos atualizados com novo IP:
+- `DEPLOY_AWS_CONECTAR.bat` - IP atualizado para 18.228.12.103
+- `aws_cmd.bat` - HOST atualizado para ubuntu@18.228.12.103
+
+#### 7. 🚀 Início do Deploy AWS
+Comandos executados:
+```bash
+wget https://raw.githubusercontent.com/mlisboa17/App_Leonardo/master/deploy_aws.sh
+chmod +x deploy_aws.sh
+./deploy_aws.sh
+```
+
+**Progresso do Deploy**:
+- [x] Download do script de deploy
+- [x] Atualização do sistema Ubuntu
+- [x] Instalação de Supervisor
+- [x] Instalação de Nginx
+- [⏳] Clonagem do repositório (interrompida)
+
+---
+
+### 📊 Infraestrutura AWS Preparada
+
+```
+┌─────────────────────────────────────┐
+│     AWS EC2 (18.228.12.103)        │
+│  ┌──────────────────────────────┐  │
+│  │  Security Group              │  │
+│  │  ├─ SSH (22) ✅              │  │
+│  │  ├─ HTTP (80) ✅             │  │
+│  │  └─ Streamlit (8503) ✅      │  │
+│  └──────────────────────────────┘  │
+│                                     │
+│  ┌──────────────────────────────┐  │
+│  │  Serviços Instalados         │  │
+│  │  ├─ Supervisor ✅            │  │
+│  │  ├─ Nginx ✅                 │  │
+│  │  └─ Python3 + pip ✅         │  │
+│  └──────────────────────────────┘  │
+└─────────────────────────────────────┘
+```
+
+---
+
+### 🛠️ Problemas Resolvidos
+
+| # | Problema | Solução | Status |
+|---|----------|---------|--------|
+| 1 | SSH não conectando | Abrir porta 22 no Security Group | ✅ |
+| 2 | Connection timed out | Reiniciar instância EC2 | ✅ |
+| 3 | IP mudou após reinício | Atualizar scripts com novo IP | ✅ |
+| 4 | Usuário confuso com SSH | Guia em português criado | ✅ |
+
+---
+
+### 📁 Arquivos Criados/Modificados
+
+**Novos:**
+- `ABRIR_PORTA_22_AWS.md` - Guia de configuração
+
+**Modificados:**
+- `DEPLOY_AWS_CONECTAR.bat` - IP: 18.228.12.103
+- `aws_cmd.bat` - IP: 18.228.12.103
+
+---
+
+### 🔜 Próximos Passos
+
+1. [ ] Completar deploy do repositório no AWS
+2. [ ] Instalar dependências Python (requirements.txt)
+3. [ ] Configurar credenciais Binance no servidor
+4. [ ] Configurar Supervisor para auto-start
+5. [ ] Configurar Nginx reverse proxy
+6. [ ] Testar dashboard em http://18.228.12.103
+7. [ ] Verificar auto-update de balances funcionando
+8. [ ] Commitar mudanças no Git
+
+---
+
+### 💾 Comandos Importantes
+
+**Conectar SSH:**
+```bash
+ssh -i "C:\Users\gabri\Downloads\r7_trade_key.pem" ubuntu@18.228.12.103
+```
+
+**Verificar serviços:**
+```bash
+sudo supervisorctl status
+sudo systemctl status nginx
+```
+
+**Logs:**
+```bash
+sudo tail -f /var/log/r7_dashboard.out.log
+sudo tail -f /var/log/r7_auto_update.out.log
+```
+
+---
+
+*Sessão em andamento - Deploy AWS iniciado*
+
+---
+
+## 📅 Sessão: 5 de Dezembro de 2025
 
 ---
 

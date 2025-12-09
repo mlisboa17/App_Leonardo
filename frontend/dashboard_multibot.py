@@ -1,6 +1,6 @@
 """
 ============================================================
-DASHBOARD MULTI-BOT - App Leonardo v3.0
+DASHBOARD MULTI-BOT - App R7   
 ============================================================
 
 Dashboard Streamlit que mostra estatísticas de todos os bots.
@@ -28,8 +28,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configuração da página
 st.set_page_config(
-    page_title="🎖️ Multi-Bot Dashboard",
-    page_icon="🤖",
+    page_title="🚀 APP R7 - Trading Bot",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -37,8 +37,13 @@ st.set_page_config(
 # CSS customizado
 st.markdown("""
 <style>
+    /* Aumenta tamanho geral das fontes */
+    html, body, [class*="css"] {
+        font-size: 18px !important;
+    }
+    
     .main-header {
-        font-size: 2.5rem;
+        font-size: 3rem;
         font-weight: bold;
         text-align: center;
         padding: 1rem;
@@ -63,17 +68,39 @@ st.markdown("""
     
     .stMetric {
         background-color: rgba(0,0,0,0.2);
-        padding: 1rem;
+        padding: 1.5rem;
         border-radius: 8px;
     }
     
+    /* Valores das métricas maiores */
     div[data-testid="stMetricValue"] {
-        font-size: 1.5rem;
+        font-size: 2.5rem !important;
+        font-weight: bold;
+    }
+    
+    /* Labels das métricas maiores */
+    div[data-testid="stMetricLabel"] {
+        font-size: 1.2rem !important;
+    }
+    
+    /* Títulos maiores */
+    h1 { font-size: 2.8rem !important; }
+    h2 { font-size: 2.2rem !important; }
+    h3 { font-size: 1.8rem !important; }
+    
+    /* Tabelas com fonte maior */
+    .dataframe { font-size: 1.1rem !important; }
+    
+    /* Botões maiores */
+    .stButton > button {
+        font-size: 1.2rem !important;
+        padding: 0.8rem 1.5rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
+@st.cache_data(ttl=10)  # Cache por 10 segundos
 def load_coordinator_stats():
     """Carrega estatísticas do coordenador"""
     stats_file = Path("data/coordinator_stats.json")
@@ -83,6 +110,7 @@ def load_coordinator_stats():
     return None
 
 
+@st.cache_data(ttl=5)  # Cache por 5 segundos
 def load_dashboard_balances():
     """Carrega dados de saldos e meta diária"""
     balances_file = Path("data/dashboard_balances.json")
@@ -102,7 +130,19 @@ def load_dashboard_balances():
         'daily_target_usd': 0,
         'daily_pnl': 0,
         'daily_progress': 0,
+        'initial_capital': 1000.0,  # $1,000 USDT como referência
     }
+
+
+def save_dashboard_balances(data: dict):
+    """Salva dados de saldos e meta diária"""
+    balances_file = Path("data/dashboard_balances.json")
+    balances_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(balances_file, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Erro ao salvar balances: {e}")
 
 
 def load_bots_config():
@@ -114,6 +154,39 @@ def load_bots_config():
     return None
 
 
+def sync_bot_unico_state():
+    """Sincroniza estado do bot_unico com os outros bots"""
+    config = load_bots_config()
+    if not config:
+        return
+    
+    bot_unico_enabled = config.get('bot_unico', {}).get('enabled', False)
+    other_bots = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']
+    
+    changed = False
+    if bot_unico_enabled:
+        # Se bot_unico está ativo, garante que outros estão desativados
+        for bot in other_bots:
+            if bot in config and config[bot].get('enabled', False):
+                config[bot]['enabled'] = False
+                changed = True
+    else:
+        # Se bot_unico está inativo, garante que pelo menos um outro está ativo
+        any_active = any(config.get(bot, {}).get('enabled', False) for bot in other_bots)
+        if not any_active and other_bots[0] in config:
+            config[other_bots[0]]['enabled'] = True
+            changed = True
+    
+    if changed:
+        try:
+            config_file = Path("config/bots_config.yaml")
+            with open(config_file, 'w', encoding='utf-8') as f:
+                yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        except Exception as e:
+            print(f"Erro ao sincronizar estado: {e}")
+
+
+@st.cache_data(ttl=5)  # Cache por 5 segundos
 def load_positions():
     """Carrega posições abertas"""
     positions_file = Path("data/multibot_positions.json")
@@ -123,12 +196,15 @@ def load_positions():
     return {}
 
 
+@st.cache_data(ttl=10)  # Cache por 10 segundos  
 def load_trade_history():
-    """Carrega histórico de trades"""
+    """Carrega histórico de trades (últimos 200 para performance)"""
     history_file = Path("data/multibot_history.json")
     if history_file.exists():
         with open(history_file, 'r') as f:
-            return json.load(f)
+            all_trades = json.load(f)
+            # Limita a 200 trades mais recentes para melhorar performance
+            return all_trades[-200:] if len(all_trades) > 200 else all_trades
     return []
 
 
@@ -283,10 +359,18 @@ def load_autotuner_state() -> dict:
 
 def render_global_stats(stats: dict, history: list):
     """Renderiza estatísticas globais"""
-    st.markdown('<div class="main-header">🎖️ COORDENADOR MULTI-BOT - R7_V1</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🚀 APP R7 - TRADING BOT SYSTEM</div>', unsafe_allow_html=True)
     
     # Carrega saldos do dashboard
     balances = load_dashboard_balances()
+    config = load_bots_config()
+    bot_unico_enabled = config.get('bot_unico', {}).get('enabled', False) if config else False
+    
+    # Mostra modo ativo
+    if bot_unico_enabled:
+        st.success("⚡ **MODO: BOT UNICO ADAPTATIVO** - Sistema híbrido em operação")
+    else:
+        st.info("🔵🟢🟡🔴 **MODO: 4 BOTS ESPECIALIZADOS** - Operação diversificada")
     
     # ===== CAPITAL INICIAL E PNL REAL =====
     CAPITAL_INICIAL = 1000.0  # Capital inicial fixo
@@ -296,7 +380,7 @@ def render_global_stats(stats: dict, history: list):
     
     # ===== LINHA 1: SALDOS =====
     st.subheader("💰 SALDOS")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric("💵 SALDO USDT", f"${balances['usdt_balance']:.2f}")
@@ -313,38 +397,49 @@ def render_global_stats(stats: dict, history: list):
     with col4:
         st.metric("🏦 POUPANÇA", f"${balances['poupanca']:.2f}")
     
+    with col5:
+        st.metric("🎯 CAPITAL INICIAL", f"${CAPITAL_INICIAL:.2f}")
+    
     # ===== LINHA 2: META DIÁRIA (CORRIGIDO) =====
     st.subheader("🎯 PROGRESSÃO META DIÁRIA")
     
-    # Meta diária = 10% ao mês / 30 dias = 0.33% ao dia = $3.33
+    # Calcula PnL do dia (desde 00:00 de hoje)
+    today = datetime.now().date().isoformat()
+    daily_trades = [t for t in history if t.get('exit_time', t.get('timestamp', '')).startswith(today)]
+    daily_pnl = sum(t.get('pnl_usd', 0) for t in daily_trades)
+    
+    # Meta diária = 0.33% ao dia = $3.33
     daily_target = 3.33  # Meta fixa de $3.33/dia para 10% ao mês
     
-    # PnL do dia = diferença desde o início do dia
-    # Por agora usamos o PnL real (total), depois podemos rastrear por dia
-    daily_pnl = pnl_real  # Usa PnL real como aproximação
+    # Progresso = PnL do dia / Meta do dia * 100
     daily_progress = (daily_pnl / daily_target * 100) if daily_target > 0 else 0
     
-    # Barra de progresso
+    # Barra de progresso (0-100%)
     progress_color = "🟢" if daily_progress >= 100 else "🟡" if daily_progress >= 50 else "🔴"
-    if daily_progress < 0:
+    if daily_pnl < 0:
         progress_color = "🔴"
     
     col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
-        # Barra de progresso visual
+        # Barra de progresso visual (capped a 100%)
         progress_value = min(daily_progress / 100, 1.0) if daily_progress >= 0 else 0
         st.progress(progress_value)
-        st.caption(f"{progress_color} Progresso: {daily_progress:.1f}%")
+        
+        # Explicação clara
+        if daily_pnl < 0:
+            st.caption(f"{progress_color} Progresso: **{daily_pnl:.2f}$ de {daily_target:.2f}$ (Meta não atingida)**")
+        else:
+            st.caption(f"{progress_color} Progresso: **{daily_progress:.1f}% ({daily_pnl:.2f}$ de {daily_target:.2f}$)**")
     
     with col2:
-        # PnL Real (Saldo Atual - Capital Inicial)
-        pnl_color = "📈" if pnl_real >= 0 else "📉"
-        st.metric(f"{pnl_color} PnL Total", f"${pnl_real:+.2f}")
+        # PnL do dia
+        pnl_color = "📈" if daily_pnl >= 0 else "📉"
+        st.metric(f"{pnl_color} PnL Hoje", f"${daily_pnl:+.2f}")
     
     with col3:
         # Meta: 10% ao mês = $3.33/dia
-        st.metric(f"🎯 Meta (0.33%)", f"${daily_target:.2f}")
+        st.metric(f"🎯 Meta Diária", f"${daily_target:.2f}")
     
     st.markdown("---")
     
@@ -363,6 +458,16 @@ def render_global_stats(stats: dict, history: list):
     monthly_trades = [t for t in history if t.get('exit_time', t.get('timestamp', '')).startswith(current_month)]
     monthly_pnl = sum(t.get('pnl_usd', 0) for t in monthly_trades)
     
+    # Calcula receita com vendas (Total de vendas - Taxas)
+    total_revenue_today = sum(t.get('exit_price', 0) * t.get('quantity', 0) for t in daily_trades)
+    total_fees_today = sum(t.get('exchange_fee', 0) for t in daily_trades) if any('exchange_fee' in t for t in daily_trades) else 0
+    net_usdt_today = total_revenue_today - total_fees_today
+    
+    total_revenue_month = sum(t.get('exit_price', 0) * t.get('quantity', 0) for t in monthly_trades)
+    total_fees_month = sum(t.get('exchange_fee', 0) for t in monthly_trades) if any('exchange_fee' in t for t in monthly_trades) else 0
+    net_usdt_month = total_revenue_month - total_fees_month
+    
+    # Row 1: PnL Metrics
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
@@ -381,6 +486,28 @@ def render_global_stats(stats: dict, history: list):
     with col5:
         avg_pnl = total_pnl / total_trades if total_trades > 0 else 0
         st.metric("💵 Média/Trade", f"${avg_pnl:.2f}")
+    
+    st.markdown("---")
+    
+    # Row 2: Receita com Vendas - Taxas = Saldo USDT
+    st.subheader("💵 RECEITA COM VENDAS - TAXAS = SALDO USDT")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("📊 Vendas Hoje", f"${total_revenue_today:.2f}")
+    
+    with col2:
+        st.metric("🔧 Taxas Hoje", f"-${total_fees_today:.2f}")
+    
+    with col3:
+        net_color = "🟢" if net_usdt_today >= 0 else "🔴"
+        st.metric(f"{net_color} Saldo USDT Hoje", f"${net_usdt_today:.2f}")
+    
+    with col4:
+        st.info(f"📅 Mês: ${net_usdt_month:.2f}")
+    
+    st.markdown("---")
 
 
 def render_bot_card(bot_type: str, bot_config: dict, history: list, positions: dict):
@@ -391,7 +518,8 @@ def render_bot_card(bot_type: str, bot_config: dict, history: list, positions: d
         'bot_estavel': ('🔵', 'bot-estavel', '#4a90d9', 'Cryptos estáveis e seguras'),
         'bot_medio': ('🟢', 'bot-medio', '#4ad94a', 'Cryptos de média volatilidade'),
         'bot_volatil': ('🟡', 'bot-volatil', '#d9d94a', 'Cryptos de alta volatilidade'),
-        'bot_meme': ('🔴', 'bot-meme', '#d94a4a', 'Meme coins de alto risco')
+        'bot_meme': ('🔴', 'bot-meme', '#d94a4a', 'Meme coins de alto risco'),
+        'bot_unico': ('⚡', 'bot-unico', '#9b4de4', 'Bot Unificado - Controla todos')
     }
     
     emoji, css_class, color, tipo = bot_styles.get(bot_type, ('🤖', '', '#888', 'Bot'))
@@ -564,7 +692,8 @@ def render_charts(history: list):
             'bot_estavel': '🔵 Estável',
             'bot_medio': '🟢 Médio',
             'bot_volatil': '🟡 Volátil',
-            'bot_meme': '🔴 Meme'
+            'bot_meme': '🔴 Meme',
+            'bot_unico': '⚡ Unico'
         }
         
         chart_data = []
@@ -577,13 +706,14 @@ def render_charts(history: list):
         
         if chart_data:
             df = pd.DataFrame(chart_data)
-            colors = ['#4a90d9', '#4ad94a', '#d9d94a', '#d94a4a']
+            colors = {'🔵 Estável': '#4a90d9', '🟢 Médio': '#4ad94a', '🟡 Volátil': '#d9d94a', '🔴 Meme': '#d94a4a', '⚡ Unico': '#9b4de4'}
             
-            fig = px.bar(df, x='Bot', y='PnL', 
-                        color='Bot',
-                        color_discrete_sequence=colors,
-                        title='PnL Total por Bot')
-            fig.update_layout(showlegend=False)
+            # Converte para linha (mais dinâmico)
+            fig = px.line(df, x='Bot', y='PnL', 
+                         color='Bot',
+                         markers=True,
+                         title='PnL Total por Bot')
+            fig.update_layout(showlegend=False, hovermode='x unified')
             st.plotly_chart(fig, use_container_width=True)
     
     with col2:
@@ -602,10 +732,10 @@ def render_charts(history: list):
             df = pd.DataFrame(trades_data)
             
             fig = go.Figure()
-            fig.add_trace(go.Bar(name='Vitórias', x=df['Bot'], y=df['Vitórias'], marker_color='#00ff88'))
-            fig.add_trace(go.Bar(name='Derrotas', x=df['Bot'], y=df['Derrotas'], marker_color='#ff4444'))
-            
-            fig.update_layout(barmode='stack', title='Vitórias vs Derrotas por Bot')
+            fig.add_trace(go.Scatter(name='Vitórias', x=df['Bot'], y=df['Vitórias'], mode='lines+markers', marker_color='#00ff88'))
+            fig.add_trace(go.Scatter(name='Derrotas', x=df['Bot'], y=df['Derrotas'], mode='lines+markers', marker_color='#ff4444'))
+
+            fig.update_layout(title='Vitórias vs Derrotas por Bot')
             st.plotly_chart(fig, use_container_width=True)
     
     # PnL acumulado ao longo do tempo
@@ -662,7 +792,7 @@ def render_sidebar():
     
     config = load_bots_config()
     if config:
-        bot_types = ['Todos', 'bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']
+        bot_types = ['Todos', 'bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme', 'bot_unico']
         selected_bot = st.sidebar.selectbox("Filtrar por Bot", bot_types)
         
         return {
@@ -1010,10 +1140,11 @@ def render_config_page():
         'bot_estavel': '🔵 Bot Estável',
         'bot_medio': '🟢 Bot Médio',
         'bot_volatil': '🟡 Bot Volátil',
-        'bot_meme': '🔴 Bot Meme'
+        'bot_meme': '🔴 Bot Meme',
+        'bot_unico': '⚡ Bot Unico'
     }
     
-    for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+    for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme', 'bot_unico']:
         if bot_type in config:
             bot_config = config[bot_type]
             
@@ -1075,7 +1206,22 @@ def load_unico_bot_config():
 
 
 def save_bots_config(config: dict):
-    """Salva configuração dos bots"""
+    """Salva configuração dos bots com sincronização automática"""
+    # Sincroniza bot_unico com os outros 4 bots
+    bot_unico_enabled = config.get('bot_unico', {}).get('enabled', False)
+    other_bots = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']
+    
+    if bot_unico_enabled:
+        # Se bot_unico está ativo, desativa os outros
+        for bot in other_bots:
+            if bot in config:
+                config[bot]['enabled'] = False
+    else:
+        # Se nenhum bot está ativo, ativa pelo menos os principais
+        any_active = any(config.get(bot, {}).get('enabled', False) for bot in other_bots)
+        if not any_active and other_bots[0] in config:
+            config[other_bots[0]]['enabled'] = True
+    
     config_file = Path("config/bots_config.yaml")
     with open(config_file, 'w', encoding='utf-8') as f:
         yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
@@ -1106,33 +1252,41 @@ def render_bot_control_page():
     unico_enabled = unico_config.get('enabled', False) if unico_config else False
     
     if unico_enabled:
-        st.success("🟢 **UnicoBot ATIVO** - Controlando todas as operações com Smart Strategy")
+        st.success("🟢 **Bot Unico ATIVO** - Operando com ajustes adaptativos inteligentes")
+        st.warning("⚠️ Os 4 bots especializados (Estável, Médio, Volátil, Meme) estão **PAUSADOS** automaticamente")
     else:
-        st.info("🔴 **UnicoBot INATIVO** - Bots especializados estão no controle")
+        st.info("🔴 **Bot Unico INATIVO** - Os 4 bots especializados estão no controle")
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("""
-        ### 🤖 O que é o UnicoBot?
+        ### ⚡ O que é o Bot Unico?
         
-        O UnicoBot é um sistema unificado que:
-        - ✅ Usa a **Smart Strategy** otimizada
-        - ✅ Controla **todas as 12 moedas** do portfólio
-        - ✅ **RSI adaptativo** por moeda
-        - ✅ Sistema de **urgência** integrado
-        - ✅ Trailing stop inteligente
+        Um sistema **híbrido e adaptativo** que:
+        - ✅ Se adapta dinamicamente às condições de mercado
+        - ✅ Ajusta % de venda quando saldo USDT é baixo
+        - ✅ Reage à volatilidade (alta/baixa)
+        - ✅ Ativa modo recuperação após perdas
+        - ✅ **Garante margem mínima** de 0.5%
+        - ✅ Controla **9 posições máx**
         """)
     
     with col2:
         st.markdown("""
-        ### ⚠️ Importante
+        ### 🔄 Sistema Híbrido
         
-        - Quando ativado, **TODOS os 4 bots são pausados**
-        - O capital é gerenciado de forma unificada
-        - Ideal para operação simplificada
-        - Recomendado para gerenciamento eficiente
+        **Quando Bot Unico está ATIVO:**
+        - Os 4 bots especializados são **pausados**
+        - Capital gerenciado de forma unificada
+        - Ajustes automáticos por condições de mercado
+        
+        **Quando Bot Unico está INATIVO:**
+        - Os 4 bots especializados são **reativados**
+        - Cada bot opera com sua estratégia própria
+        - Diversificação máxima de abordagem
         """)
+    
     
     st.markdown("---")
     
@@ -1174,14 +1328,12 @@ def render_bot_control_page():
     # ===== SEÇÃO: BOTS ESPECIALIZADOS =====
     st.header("🤖 Bots Especializados")
     
-    if unico_enabled:
-        st.warning("⚠️ Bots especializados estão PAUSADOS porque o UnicoBot está ativo. Desative o UnicoBot primeiro para controlá-los.")
-    
     bot_info = {
         'bot_estavel': {'name': '🔵 Bot Estável', 'desc': 'BTC, ETH, BNB - Baixa volatilidade', 'color': '#1e3a5f'},
         'bot_medio': {'name': '🟢 Bot Médio', 'desc': 'SOL, ADA, DOT - Volatilidade moderada', 'color': '#1e5f3a'},
         'bot_volatil': {'name': '🟡 Bot Volátil', 'desc': 'DOGE, XRP - Alta volatilidade', 'color': '#5f5f1e'},
-        'bot_meme': {'name': '🔴 Bot Meme', 'desc': 'SHIB, PEPE - Máxima volatilidade', 'color': '#5f1e1e'}
+        'bot_meme': {'name': '🔴 Bot Meme', 'desc': 'SHIB, PEPE - Máxima volatilidade', 'color': '#5f1e1e'},
+        'bot_unico': {'name': '⚡ Bot Unico', 'desc': 'Controle unificado de todas as operações', 'color': '#4a1e5f'}
     }
     
     # Carrega estatísticas
@@ -1193,7 +1345,7 @@ def render_bot_control_page():
     col1, col2 = st.columns(2)
     
     bots = config.get('bots', config)
-    bot_types = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']
+    bot_types = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme', 'bot_unico']
     
     for i, bot_type in enumerate(bot_types):
         if bot_type not in bots:
@@ -1202,7 +1354,7 @@ def render_bot_control_page():
         bot_config = bots[bot_type] if isinstance(bots[bot_type], dict) else {}
         info = bot_info.get(bot_type, {'name': bot_type, 'desc': '', 'color': '#333'})
         
-        is_enabled = bot_config.get('enabled', False) and not unico_enabled
+        is_enabled = bot_config.get('enabled', False)  # Sistema híbrido: todos podem operar
         stats = pnl_by_bot.get(bot_type, {})
         
         with col1 if i % 2 == 0 else col2:
@@ -1232,24 +1384,23 @@ def render_bot_control_page():
                 pnl_today = daily_pnl.get(bot_type, 0)
                 st.metric("PnL Hoje", f"${pnl_today:+.2f}")
             
-            # Botão de controle
-            if not unico_enabled:
-                if is_enabled:
-                    if st.button(f"⏸️ Pausar {info['name']}", key=f"pause_{bot_type}", use_container_width=True):
-                        bots[bot_type]['enabled'] = False
-                        if 'bots' in config:
-                            config['bots'] = bots
-                        save_bots_config(config)
-                        st.success(f"✅ {info['name']} pausado!")
-                        st.rerun()
-                else:
-                    if st.button(f"▶️ Ativar {info['name']}", key=f"activate_{bot_type}", type="primary", use_container_width=True):
-                        bots[bot_type]['enabled'] = True
-                        if 'bots' in config:
-                            config['bots'] = bots
-                        save_bots_config(config)
-                        st.success(f"✅ {info['name']} ativado!")
-                        st.rerun()
+            # Botão de controle - Sistema híbrido: todos podem operar simultaneamente
+            if is_enabled:
+                if st.button(f"⏸️ Pausar {info['name']}", key=f"pause_{bot_type}", use_container_width=True):
+                    bots[bot_type]['enabled'] = False
+                    if 'bots' in config:
+                        config['bots'] = bots
+                    save_bots_config(config)
+                    st.success(f"✅ {info['name']} pausado!")
+                    st.rerun()
+            else:
+                if st.button(f"▶️ Ativar {info['name']}", key=f"activate_{bot_type}", type="primary", use_container_width=True):
+                    bots[bot_type]['enabled'] = True
+                    if 'bots' in config:
+                        config['bots'] = bots
+                    save_bots_config(config)
+                    st.success(f"✅ {info['name']} ativado!")
+                    st.rerun()
             
             st.markdown("---")
     
@@ -1259,7 +1410,7 @@ def render_bot_control_page():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("✅ Ativar TODOS", use_container_width=True, disabled=unico_enabled):
+        if st.button("✅ Ativar TODOS", use_container_width=True):
             for bot_type in bot_types:
                 if bot_type in bots and isinstance(bots[bot_type], dict):
                     bots[bot_type]['enabled'] = True
@@ -1270,7 +1421,7 @@ def render_bot_control_page():
             st.rerun()
     
     with col2:
-        if st.button("⏸️ Pausar TODOS", use_container_width=True, disabled=unico_enabled):
+        if st.button("⏸️ Pausar TODOS", use_container_width=True):
             for bot_type in bot_types:
                 if bot_type in bots and isinstance(bots[bot_type], dict):
                     bots[bot_type]['enabled'] = False
@@ -1281,7 +1432,7 @@ def render_bot_control_page():
             st.rerun()
     
     with col3:
-        if st.button("🔄 Redistribuir Capital", use_container_width=True, disabled=unico_enabled):
+        if st.button("🔄 Redistribuir Capital", use_container_width=True):
             # Conta bots ativos
             active_bots = [bt for bt in bot_types if bt in bots and isinstance(bots[bt], dict) and bots[bt].get('enabled', False)]
             if active_bots:
@@ -1330,32 +1481,37 @@ def render_bot_control_page():
 def main():
     """Função principal do dashboard"""
     
-    # Sidebar
-    filters = render_sidebar()
-    
-    # Verifica qual página exibir
-    page = filters.get('page', '🏠 Dashboard')
-    
-    if page == "🎮 Controle Bots":
-        render_bot_control_page()
-        return
-    
-    if page == "🤖 AI Intelligence":
-        render_ai_page()
-        # Auto-refresh
-        import time
-        time.sleep(filters['refresh_rate'])
-        st.rerun()
-        return
-    
-    if page == "⚙️ Configurações":
-        render_config_page()
-        return
-    
-    # ===== PÁGINA PRINCIPAL (DASHBOARD) =====
-    
-    # Carrega dados
-    config = load_bots_config()
+    # Loading spinner
+    with st.spinner('🔄 Carregando dashboard...'):
+        # Sincroniza estado do bot_unico antes de fazer qualquer coisa
+        sync_bot_unico_state()
+        
+        # Sidebar
+        filters = render_sidebar()
+        
+        # Verifica qual página exibir
+        page = filters.get('page', '🏠 Dashboard')
+        
+        if page == "🎮 Controle Bots":
+            render_bot_control_page()
+            return
+        
+        if page == "🤖 AI Intelligence":
+            render_ai_page()
+            # Auto-refresh
+            import time
+            time.sleep(filters['refresh_rate'])
+            st.rerun()
+            return
+        
+        if page == "⚙️ Configurações":
+            render_config_page()
+            return
+        
+        # ===== PÁGINA PRINCIPAL (DASHBOARD) =====
+        
+        # Carrega dados
+        config = load_bots_config()
     history = load_trade_history()
     positions = load_positions()
     
@@ -1372,7 +1528,7 @@ def main():
     # Cards dos bots
     st.header("🤖 Bots Especializados")
     
-    bot_types = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']
+    bot_types = ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme', 'bot_unico']
     
     # 2 bots por linha
     col1, col2 = st.columns(2)
@@ -1452,7 +1608,8 @@ def main():
             'bot_estavel': '🔵 Estável',
             'bot_medio': '🟢 Médio',
             'bot_volatil': '🟡 Volátil',
-            'bot_meme': '🔴 Meme'
+            'bot_meme': '🔴 Meme',
+            'bot_unico': '⚡ Unico'
         }
         
         history_data = []

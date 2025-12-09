@@ -2,8 +2,8 @@
 setlocal EnableDelayedExpansion
 
 set KEY=C:\Users\gabri\Downloads\r7_trade_key.pem
-set HOST=ubuntu@18.230.59.118
-set APP=~/r7-trading-bot
+set HOST=ubuntu@18.228.12.103
+set APP=~/app_r7
 
 if "%1"=="" goto menu
 if "%1"=="1" goto check_cryptos

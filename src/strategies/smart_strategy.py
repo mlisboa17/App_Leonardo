@@ -803,16 +803,33 @@ class SmartStrategy:
         
         # ===== ESTRATÉGIA DE FEIRA - FATOR POR CRYPTO =====
         # Carrega config da feira se existir
-        feira_factors = {
-            'BTCUSDT': 0.3, 'ETHUSDT': 0.3,  # Blue chips - HOLD
-            'BNBUSDT': 0.4, 'LTCUSDT': 0.7,  # Médio
-            'SOLUSDT': 0.5, 'XRPUSDT': 0.5,  # Voláteis - FEIRA MODERADA
-            'LINKUSDT': 0.7, 'AVAXUSDT': 0.6,  # Alta vol + baixo volume
-            'DOTUSDT': 0.6, 'NEARUSDT': 0.6, 'ADAUSDT': 0.5, 'TRXUSDT': 0.5,
-            'DOGEUSDT': 0.9, 'SHIBUSDT': 0.9, 'PEPEUSDT': 0.9,  # Memes - FEIRA AGRESSIVA
-            'UNIUSDT': 0.5, 'AAVEUSDT': 0.5,
-        }
-        feira_factor = feira_factors.get(symbol, 0.5)
+        feira_config = self.config.get('feira_strategy', {})
+        if feira_config.get('enabled', True):
+            # Usa fatores do config YAML
+            feira_factors = feira_config.get('crypto_factors', {
+                'BTCUSDT': 0.3, 'ETHUSDT': 0.3,  # Blue chips - HOLD
+                'BNBUSDT': 0.4, 'LTCUSDT': 0.7,  # Médio
+                'SOLUSDT': 0.5, 'XRPUSDT': 0.5,  # Voláteis - FEIRA MODERADA
+                'LINKUSDT': 0.7, 'AVAXUSDT': 0.6,  # Alta vol + baixo volume
+                'DOTUSDT': 0.6, 'NEARUSDT': 0.6, 'ADAUSDT': 0.5, 'TRXUSDT': 0.5,
+                'DOGEUSDT': 0.9, 'SHIBUSDT': 0.9, 'PEPEUSDT': 0.9,  # Memes - FEIRA AGRESSIVA
+                'UNIUSDT': 0.5, 'AAVEUSDT': 0.5,
+            })
+            default_feira_factor = feira_factors.get('default', 0.5)
+        else:
+            # Fallback hardcoded se desabilitado
+            feira_factors = {
+                'BTCUSDT': 0.3, 'ETHUSDT': 0.3,  # Blue chips - HOLD
+                'BNBUSDT': 0.4, 'LTCUSDT': 0.7,  # Médio
+                'SOLUSDT': 0.5, 'XRPUSDT': 0.5,  # Voláteis - FEIRA MODERADA
+                'LINKUSDT': 0.7, 'AVAXUSDT': 0.6,  # Alta vol + baixo volume
+                'DOTUSDT': 0.6, 'NEARUSDT': 0.6, 'ADAUSDT': 0.5, 'TRXUSDT': 0.5,
+                'DOGEUSDT': 0.9, 'SHIBUSDT': 0.9, 'PEPEUSDT': 0.9,  # Memes - FEIRA AGRESSIVA
+                'UNIUSDT': 0.5, 'AAVEUSDT': 0.5,
+            }
+            default_feira_factor = 0.5
+        
+        feira_factor = feira_factors.get(symbol, default_feira_factor)
         
         # ===== PARÂMETROS ESPECÍFICOS DA CRYPTO (baseado no estudo) =====
         # Cada categoria tem configs diferentes:

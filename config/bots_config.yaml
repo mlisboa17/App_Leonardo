@@ -52,11 +52,19 @@ available_cryptos:
     symbol: GALAUSDT
     volatility: high
 bot_estavel:
-  description: "🐢 HOLDER - Cryptos estáveis, movimentos lentos e seguros"
-  enabled: true
+  description: 🐢 HOLDER - Cryptos estáveis, movimentos lentos e seguros
+  enabled: false
+  indicators:
+    buy_conditions: all
+    buy_macd_cross: true
+    buy_price_above_sma20: false
+    buy_rsi_below: 35
+    buy_trend: neutral_or_up
+    sell_conditions: any
+    sell_macd_cross_down: true
+    sell_rsi_above: 65
+    sell_trend_change: true
   name: Bot Estável
-  strategy_type: holder  # Estratégia lenta e segura
-  speed_profile: slow    # LENTO - espera indicadores fortes
   portfolio:
   - name: Bitcoin
     symbol: BTCUSDT
@@ -71,39 +79,39 @@ bot_estavel:
     symbol: LTCUSDT
     weight: 15
   risk:
-    max_hold_minutes: 240    # Segura por mais tempo
-    min_interval_minutes: 60  # Espera mais entre trades
-    min_profit: 0.3           # Lucro mínimo menor (seguro)
-    stop_loss: -0.8           # Stop apertado
-    take_profit: 1.0          # Take conservador
-    trailing_stop: 0.2        # Trailing apertado
+    max_hold_minutes: 240
+    min_interval_minutes: 60
+    min_profit: 0.3
+    stop_loss: -0.8
+    take_profit: 1.0
+    trailing_stop: 0.2
   rsi:
-    overbought: 65            # VENDE mais cedo (65 ao invés de 70+)
-    oversold: 35              # COMPRA mais cedo (35 ao invés de 30-)
-    neutral_zone: [45, 55]    # Zona neutra para esperar
-    urgency_factor: 0.5       # Pouca urgência
-  indicators:
-    # COMPRA: Espera TODOS os indicadores ficarem positivos
-    buy_conditions: all       # all = todos devem estar ok
-    buy_rsi_below: 35         # RSI < 35
-    buy_macd_cross: true      # MACD cruzou para cima
-    buy_price_above_sma20: false  # Preço abaixo da SMA20 (suporte)
-    buy_trend: neutral_or_up  # Tendência neutra ou alta
-    # VENDA: Espera indicadores ficarem NEUTROS ou NEGATIVOS
-    sell_conditions: any      # any = qualquer um trigger
-    sell_rsi_above: 65        # RSI > 65 (overbought)
-    sell_macd_cross_down: true  # MACD cruzou para baixo
-    sell_trend_change: true   # Mudou de alta para neutra/queda
+    neutral_zone:
+    - 45
+    - 55
+    overbought: 65
+    oversold: 35
+    urgency_factor: 0.5
+  speed_profile: slow
+  strategy_type: holder
   trading:
-    amount_per_trade: 20      # $20 por trade (conservador)
-    max_positions: 3          # Máx 3 posições
-    timeframe: 15m            # 15 minutos (mais lento)
+    amount_per_trade: 50
+    max_positions: 12
+    timeframe: 15m
 bot_medio:
-  description: "⚖️ SWING - Cryptos média volatilidade, equilíbrio risco/retorno"
-  enabled: true
+  description: ⚖️ SWING - Cryptos média volatilidade, equilíbrio risco/retorno
+  enabled: false
+  indicators:
+    buy_conditions: majority
+    buy_macd_cross: true
+    buy_price_above_sma20: false
+    buy_rsi_below: 32
+    buy_trend: any
+    sell_conditions: majority
+    sell_macd_cross_down: true
+    sell_rsi_above: 68
+    sell_trend_change: true
   name: Bot Médio
-  strategy_type: swing      # Estratégia equilibrada
-  speed_profile: medium     # MÉDIO - indicadores moderados
   portfolio:
   - name: Solana
     symbol: SOLUSDT
@@ -121,39 +129,41 @@ bot_medio:
     symbol: NEARUSDT
     weight: 15
   risk:
-    max_hold_minutes: 120    # 2 horas máximo
-    min_interval_minutes: 15  # 15 min entre trades
-    min_profit: 0.5           # 0.5% lucro mínimo
-    stop_loss: -1.2           # Stop médio
-    take_profit: 1.5          # Take médio
-    trailing_stop: 0.4        # Trailing médio
+    max_hold_minutes: 120
+    min_interval_minutes: 15
+    min_profit: 0.5
+    stop_loss: -1.2
+    take_profit: 1.5
+    trailing_stop: 0.4
   rsi:
-    overbought: 68            # VENDE em 68
-    oversold: 32              # COMPRA em 32
-    neutral_zone: [42, 58]    # Zona neutra
-    urgency_factor: 0.8       # Urgência média
-  indicators:
-    # COMPRA: Espera MAIORIA dos indicadores (2 de 3)
-    buy_conditions: majority  # majority = 2/3 indicadores
-    buy_rsi_below: 32         # RSI < 32
-    buy_macd_cross: true      # MACD positivo
-    buy_price_above_sma20: false  # Próximo de suporte
-    buy_trend: any            # Qualquer tendência OK
-    # VENDA: Espera indicadores virarem
-    sell_conditions: majority # majority = 2/3
-    sell_rsi_above: 68        # RSI > 68
-    sell_macd_cross_down: true
-    sell_trend_change: true
+    neutral_zone:
+    - 42
+    - 58
+    overbought: 68
+    oversold: 32
+    urgency_factor: 0.8
+  speed_profile: medium
+  strategy_type: swing
   trading:
-    amount_per_trade: 25      # $25 por trade
-    max_positions: 4          # Máx 4 posições
-    timeframe: 5m             # 5 minutos
+    amount_per_trade: 60
+    max_positions: 15
+    timeframe: 5m
 bot_meme:
-  description: "🚀 SCALPER - Meme coins, ultra-rápido, entradas/saídas frequentes"
-  enabled: true
+  description: 🚀 SCALPER - Meme coins, ultra-rápido, entradas/saídas frequentes
+  enabled: false
+  indicators:
+    buy_conditions: instant
+    buy_macd_momentum: true
+    buy_price_action: true
+    buy_rsi_below: 30
+    buy_trend: any
+    buy_volume_spike: true
+    sell_any_profit: true
+    sell_conditions: instant
+    sell_macd_cross_down: true
+    sell_rsi_above: 70
+    sell_time_based: 15
   name: Bot Meme (Scalper)
-  strategy_type: scalper    # Estratégia de scalping
-  speed_profile: ultra_fast # ULTRA-RÁPIDO - máxima velocidade
   portfolio:
   - name: Dogecoin
     symbol: DOGEUSDT
@@ -165,41 +175,108 @@ bot_meme:
     symbol: PEPEUSDT
     weight: 30
   risk:
-    max_hold_minutes: 30     # Máximo 30 minutos
-    min_interval_minutes: 2   # 2 min entre trades (muitos trades)
-    min_profit: 0.3           # Lucro pequeno OK (volume compensa)
-    stop_loss: -1.0           # Stop apertado
-    take_profit: 1.2          # Take rápido
-    trailing_stop: 0.3        # Trailing apertado
+    max_hold_minutes: 30
+    min_interval_minutes: 2
+    min_profit: 0.3
+    stop_loss: -1.0
+    take_profit: 1.2
+    trailing_stop: 0.3
   rsi:
-    overbought: 70            # VENDE rápido
-    oversold: 30              # COMPRA rápido
-    neutral_zone: [40, 60]    # Zona neutra
-    urgency_factor: 1.5       # Máxima urgência
-  indicators:
-    # COMPRA: Age INSTANTANEAMENTE com momentum
-    buy_conditions: instant   # instant = qualquer sinal forte
-    buy_rsi_below: 30         # RSI baixo
-    buy_macd_momentum: true   # MACD com momentum
-    buy_volume_spike: true    # Volume explodindo
-    buy_price_action: true    # Price action favorável
-    buy_trend: any            # Qualquer tendência
-    # VENDA: Sai rápido, não espera
-    sell_conditions: instant  # instant = sai na primeira oportunidade
-    sell_rsi_above: 70        # RSI alto
-    sell_macd_cross_down: true
-    sell_any_profit: true     # Realiza qualquer lucro após X min
-    sell_time_based: 15       # Força saída após 15 min em lucro
+    neutral_zone:
+    - 40
+    - 60
+    overbought: 70
+    oversold: 30
+    urgency_factor: 1.5
+  speed_profile: ultra_fast
+  strategy_type: scalper
   trading:
-    amount_per_trade: 15      # $15 por trade (pequeno, muitos trades)
-    max_positions: 5          # Máx 5 posições
-    timeframe: 1m             # 1 minuto (máxima velocidade)
-bot_volatil:
-  description: "⚡ MOMENTUM - Cryptos voláteis, movimentos rápidos"
+    amount_per_trade: 40
+    max_positions: 20
+    timeframe: 1m
+bot_unico:
+  adaptive_rules:
+    consecutive_losses_threshold: 3
+    high_volatility_adjustment: -0.3
+    high_volatility_threshold: 5.0
+    loss_recovery_mode: true
+    low_balance_sell_increase: 0.5
+    low_balance_threshold: 50
+    low_volatility_adjustment: 0.2
+    profit_lock_on_daily_pnl: 100
+    recovery_sell_increase: 0.7
+  description: 🎯 ADAPTATIVO - Bot híbrido que se adapta dinamicamente às condições
+    de mercado
   enabled: true
+  indicators:
+    buy_conditions: any
+    buy_macd_cross: true
+    buy_rsi_below: 30
+    buy_trend: up
+    buy_volume_spike: true
+    sell_conditions: any
+    sell_macd_cross_down: true
+    sell_profit_lock: 0.8
+    sell_rsi_above: 70
+    sell_trend_change: true
+  name: Bot Unico (Adaptativo)
+  portfolio:
+  - name: Bitcoin
+    symbol: BTCUSDT
+    weight: 20
+  - name: Ethereum
+    symbol: ETHUSDT
+    weight: 20
+  - name: Solana
+    symbol: SOLUSDT
+    weight: 15
+  - name: BNB
+    symbol: BNBUSDT
+    weight: 15
+  - name: Cardano
+    symbol: ADAUSDT
+    weight: 15
+  - name: Dogecoin
+    symbol: DOGEUSDT
+    weight: 15
+  risk:
+    dynamic_adjustment: true
+    max_hold_minutes: 120
+    min_interval_minutes: 10
+    min_profit: 0.5
+    min_usdt_for_scalp: 50
+    scalp_increase_pct: 0.5
+    stop_loss: -1.2
+    take_profit: 1.5
+    trailing_stop: 0.35
+  rsi:
+    neutral_zone:
+    - 40
+    - 60
+    overbought: 70
+    oversold: 30
+    urgency_factor: 1.0
+  speed_profile: dynamic
+  strategy_type: adaptive
+  trading:
+    amount_per_trade: 80
+    max_positions: 25
+    timeframe: 5m
+bot_volatil:
+  description: ⚡ MOMENTUM - Cryptos voláteis, movimentos rápidos
+  enabled: false
+  indicators:
+    buy_conditions: any
+    buy_macd_cross: true
+    buy_rsi_below: 28
+    buy_trend: up
+    buy_volume_spike: true
+    sell_conditions: any
+    sell_macd_cross_down: true
+    sell_profit_lock: 1.0
+    sell_rsi_above: 72
+    sell_trend_change: true
   name: Bot Volátil
-  strategy_type: momentum   # Estratégia de momentum
-  speed_profile: fast       # RÁPIDO - age com poucos indicadores
   portfolio:
   - name: XRP
     symbol: XRPUSDT
@@ -211,34 +288,25 @@ bot_volatil:
     symbol: TRXUSDT
     weight: 30
   risk:
-    max_hold_minutes: 60     # Máximo 1 hora
-    min_interval_minutes: 5   # 5 min entre trades
-    min_profit: 0.8           # 0.8% lucro mínimo
-    stop_loss: -1.5           # Stop mais largo (volatilidade)
-    take_profit: 2.0          # Take maior
-    trailing_stop: 0.5        # Trailing dinâmico
+    max_hold_minutes: 60
+    min_interval_minutes: 5
+    min_profit: 0.8
+    stop_loss: -1.5
+    take_profit: 2.0
+    trailing_stop: 0.5
   rsi:
-    overbought: 72            # VENDE em 72
-    oversold: 28              # COMPRA em 28
-    neutral_zone: [38, 62]    # Zona neutra maior
-    urgency_factor: 1.2       # Alta urgência
-  indicators:
-    # COMPRA: Age com QUALQUER indicador forte
-    buy_conditions: any       # any = 1 indicador basta
-    buy_rsi_below: 28         # RSI extremo
-    buy_macd_cross: true      # MACD cruzando
-    buy_volume_spike: true    # Volume alto
-    buy_trend: up             # Tendência de alta preferida
-    # VENDA: Reage rápido à mudança
-    sell_conditions: any      # any = qualquer sinal
-    sell_rsi_above: 72        # RSI overbought
-    sell_macd_cross_down: true
-    sell_trend_change: true
-    sell_profit_lock: 1.0     # Trava lucro em 1%
+    neutral_zone:
+    - 38
+    - 62
+    overbought: 72
+    oversold: 28
+    urgency_factor: 1.2
+  speed_profile: fast
+  strategy_type: momentum
   trading:
-    amount_per_trade: 20      # $20 por trade (controle risco)
-    max_positions: 4          # Máx 4 posições
-    timeframe: 3m             # 3 minutos (mais rápido)
+    amount_per_trade: 70
+    max_positions: 20
+    timeframe: 3m
 coordinator:
   alerts:
     alert_on_daily_loss: -30
@@ -254,6 +322,7 @@ coordinator:
     show_charts: true
     show_history: true
     show_positions: true
+  enabled: true
   logging:
     file_path: logs/coordinator.log
     level: INFO
@@ -312,6 +381,7 @@ global:
     alert_at: 70
     minimum: 1.25
     target: 2.5
+  enabled: true
   exchange: binance
   hybrid_config:
     futures_leverage: 2
@@ -389,3 +459,46 @@ user_control:
   notify_user_on_ai_change: true
   override_cooldown_hours: 24
   require_approval: false
+
+# 🏪 ESTRATÉGIA DE FEIRA - Configurações manuais
+feira_strategy:
+  enabled: true
+  description: "TP dinâmico que diminui com o tempo (lógica da feira)"
+  
+  # Limiares para classificar cryptos
+  thresholds:
+    high_volatility_pct: 0.55      # > 0.55% = alta volatilidade
+    low_volume_usd: 1000000        # < 1M USD = baixo volume
+  
+  # Fatores de redução do TP por categoria
+  factors:
+    bluechip: 0.3                  # BTC, ETH - redução conservadora
+    meme: 0.9                      # DOGE, SHIB - redução agressiva
+    high_vol_low_volume: 0.7       # Alta vol + baixo vol
+    high_vol: 0.5                  # Alta volatilidade apenas
+    normal: 0.4                    # Volatilidade normal
+  
+  # Fatores específicos por crypto (manual override)
+  crypto_factors:
+    # Memes - Feira Agressiva
+    DOGEUSDT: 0.9
+    SHIBUSDT: 0.9
+    PEPEUSDT: 0.9
+    WIFUSDT: 0.9
+    BOMEUSDT: 0.9
+    MEMEUSDT: 0.9
+    
+    # Altas voláteis - Feira Moderada
+    SOLUSDT: 0.5
+    XRPUSDT: 0.5
+    LINKUSDT: 0.5
+    ADAUSDT: 0.5
+    AVAXUSDT: 0.5
+    
+    # Blue chips - Hold Conservador
+    BTCUSDT: 0.3
+    ETHUSDT: 0.3
+    BNBUSDT: 0.3
+    
+    # Default para outros
+    default: 0.5

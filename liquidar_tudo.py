@@ -26,8 +26,8 @@ from src.core.exchange_client import ExchangeClient
 def load_credentials():
     """Carrega credenciais do .env"""
     return {
-        'api_key': os.getenv('BINANCE_TESTNET_API_KEY', ''),
-        'api_secret': os.getenv('BINANCE_TESTNET_API_SECRET', '')
+        'api_key': os.getenv('BINANCE_API_KEY', ''),
+        'api_secret': os.getenv('BINANCE_API_SECRET', '')
     }
 
 
@@ -47,13 +47,17 @@ def liquidar_tudo():
         return
     
     # Conecta à exchange
-    print("\n📡 Conectando à Binance Testnet...")
+    use_testnet_env = os.getenv('USE_TESTNET', 'false').lower()
+    is_testnet = use_testnet_env == 'true'
+    env_type = "TESTNET" if is_testnet else "PRODUCAO"
+    
+    print(f"\n📡 Conectando à Binance {env_type}...")
     creds = load_credentials()
     exchange = ExchangeClient(
         exchange_name='binance', 
         api_key=creds['api_key'],
         api_secret=creds['api_secret'],
-        testnet=True
+        testnet=is_testnet
     )
     
     # Obtém saldo

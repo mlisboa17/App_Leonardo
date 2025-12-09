@@ -5,6 +5,7 @@ Calculators - Funções para cálculos de métricas e estatísticas
 from datetime import datetime
 from typing import Dict, List
 import numpy as np
+import streamlit as st
 
 
 def get_pnl_by_bot(history: List) -> Dict:
@@ -260,3 +261,23 @@ def get_worst_symbols(history: List, worst_n: int = 5) -> List[Dict]:
     sorted_symbols = sorted(symbol_stats.values(), key=lambda x: x['total_pnl'])
     
     return sorted_symbols[:worst_n]
+
+
+if st.button("🤝 EQUIPE", type="secondary", use_container_width=True, key="btn_equipe"):
+    unico_config['operation_mode'] = 'EQUIPE'
+    save_unico_bot_config(unico_config)
+    
+    # REATIVA os 4 bots
+    bots = config.get('bots', config)
+    for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+        if bot_type in bots and isinstance(bots[bot_type], dict):
+            bots[bot_type]['enabled'] = True
+    
+    if 'bots' in config:
+        config['bots'] = bots
+    save_bots_config(config)
+    
+    force_reload('config')
+    force_reload('unico')
+    st.success("✅ Modo EQUIPE ativado! 4 bots reativados.")
+    st.rerun()

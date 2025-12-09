@@ -297,25 +297,27 @@ class BotCoordinator:
             self.logger.addHandler(file_handler)
     
     def _setup_exchange(self) -> ExchangeClient:
-        """Configura cliente da exchange"""
+        """Configura cliente da exchange - APENAS PRODUCAO"""
         global_config = self.config.get('global', {})
         
-        # Verifica se é testnet ou produção
-        is_testnet = global_config.get('testnet', True)
-        
-        # Carrega credenciais das variáveis de ambiente (.env)
-        if is_testnet:
-            api_key = os.getenv('BINANCE_TESTNET_API_KEY', '')
-            api_secret = os.getenv('BINANCE_TESTNET_API_SECRET', '')
-            self.logger.info("[TESTNET] Modo TESTNET ativado")
-        else:
-            api_key = os.getenv('BINANCE_API_KEY', '')
-            api_secret = os.getenv('BINANCE_API_SECRET', '')
-            self.logger.warning("[PRODUCAO] MODO PRODUCAO - DINHEIRO REAL!")
+        # Carrega credenciais de PRODUCAO apenas
+        api_key = os.getenv('BINANCE_API_KEY', '')
+        api_secret = os.getenv('BINANCE_API_SECRET', '')
         
         if not api_key or not api_secret:
-            env_type = "TESTNET" if is_testnet else "PRODUCAO"
-            self.logger.warning(f"Credenciais da API ({env_type}) nao encontradas no .env!")
+            self.logger.error("CREDENCIAIS BINANCE_API_KEY/SECRET nao encontradas no .env!")
+            raise ValueError("Credenciais Binance não configuradas")
+        
+        # Lê configuração de testnet do ambiente (.env) ou config
+        use_testnet_env = os.getenv('USE_TESTNET', 'false').lower()
+        is_testnet = use_testnet_env == 'true'
+        
+        # Override com config se existir
+        if 'testnet' in global_config:
+            is_testnet = global_config['testnet']
+        
+        env_type = "TESTNET" if is_testnet else "PRODUCAO"
+        self.logger.warning(f"[{env_type}] MODO {env_type} - {'DINHEIRO REAL!' if not is_testnet else 'TESTE!'}")
         
         return ExchangeClient(
             exchange_name=global_config.get('exchange', 'binance'),

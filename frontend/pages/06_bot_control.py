@@ -177,7 +177,7 @@ def render():
                     
                     force_reload('config')
                     force_reload('unico')
-                    st.success("✅ Modo SOLO ativado!")
+                    st.success("✅ Modo SOLO ativado! 4 bots pausados.")
                     st.rerun()
             else:
                 st.success("✅ ATIVO")
@@ -194,8 +194,20 @@ def render():
                 if st.button("🔄 HÍBRIDO", type="secondary", use_container_width=True, key="btn_hybrid"):
                     unico_config['operation_mode'] = 'HYBRID'
                     save_unico_bot_config(unico_config)
+                    
+                    # REATIVA os 4 bots
+                    bots = config.get('bots', config)
+                    for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+                        if bot_type in bots and isinstance(bots[bot_type], dict):
+                            bots[bot_type]['enabled'] = True
+                    
+                    if 'bots' in config:
+                        config['bots'] = bots
+                    save_bots_config(config)
+                    
+                    force_reload('config')
                     force_reload('unico')
-                    st.success("✅ Modo HÍBRIDO ativado!")
+                    st.success("✅ Modo HÍBRIDO ativado! 5 bots trabalhando.")
                     st.rerun()
             else:
                 st.success("✅ ATIVO")
@@ -212,8 +224,20 @@ def render():
                 if st.button("🤑 FOMINHA", type="secondary", use_container_width=True, key="btn_fominha"):
                     unico_config['operation_mode'] = 'FOMINHA'
                     save_unico_bot_config(unico_config)
+                    
+                    # REATIVA os 4 bots
+                    bots = config.get('bots', config)
+                    for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+                        if bot_type in bots and isinstance(bots[bot_type], dict):
+                            bots[bot_type]['enabled'] = True
+                    
+                    if 'bots' in config:
+                        config['bots'] = bots
+                    save_bots_config(config)
+                    
+                    force_reload('config')
                     force_reload('unico')
-                    st.success("✅ Modo FOMINHA ativado!")
+                    st.success("✅ Modo FOMINHA ativado! 5 bots ativos.")
                     st.balloons()
                     st.rerun()
             else:
@@ -231,7 +255,20 @@ def render():
                 if st.button("🤝 EQUIPE", type="secondary", use_container_width=True, key="btn_equipe"):
                     unico_config['operation_mode'] = 'EQUIPE'
                     save_unico_bot_config(unico_config)
-                    st.success("✅ Modo EQUIPE ativado!")
+                    
+                    # REATIVA os 4 bots
+                    bots = config.get('bots', config)
+                    for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+                        if bot_type in bots and isinstance(bots[bot_type], dict):
+                            bots[bot_type]['enabled'] = True
+                    
+                    if 'bots' in config:
+                        config['bots'] = bots
+                    save_bots_config(config)
+                    
+                    force_reload('config')
+                    force_reload('unico')
+                    st.success("✅ Modo EQUIPE ativado! 5 bots colaborando.")
                     st.rerun()
             else:
                 st.success("✅ ATIVO")
@@ -267,37 +304,55 @@ def render():
             if st.button("⚡ ATIVAR UnicoBot", type="primary", use_container_width=True):
                 if unico_config:
                     unico_config['enabled'] = True
+                    bots = config.get('bots', config)
                     
                     # Define o modo baseado na escolha
                     if "SOLO" in mode_choice:
                         unico_config['operation_mode'] = 'SOLO'
                         
-                        # Desativa todos os bots especializados
-                        bots = config.get('bots', config)
+                        # SOLO: Desativa todos os bots especializados
                         for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
                             if bot_type in bots and isinstance(bots[bot_type], dict):
                                 bots[bot_type]['enabled'] = False
-                        
-                        if 'bots' in config:
-                            config['bots'] = bots
-                        save_bots_config(config)
                         
                         st.success("✅ UnicoBot ATIVADO em MODO SOLO! Os 4 bots foram pausados.")
                     
                     elif "HÍBRIDO" in mode_choice:
                         unico_config['operation_mode'] = 'HYBRID'
-                        st.success("✅ UnicoBot ATIVADO em MODO HÍBRIDO!")
+                        
+                        # HÍBRIDO: ATIVA todos os bots
+                        for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+                            if bot_type in bots and isinstance(bots[bot_type], dict):
+                                bots[bot_type]['enabled'] = True
+                        
+                        st.success("✅ UnicoBot ATIVADO em MODO HÍBRIDO! 5 bots trabalhando!")
                     
                     elif "FOMINHA" in mode_choice:
                         unico_config['operation_mode'] = 'FOMINHA'
+                        
+                        # FOMINHA: ATIVA todos os bots
+                        for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+                            if bot_type in bots and isinstance(bots[bot_type], dict):
+                                bots[bot_type]['enabled'] = True
+                        
                         st.success("✅ UnicoBot ATIVADO em MODO FOMINHA! 🤑")
-                        st.warning("⚡ Modo agressivo: IA monitora mercado a cada 30s!")
+                        st.warning("⚡ 5 bots ativos, Bot Único leva 70% dos lucros!")
                     
                     elif "EQUIPE" in mode_choice:
                         unico_config['operation_mode'] = 'EQUIPE'
+                        
+                        # EQUIPE: ATIVA todos os bots
+                        for bot_type in ['bot_estavel', 'bot_medio', 'bot_volatil', 'bot_meme']:
+                            if bot_type in bots and isinstance(bots[bot_type], dict):
+                                bots[bot_type]['enabled'] = True
+                        
                         st.success("✅ UnicoBot ATIVADO em MODO EQUIPE! 🤝")
-                        st.info("💡 IA coordenará todos os 5 bots automaticamente.")
+                        st.info("💡 5 bots colaborando. Lucro dividido igualmente!")
                     
+                    # Salva mudanças
+                    if 'bots' in config:
+                        config['bots'] = bots
+                    save_bots_config(config)
                     save_unico_bot_config(unico_config)
                     force_reload('config')
                     force_reload('unico')
