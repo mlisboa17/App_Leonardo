@@ -1,62 +1,149 @@
-# ============================================================
-# UNICO BOT CONFIG - Bot unificado para TODAS as cryptos
-# ============================================================
-# Quando enabled: true, este bot assume TUDO
-# Os 4 bots separados ficam DESABILITADOS automaticamente
-# ============================================================
-
+ai_monitoring:
+  ai_rules:
+  - IA SEMPRE observa Fear & Greed Index
+  - IA SEMPRE lê notícias e sentiment de múltiplas fontes
+  - IA SEMPRE valida sinais antes de executar trades
+  - IA SEMPRE confirma tendências com dados externos
+  - IA ajusta parâmetros dinamicamente baseado em condições reais
+  - IA usa AI Orchestrator para coordenar decisões
+  - IA monitora performance e ajusta estratégias automaticamente
+  always_active: true
+  data_sources:
+    fear_greed:
+      enabled: true
+      interval_seconds: 300
+      url: https://api.alternative.me/fng
+    market_data:
+      binance_api: true
+      coingecko_api: true
+      interval_seconds: 60
+    news_sentiment:
+      enabled: true
+      interval_seconds: 600
+      url: https://cryptopanic.com/api/v1/posts/
+  description: IA monitora mercado 24/7 independente do modo
+  enabled: true
+  integration:
+    ai_orchestrator: true
+    autotuner: true
+    market_monitor: true
+    opportunistic_mode: true
 enabled: true
+operation_mode: EQUIPE
+operation_modes:
+  EQUIPE:
+    behavior:
+      ai_strategy:
+        aggressiveness: MODERADA
+        fear_greed_threshold: 40
+        max_daily_trades: 35
+        min_profit_target: 0.2
+        monitoring:
+          ai_rules:
+          - IA coordena estratégias entre todos os bots
+          - IA redistribui capital baseado em performance
+          - IA monitora Fear & Greed para decisões coletivas
+          - IA valida sinais com múltiplas fontes antes de executar
+          - Bots compartilham informações via AI Orchestrator
+          check_interval_seconds: 60
+          fear_greed_api: https://api.alternative.me/fng
+          news_sentiment_api: https://cryptopanic.com/api/v1/posts/
+        stop_loss: -0.8
+        take_profit: 1.2
+      capital_allocation: 'Bot Único: 40% | 4 bots: 15% cada'
+      pause_other_bots: false
+      profit_sharing: Lucro dividido igualmente entre os 5 bots (20% cada)
+    description: Modo colaborativo - Todos os bots trabalham juntos, lucro dividido
+      igualmente
+    nickname: A Sinfonia 🎼
+    reference: Orquestra Filarmônica de Viena – cooperação que gera harmonia
+  FOMINHA:
+    behavior:
+      ai_strategy:
+        aggressiveness: ALTA
+        fear_greed_threshold: 25
+        max_daily_trades: 50
+        min_profit_target: 0.3
+        monitoring:
+          ai_rules:
+          - IA monitora Fear & Greed Index constantemente
+          - IA lê notícias e sentiment em tempo real
+          - IA ajusta RSI e parâmetros baseado em dados externos
+          - IA confirma tendências com múltiplas fontes
+          check_interval_seconds: 30
+          fear_greed_api: https://api.alternative.me/fng
+          news_sentiment_api: https://cryptopanic.com/api/v1/posts/
+        stop_loss: -0.5
+        take_profit_fast: 0.8
+      capital_allocation: Bot Único + 4 bots ATIVOS
+      pause_other_bots: false
+      profit_sharing: Bot Único fica com 70% dos lucros de TODOS os bots
+    description: Modo agressivo - IA busca MÁXIMO lucro rápido
+    nickname: O Ditador 👑
+    reference: Josef Stalin – centralizou poder, teve vitórias e crueldades
+  HYBRID:
+    behavior:
+      capital_allocation: Dividido entre 5 bots (cada um com carteira própria)
+      pause_other_bots: false
+      profit_sharing: Cada bot fica com seu próprio lucro
+    description: Bot Único + 4 bots trabalhando juntos
+    nickname: A República ⚖️
+    reference: Platão – descreveu uma sociedade organizada em funções distintas
+  SOLO:
+    behavior:
+      capital_allocation: 100% para Bot Único
+      pause_other_bots: true
+      profit_sharing: Bot Único fica com tudo
+    description: Bot Único assume tudo - Pausa os 4 bots
+    nickname: O Filósofo 🏛️
+    reference: Sócrates – pensava e agia sozinho, questionando tudo
 unico_bot:
   crypto_profiles:
-    # === ESTÁVEIS (RSI mais relaxado - compra mais fácil) ===
-    BTCUSDT:
-      buy_rsi: 44
-      rsi_mean: 50
-      sell_rsi: 56
-      category: estavel
-    ETHUSDT:
-      buy_rsi: 44
-      rsi_mean: 50
-      sell_rsi: 56
-      category: estavel
-    BNBUSDT:
-      buy_rsi: 43
-      rsi_mean: 50
-      sell_rsi: 57
-      category: estavel
-    # === MÉDIAS (RSI balanceado) ===
-    SOLUSDT:
-      buy_rsi: 41
-      rsi_mean: 50
-      sell_rsi: 59
-      category: medio
-    DOTUSDT:
-      buy_rsi: 40
-      rsi_mean: 50
-      sell_rsi: 60
-      category: medio
-    UNIUSDT:
-      buy_rsi: 41
-      rsi_mean: 50
-      sell_rsi: 59
-      category: medio
     AAVEUSDT:
       buy_rsi: 41
+      category: medio
       rsi_mean: 50
       sell_rsi: 59
-      category: medio
-    # === VOLÁTEIS (RSI mais agressivo) ===
-    XRPUSDT:
-      buy_rsi: 38
+    BNBUSDT:
+      buy_rsi: 43
+      category: estavel
       rsi_mean: 50
-      sell_rsi: 62
-      category: volatil
-    # === MEMES (RSI muito agressivo) ===
+      sell_rsi: 57
+    BTCUSDT:
+      buy_rsi: 44
+      category: estavel
+      rsi_mean: 50
+      sell_rsi: 56
     DOGEUSDT:
       buy_rsi: 35
+      category: meme
       rsi_mean: 50
       sell_rsi: 65
-      category: meme
+    DOTUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    ETHUSDT:
+      buy_rsi: 44
+      category: estavel
+      rsi_mean: 50
+      sell_rsi: 56
+    SOLUSDT:
+      buy_rsi: 41
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 59
+    UNIUSDT:
+      buy_rsi: 41
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 59
+    XRPUSDT:
+      buy_rsi: 38
+      category: volatil
+      rsi_mean: 50
+      sell_rsi: 62
   description: Bot unificado com Smart Strategy - TODAS as carteiras e TODO o saldo
   enabled: true
   indicators:
@@ -84,13 +171,7 @@ unico_bot:
     save_snapshots: true
     save_trades: true
   name: UnicoBot
-  # Portfolio OTIMIZADO - Opção A Conservadora (10 cryptos)
-  # Estáveis: BTC, ETH, BNB (peso maior)
-  # Médias: SOL, DOT, AAVE, UNI
-  # Voláteis: XRP
-  # Memes: DOGE, SHIB (peso menor)
   portfolio:
-  # === ESTÁVEIS (3 posições, $40 cada) ===
   - category: estavel
     name: Bitcoin
     symbol: BTCUSDT
@@ -103,7 +184,6 @@ unico_bot:
     name: BNB
     symbol: BNBUSDT
     weight: 12
-  # === MÉDIAS (3 posições, $30 cada) ===
   - category: medio
     name: Solana
     symbol: SOLUSDT
@@ -120,12 +200,10 @@ unico_bot:
     name: Aave
     symbol: AAVEUSDT
     weight: 8
-  # === VOLÁTEIS (2 posições, $20 cada) ===
   - category: volatil
     name: XRP
     symbol: XRPUSDT
     weight: 6
-  # === MEMES (1 posição, $15) ===
   - category: meme
     name: Dogecoin
     symbol: DOGEUSDT
@@ -136,11 +214,9 @@ unico_bot:
     max_daily_loss_pct: 3.0
     max_drawdown_pct: 10.0
   smart_strategy:
-    # === ESTRATÉGIA OTIMIZADA PARA 5%+ MENSAL ===
-    # Regra dos 2 USDT - segura se lucro > $2 e tendência ALTA
-    min_profit_usdt_hold: 1.5
     max_hold_minutes: 30
     max_take_pct: 2.0
+    min_profit_usdt_hold: 1.5
     rsi_config:
       estavel:
         mean: 50
@@ -150,14 +226,14 @@ unico_bot:
         mean: 50
         overbought: 60
         oversold: 40
-      volatil:
-        mean: 48
-        overbought: 62
-        oversold: 36
       meme:
         mean: 50
         overbought: 65
         oversold: 32
+      volatil:
+        mean: 48
+        overbought: 62
+        oversold: 36
     stop_loss_pct: -0.8
     stop_loss_tight: -0.4
     trailing_stop_pct: 0.15
@@ -170,18 +246,11 @@ unico_bot:
       idle_60min_adjustment: 5
       max_rsi_increase: 8
   targets:
-    # Meta realista: 5% mensal = ~$50
     daily_profit: 2.5
     min_trade_profit: 0.15
     monthly_profit: 50
   trading:
-    # Opção A Conservadora: 9 posições, distribuição por perfil
-    # Estáveis: 3 pos x $40 = $120
-    # Médias: 3 pos x $30 = $90  
-    # Voláteis: 2 pos x $20 = $40
-    # Memes: 1 pos x $15 = $15
-    # Total máximo: $265 (mantém $400+ livre)
-    amount_per_trade: 35
+    amount_per_trade: 50
     interval_seconds: 5
     max_positions: 9
     max_total_investment: 350
