@@ -30,11 +30,11 @@ def fechar_posicoes():
     print("=" * 70)
     
     # Credenciais
-    api_key = os.getenv('BINANCE_API_KEY')
-    api_secret = os.getenv('BINANCE_API_SECRET')
-    
+    # API da conta principal (direto no código - para produção, use .env)
+    api_key = "ontC9l8pk3yvMEWdX9T7TUXg8j02iM2VLlp34dDp4pUiPvb7xANafPNKuydItiLr"
+    api_secret = "efv9oyLoaqVRLe1fwVtJHUADgN10MBdVF5WzrqF8XxAjF8t0xKr187rvMi0f414b"
     if not api_key or not api_secret:
-        print("❌ Credenciais não encontradas em .env")
+        print("❌ Configure a chave secreta da API da conta principal no script!")
         return False
     
     # Conectar

@@ -10,16 +10,27 @@ from typing import Any, Dict, Optional
 from dataclasses import dataclass, asdict
 import threading
 
+# Classe LogEntry baseada em Pydantic para integração com API/validação
+from pydantic import BaseModel, Field
+
+class LogEntry(BaseModel):
+    """Modelo Pydantic para um item de log do auditor."""
+    timestamp: datetime = Field(..., description="Data e hora do log.")
+    level: str = Field(..., description="Nível de log (INFO, WARNING, ERROR, etc.).")
+    message: str = Field(..., description="A mensagem principal do log.")
+    source: Optional[str] = Field(None, description="A fonte do log (e.g., Coordinator, AI Advisor).")
+    details: Optional[Dict[str, Any]] = Field(None, description="Detalhes adicionais em JSON.")
+
 
 @dataclass
 class AuditEvent:
     """Representa um evento de auditoria"""
     timestamp: str
     event_type: str  # 'config_change', 'restart', 'stop', 'trade', 'error', etc
-    severity: str  # 'info', 'warning', 'critical'
-    source: str  # 'api', 'watcher', 'bot', 'coordinator', 'user'
-    target: str  # bot_type, symbol, ou 'system'
-    action: str  # ação específica
+    severity: str    # 'info', 'warning', 'critical'
+    source: str      # 'api', 'watcher', 'bot', 'coordinator', 'user'
+    target: str      # bot_type, symbol, ou 'system'
+    action: str      # ação específica
     details: Dict[str, Any]  # contexto adicional
     user_id: Optional[str] = None  # ID do usuário se aplicável
     
@@ -56,22 +67,37 @@ class AuditLogger:
         # Cache de eventos recentes (últimos 1000)
         self.recent_events = []
         self.max_recent = 1000
-    
+
+    # --- Métodos compatíveis com logging.Logger ---
+    def info(self, message: str, **details):
+        self.logger.info(self._format(message, details))
+
+    def warning(self, message: str, **details):
+        self.logger.warning(self._format(message, details))
+
+    def error(self, message: str, **details):
+        self.logger.error(self._format(message, details))
+
+    def exception(self, message: str, **details):
+        self.logger.exception(self._format(message, details))
+
+    def _format(self, message: str, details: dict) -> str:
+        if details:
+            return f"{message} | {json.dumps(details, ensure_ascii=False)}"
+        return message
+
+    # --- Métodos de auditoria estruturada ---
     def log_event(self, event: AuditEvent):
         """Registra um evento de auditoria"""
         with self.lock:
-            # Salva em arquivo JSONL
             self.logger.info(json.dumps(event.to_dict(), ensure_ascii=False))
-            
-            # Mantém em cache
             self.recent_events.append(event)
             if len(self.recent_events) > self.max_recent:
                 self.recent_events.pop(0)
-    
+
     def log_config_change(self, bot_type: str, old_config: Dict, new_config: Dict, 
                          source: str = 'api', user_id: Optional[str] = None):
         """Registra mudança de configuração"""
-        # Identifica quais campos mudaram
         changed_fields = {}
         for key in new_config:
             if key not in old_config or old_config[key] != new_config[key]:
@@ -94,7 +120,7 @@ class AuditLogger:
             user_id=user_id
         )
         self.log_event(event)
-    
+
     def log_restart(self, bot_type: Optional[str], reason: str, source: str = 'watcher',
                    user_id: Optional[str] = None):
         """Registra reinício de bot"""
@@ -109,7 +135,7 @@ class AuditLogger:
             user_id=user_id
         )
         self.log_event(event)
-    
+
     def log_stop(self, bot_type: Optional[str], reason: str, source: str = 'watcher',
                 user_id: Optional[str] = None):
         """Registra parada de bot"""
@@ -124,7 +150,7 @@ class AuditLogger:
             user_id=user_id
         )
         self.log_event(event)
-    
+
     def log_trade(self, symbol: str, bot_type: str, action: str, price: float, 
                  quantity: float, pnl: Optional[float] = None, details: Optional[Dict] = None):
         """Registra execução de trade"""
@@ -134,7 +160,7 @@ class AuditLogger:
             severity='info',
             source='bot',
             target=symbol,
-            action=action,  # 'buy', 'sell', 'close'
+            action=action,
             details={
                 'bot_type': bot_type,
                 'price': price,
@@ -144,7 +170,7 @@ class AuditLogger:
             }
         )
         self.log_event(event)
-    
+
     def log_error(self, error_type: str, bot_type: Optional[str], message: str, 
                  traceback: Optional[str] = None, source: str = 'bot'):
         """Registra erro no sistema"""
@@ -161,7 +187,7 @@ class AuditLogger:
             }
         )
         self.log_event(event)
-    
+
     def log_position_change(self, bot_type: str, symbol: str, action: str, 
                            position_size: float, entry_price: float, details: Optional[Dict] = None):
         """Registra mudança de posição aberta"""
@@ -171,7 +197,7 @@ class AuditLogger:
             severity='info',
             source='bot',
             target=symbol,
-            action=action,  # 'open', 'close', 'adjust'
+            action=action,
             details={
                 'bot_type': bot_type,
                 'position_size': position_size,
@@ -180,35 +206,29 @@ class AuditLogger:
             }
         )
         self.log_event(event)
-    
+
     def get_recent_events(self, limit: int = 100, event_type: Optional[str] = None,
                          source: Optional[str] = None, severity: Optional[str] = None) -> list:
         """Retorna eventos recentes com filtros opcionais"""
         with self.lock:
             events = list(reversed(self.recent_events))[:limit]
-            
-            # Aplicar filtros
             if event_type:
                 events = [e for e in events if e.event_type == event_type]
             if source:
                 events = [e for e in events if e.source == source]
             if severity:
                 events = [e for e in events if e.severity == severity]
-            
             return [e.to_dict() for e in events]
-    
+
     def export_events(self, output_file: str, event_type: Optional[str] = None, 
                      days: int = 7):
         """Exporta eventos para arquivo JSON"""
         with self.lock:
             events = [e.to_dict() for e in self.recent_events]
-            
             if event_type:
                 events = [e for e in events if e['event_type'] == event_type]
-            
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(events, f, indent=2, ensure_ascii=False, default=str)
-            
             return len(events)
 
 
@@ -221,3 +241,5 @@ def get_audit_logger() -> AuditLogger:
     if _audit_logger is None:
         _audit_logger = AuditLogger()
     return _audit_logger
+
+   

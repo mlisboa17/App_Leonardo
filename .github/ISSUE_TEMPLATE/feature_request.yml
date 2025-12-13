@@ -1,93 +1,82 @@
-name: Feature Request
-description: Suggest an idea for this project
+---
+name: ✨ Feature Request
+description: Sugira uma nova funcionalidade
 title: "[FEATURE] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to suggest a new feature!
+        Obrigado por sugerir uma melhoria! Por favor, descreva sua ideia.
 
   - type: textarea
     id: problem
     attributes:
-      label: Is your feature request related to a problem?
-      description: A clear and concise description of what the problem is.
-      placeholder: I'm always frustrated when [...]
+      label: Problema/Motivação
+      description: Descreva o problema que esta feature resolveria
+      placeholder: Atualmente é difícil visualizar P&L por criptomoeda...
     validations:
-      required: false
+      required: true
 
   - type: textarea
     id: solution
     attributes:
-      label: Describe the solution you'd like
-      description: A clear and concise description of what you want to happen.
+      label: Solução Proposta
+      description: Como você imagina que esta feature funcionaria?
+      placeholder: Um novo gráfico no dashboard que mostra P&L agrupado por símbolo...
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Describe alternatives you've considered
-      description: A clear and concise description of any alternative solutions or features you've considered.
-    validations:
-      required: false
+      label: Alternativas Consideradas
+      description: Outras abordagens que você considerou?
+      placeholder: Poderia ser um relatório em CSV exportável...
 
   - type: dropdown
-    id: category
+    id: component
     attributes:
-      label: Feature Category
-      description: What category does this feature belong to?
+      label: Componente Afetado
+      description: Qual parte do sistema seria modificada?
+      multiple: true
       options:
-        - Trading Strategy
-        - Dashboard/UI
-        - Risk Management
-        - Performance/Optimization
-        - Documentation
-        - Developer Experience
-        - Other
-    validations:
-      required: true
+        - Bot/Trading Engine
+        - AI Orchestrator
+        - Dashboard Streamlit
+        - Frontend React
+        - API Backend
+        - Configuração
+        - Documentação
+        - Deploy/AWS
+        - Outro
 
   - type: dropdown
     id: priority
     attributes:
-      label: Priority Level
-      description: How important is this feature to you?
+      label: Prioridade Sugerida
       options:
-        - Critical (blocking me from using the bot)
-        - High (significantly improves workflow)
-        - Medium (nice to have improvement)
-        - Low (minor enhancement)
-    validations:
-      required: true
+        - Baixa (nice to have)
+        - Média (melhoria útil)
+        - Alta (feature importante)
+        - Crítica (necessário urgente)
 
   - type: textarea
-    id: implementation
+    id: examples
     attributes:
-      label: Implementation Ideas
-      description: Do you have any ideas on how this could be implemented?
-      placeholder: Technical details, API changes, etc.
-    validations:
-      required: false
-
-  - type: textarea
-    id: context
-    attributes:
-      label: Additional Context
-      description: Add any other context or screenshots about the feature request here.
-    validations:
-      required: false
+      label: Exemplos de Uso
+      description: Como seria usar esta feature?
+      placeholder: |
+        ```python
+        # Exemplo de código ou screenshot
+        bot.configure(new_feature=True)
+        ```
 
   - type: checkboxes
-    id: terms
+    id: contribution
     attributes:
-      label: Checklist
-      description: Please confirm the following
+      label: Contribuição
       options:
-        - label: I have searched existing issues to make sure this is not a duplicate
-          required: true
-        - label: I have provided a clear description of the feature
-          required: true
-        - label: This feature would benefit other users, not just me
-          required: true
+        - label: Estou disposto(a) a implementar esta feature
+        - label: Estou disposto(a) a testar esta feature
+        - label: Estou disposto(a) a documentar esta feature

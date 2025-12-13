@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ============================================================
 MAIN MULTI-BOT - App Leonardo v3.0 (com AI Adaptativa)
@@ -6,7 +7,7 @@ MAIN MULTI-BOT - App Leonardo v3.0 (com AI Adaptativa)
 Executa o sistema de 4 bots especializados em paralelo.
 Cada bot opera independentemente com suas cryptos específicas.
 
-🤖 NOVO: Sistema de IA que aprende e adapta os bots!
+NOVO: Sistema de IA que aprende e adapta os bots!
 - Aprende com erros e acertos
 - Busca notícias e sentimento de mercado
 - Ajusta parâmetros automaticamente
@@ -79,6 +80,11 @@ class MultiBotEngine:
     """
     
     def __init__(self):
+        # ===== DEFINE DIRETÓRIO DE DADOS =====
+        # Permite subconta usar seu próprio diretório
+        self.data_dir = Path(os.getenv('DATA_DIR', 'data'))
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        
         # ===== VERIFICA MODO DE OPERAÇÃO =====
         self.unico_bot_mode = False
         self.unico_bot = None
@@ -87,12 +93,12 @@ class MultiBotEngine:
             self.unico_bot_mode = True
             self.unico_bot = UnicoBot()
             if self.unico_bot.enabled:
-                print("=" * 60)
-                print("🤖 MODO UNICO BOT ATIVADO")
-                print("=" * 60)
-                print(f"   → {self.unico_bot.name} gerenciando TODAS as cryptos")
-                print(f"   → Símbolos: {len(self.unico_bot.portfolio)}")
-                print(f"   → Max posições: {self.unico_bot.trading_config.get('max_positions', 15)}")
+                print("=" * 60, flush=True)
+                print("MODO UNICO BOT ATIVADO", flush=True)
+                print("=" * 60, flush=True)
+                print(f"   -> {self.unico_bot.name} gerenciando TODAS as cryptos", flush=True)
+                print(f"   -> Simbolos: {len(self.unico_bot.portfolio)}", flush=True)
+                print(f"   -> Max posicoes: {self.unico_bot.trading_config.get('max_positions', 15)}", flush=True)
                 print("=" * 60)
             else:
                 self.unico_bot_mode = False
@@ -185,19 +191,19 @@ class MultiBotEngine:
         self._load_positions()
         
         # Arquivo de histórico global
-        self.history_file = Path("data/multibot_history.json")
+        self.history_file = self.data_dir / "multibot_history.json"
         
         # ===== HISTÓRICO POR BOT =====
         self.bot_history_files = {
-            'bot_estavel': Path("data/history/bot_estavel_trades.json"),
-            'bot_medio': Path("data/history/bot_medio_trades.json"),
-            'bot_volatil': Path("data/history/bot_volatil_trades.json"),
-            'bot_meme': Path("data/history/bot_meme_trades.json"),
-            'poupanca': Path("data/history/poupanca_trades.json"),
+            'bot_estavel': self.data_dir / "history" / "bot_estavel_trades.json",
+            'bot_medio': self.data_dir / "history" / "bot_medio_trades.json",
+            'bot_volatil': self.data_dir / "history" / "bot_volatil_trades.json",
+            'bot_meme': self.data_dir / "history" / "bot_meme_trades.json",
+            'poupanca': self.data_dir / "history" / "poupanca_trades.json",
         }
         
         # Cria diretório de histórico se não existir
-        Path("data/history").mkdir(parents=True, exist_ok=True)
+        (self.data_dir / "history").mkdir(parents=True, exist_ok=True)
         
         # Estatísticas por bot
         self.bot_stats = {
@@ -216,7 +222,7 @@ class MultiBotEngine:
     
     def _load_bot_stats(self, bot_type: str) -> dict:
         """Carrega estatísticas do bot do histórico"""
-        stats_file = Path(f"data/history/{bot_type}_stats.json")
+        stats_file = self.data_dir / "history" / f"{bot_type}_stats.json"
         default_stats = {
             'total_trades': 0,
             'wins': 0,
@@ -250,7 +256,7 @@ class MultiBotEngine:
     
     def _save_bot_stats(self, bot_type: str):
         """Salva estatísticas do bot"""
-        stats_file = Path(f"data/history/{bot_type}_stats.json")
+        stats_file = self.data_dir / "history" / f"{bot_type}_stats.json"
         with open(stats_file, 'w') as f:
             json.dump(self.bot_stats[bot_type], f, indent=2)
     
@@ -389,7 +395,7 @@ class MultiBotEngine:
         
     def _load_positions(self):
         """Carrega posições abertas do arquivo"""
-        positions_file = Path("data/multibot_positions.json")
+        positions_file = self.data_dir / "multibot_positions.json"
         if positions_file.exists():
             try:
                 with open(positions_file, 'r') as f:
@@ -415,7 +421,7 @@ class MultiBotEngine:
             if 'time' in positions_to_save[symbol]:
                 positions_to_save[symbol]['time'] = pos['time'].isoformat()
         
-        with open("data/multibot_positions.json", 'w') as f:
+        with open(self.data_dir / "multibot_positions.json", 'w') as f:
             json.dump(positions_to_save, f, indent=2)
     
     def _save_trade_history(self, trade: dict):
@@ -700,8 +706,8 @@ class MultiBotEngine:
     
     def _save_poupanca(self):
         """Salva estado da poupança"""
-        Path("data").mkdir(parents=True, exist_ok=True)
-        with open("data/poupanca.json", 'w') as f:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.data_dir / "poupanca.json", 'w') as f:
             json.dump(self.poupanca, f, indent=2)
     
     def _save_dashboard_data(self):
@@ -709,6 +715,7 @@ class MultiBotEngine:
         Salva dados para o dashboard:
         - Saldo USDT
         - Saldo em Cripto
+        - Saldo em EARN (Simple Earn/Locked)
         - Saldo Total
         - Progresso Meta Diária
         """
@@ -746,8 +753,40 @@ class MultiBotEngine:
                     except:
                         pass
             
-            # Total
-            total_balance = usdt_balance + crypto_balance
+            # Saldo em EARN (Simple Earn Flexible + Locked)
+            earn_balance = 0
+            earn_positions = {}
+            try:
+                # Buscar posições em Flexible Earn
+                flexible_positions = self.exchange.exchange.sapi_get_simple_earn_flexible_position()
+                if flexible_positions and 'rows' in flexible_positions:
+                    for pos in flexible_positions['rows']:
+                        asset = pos.get('asset')
+                        amount = float(pos.get('totalAmount', 0))
+                        if amount > 0:
+                            try:
+                                if asset == 'USDT':
+                                    value_usd = amount
+                                else:
+                                    ticker = self.exchange.fetch_ticker(f"{asset}USDT")
+                                    price = ticker.get('last', ticker.get('close', 0))
+                                    value_usd = amount * price
+                                
+                                if value_usd > 0.01:
+                                    earn_balance += value_usd
+                                    earn_positions[asset] = {
+                                        'amount': amount,
+                                        'value_usd': value_usd,
+                                        'type': 'flexible',
+                                        'canRedeem': pos.get('canRedeem', False)
+                                    }
+                            except:
+                                pass
+            except Exception as e:
+                self.logger.warning(f"⚠️ Erro ao buscar Simple Earn: {e}")
+            
+            # Total (incluindo EARN)
+            total_balance = usdt_balance + crypto_balance + earn_balance
             
             # Meta diária (configurável, padrão 1% do capital)
             config = self.coordinator.config.get('global', {}).get('daily_target', {})
@@ -781,8 +820,10 @@ class MultiBotEngine:
                 'timestamp': datetime.now().isoformat(),
                 'usdt_balance': usdt_balance,
                 'crypto_balance': crypto_balance,
+                'earn_balance': earn_balance,
                 'total_balance': total_balance,
                 'crypto_positions': crypto_positions,
+                'earn_positions': earn_positions,
                 'poupanca': self.poupanca.get('balance', 0),
                 'daily_target_pct': daily_target_pct,
                 'daily_target_usd': daily_target_usd,
@@ -790,7 +831,7 @@ class MultiBotEngine:
                 'daily_progress': daily_progress,
             }
             
-            with open("data/dashboard_balances.json", 'w') as f:
+            with open(self.data_dir / "dashboard_balances.json", 'w') as f:
                 json.dump(dashboard_data, f, indent=2)
                 
         except Exception as e:
@@ -798,7 +839,7 @@ class MultiBotEngine:
     
     def _load_poupanca(self):
         """Carrega estado da poupança"""
-        poupanca_file = Path("data/poupanca.json")
+        poupanca_file = self.data_dir / "poupanca.json"
         if poupanca_file.exists():
             try:
                 with open(poupanca_file, 'r') as f:
@@ -1127,6 +1168,10 @@ class MultiBotEngine:
                                 
                     except Exception as e:
                         self.logger.warning(f"⚠️ Erro ao analisar {symbol}: {e}")
+            else:
+                # Modo observação - sem saldo para novas compras
+                if self.iteration % 20 == 0:  # Log a cada 20 ciclos (~1 min)
+                    self.logger.info(f"👁️ MODO OBSERVAÇÃO: Saldo ${usdt_balance:.2f} insuficiente para novos trades (mín: ${amount_per_trade:.2f})")
         
         # Salva posições
         self._save_positions()
@@ -1612,6 +1657,13 @@ class MultiBotEngine:
         
         capital_para_bots = total_balance
         print(f"\n📊 CAPITAL TOTAL DISPONÍVEL: ${capital_para_bots:.2f}")
+        
+        # Verifica se tem saldo para operar
+        if capital_para_bots <= 0:
+            print("\n⚠️  MODO OBSERVAÇÃO ATIVADO")
+            print("   Sem saldo USDT disponível para novas operações")
+            print("   Bot continuará monitorando mercado e gerenciando posições existentes")
+            print("   Transfira USDT para a conta para iniciar trading")
         
         # ===== FASE 3: LOOP PRINCIPAL =====
         print("\n" + "="*70)

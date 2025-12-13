@@ -21,10 +21,18 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+# TEMPORÁRIO: sklearn desabilitado por problemas com Python 3.14
+try:
+    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score, precision_score, recall_score
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    RandomForestClassifier = None
+    GradientBoostingClassifier = None
+    StandardScaler = None
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -217,6 +225,10 @@ class AdaptiveEngine:
         Returns:
             Dict com métricas de treinamento
         """
+        if not SKLEARN_AVAILABLE:
+            logger.warning("⚠️ sklearn não disponível - treinamento desabilitado")
+            return {'status': 'sklearn_unavailable', 'trades': len(trades)}
+        
         logger.info(f"🧠 Iniciando treinamento para {bot_name} com {len(trades)} trades")
         
         if len(trades) < 10:
@@ -433,6 +445,14 @@ class AdaptiveEngine:
         Returns:
             Dict com probabilidade e recomendação
         """
+        if not SKLEARN_AVAILABLE:
+            return {
+                'prediction': 'unknown',
+                'probability': 0.5,
+                'confidence': 'low',
+                'reason': 'sklearn não disponível'
+            }
+        
         # Tentar modelo específico ou global
         model = self.models.get(bot_name) or self.models.get('global')
         scaler = self.scalers.get(bot_name) or self.scalers.get('global')

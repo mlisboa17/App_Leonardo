@@ -1,98 +1,105 @@
-name: Bug Report
-description: File a bug report to help us improve
+---
+name: 🐛 Bug Report
+description: Reporte um problema ou bug
 title: "[BUG] "
-labels: ["bug", "triage"]
+labels: ["bug", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
-        
-        **⚠️ Security Issues**: If this is a security vulnerability, please email leonardo.security@email.com instead.
+        Obrigado por reportar um bug! Por favor, preencha as informações abaixo.
 
   - type: textarea
-    id: what-happened
+    id: description
     attributes:
-      label: What happened?
-      description: Also tell us, what did you expect to happen?
-      placeholder: Tell us what you see!
+      label: Descrição do Bug
+      description: Uma descrição clara e concisa do bug
+      placeholder: O bot não está executando trades...
     validations:
       required: true
 
   - type: textarea
-    id: reproduce
+    id: steps
     attributes:
-      label: Steps to Reproduce
-      description: How can we reproduce this bug?
+      label: Passos para Reproduzir
+      description: Passos detalhados para reproduzir o comportamento
       placeholder: |
-        1. Go to '...'
-        2. Click on '....'
-        3. Scroll down to '....'
-        4. See error
+        1. Execute 'python main_multibot.py'
+        2. Configure bot com '...'
+        3. Observe erro em '...'
     validations:
       required: true
 
-  - type: dropdown
-    id: version
+  - type: textarea
+    id: expected
     attributes:
-      label: Version
-      description: What version of the bot are you running?
-      options:
-        - v2.1.0 (Latest)
-        - v2.0.x
-        - v1.9.x
-        - Other (specify in description)
+      label: Comportamento Esperado
+      description: O que deveria acontecer
+      placeholder: O bot deveria executar o trade automaticamente
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento Atual
+      description: O que está acontecendo
+      placeholder: O bot ignora o sinal e não executa nada
     validations:
       required: true
 
   - type: dropdown
     id: environment
     attributes:
-      label: Environment
-      description: What environment are you using?
+      label: Ambiente
+      description: Onde o bug ocorre?
       options:
-        - Binance Testnet
-        - Binance Mainnet
-        - Other Exchange
+        - Testnet
+        - Produção
+        - Ambos
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Versão do Python
+      description: Execute `python --version`
+      placeholder: "3.9.7"
     validations:
       required: true
 
   - type: input
     id: os
     attributes:
-      label: Operating System
-      description: What OS are you using?
-      placeholder: e.g., Windows 11, Ubuntu 22.04, macOS 13
-    validations:
-      required: true
-
-  - type: input
-    id: python
-    attributes:
-      label: Python Version
-      description: What version of Python are you using?
-      placeholder: e.g., 3.9.7, 3.10.5, 3.11.0
+      label: Sistema Operacional
+      placeholder: "Windows 11, Ubuntu 22.04, macOS 13"
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Relevant Logs
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      label: Logs Relevantes
+      description: Cole logs do erro (REMOVA credenciais antes!)
       render: shell
-    validations:
-      required: false
+      placeholder: |
+        2025-12-11 10:30:45 - ERROR - Bot 1 failed: ...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Contexto Adicional
+      description: Qualquer outra informação relevante
+      placeholder: O problema começou após atualizar a dependência X...
 
   - type: checkboxes
-    id: terms
+    id: checklist
     attributes:
       label: Checklist
-      description: Please confirm the following
       options:
-        - label: I have searched existing issues to make sure this is not a duplicate
-          required: true
-        - label: I have provided all the requested information
-          required: true
-        - label: I understand this is not a security issue (if it is, I'll email instead)
-          required: true
+        - label: Testei em ambiente testnet
+        - label: Verifiquei logs em `logs/`
+        - label: Li a documentação relevante
+        - label: Procurei por issues similares
+        - label: Removi credenciais dos logs

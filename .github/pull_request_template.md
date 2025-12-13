@@ -1,81 +1,76 @@
-## Description
-<!-- Briefly describe the changes in this PR -->
+## Descrição das Mudanças
 
-## Type of Change
-- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
-- [ ] ✨ New feature (non-breaking change which adds functionality)
-- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] 📚 Documentation update
-- [ ] 🎨 Code style/formatting change
+<!-- Descreva suas alterações em detalhes -->
+
+## Tipo de Mudança
+
+<!-- Marque com 'x' as opções aplicáveis -->
+
+- [ ] 🐛 Bug fix (correção que resolve um issue)
+- [ ] ✨ New feature (funcionalidade nova)
+- [ ] 💥 Breaking change (mudança que quebra compatibilidade)
+- [ ] 📚 Documentation update (apenas documentação)
+- [ ] 🎨 Style/formatting (não afeta código)
+- [ ] ♻️ Refactoring (melhoria de código)
 - [ ] ⚡ Performance improvement
-- [ ] 🧪 Test coverage improvement
-- [ ] 🔧 Chore (maintenance task)
+- [ ] 🧪 Test (adiciona ou corrige testes)
 
-## Related Issues
-<!-- Link to related issues using keywords: fixes #123, closes #456, resolves #789 -->
-Fixes # (issue number)
+## Motivação e Contexto
 
-## Changes Made
-<!-- Detailed list of changes -->
-- 
-- 
-- 
+<!-- Por que esta mudança é necessária? Resolve algum issue? -->
 
-## Testing
-<!-- How has this been tested? -->
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual testing completed
-- [ ] Tested on testnet
-- [ ] Tested on mainnet (if applicable)
+Resolve # (issue)
 
-### Test Configuration
-- **OS**: 
-- **Python Version**: 
-- **Exchange**: Testnet/Mainnet
-- **Test Duration**: 
+## Como Foi Testado?
 
-## Performance Impact
-<!-- If this PR affects performance, describe the impact -->
-- [ ] No performance impact
-- [ ] Improves performance
-- [ ] May impact performance (explain below)
+<!-- Descreva os testes realizados -->
 
-**Performance Details**:
+- [ ] Testnet Binance
+- [ ] Ambiente local
+- [ ] Dashboard funcional
+- [ ] Testes automatizados passando
+- [ ] Lint/formatação OK
 
-## Security Considerations
-- [ ] No security impact
-- [ ] Reviewed for security implications
-- [ ] Added security measures
-- [ ] Potential security impact (explain below)
+**Ambiente de Teste:**
+- Python version:
+- OS:
+- Detalhes adicionais:
 
-**Security Details**:
+## Screenshots (se aplicável)
 
-## Documentation
-- [ ] Code is self-documenting
-- [ ] Added/updated docstrings
-- [ ] Updated README.md
-- [ ] Updated configuration docs
-- [ ] Added example usage
-
-## Backwards Compatibility
-- [ ] Fully backwards compatible
-- [ ] Requires configuration changes
-- [ ] Breaking changes (detailed in description)
+<!-- Adicione screenshots para mudanças visuais -->
 
 ## Checklist
-<!-- Mark completed items with [x] -->
-- [ ] My code follows the project's style guidelines
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published
 
-## Screenshots/Logs
-<!-- If applicable, add screenshots or log outputs -->
+<!-- Marque com 'x' os itens completados -->
 
-## Additional Notes
-<!-- Any additional information, deployment notes, etc. -->
+- [ ] Meu código segue o style guide do projeto
+- [ ] Realizei self-review do código
+- [ ] Comentei código complexo
+- [ ] Atualizei documentação relevante
+- [ ] Minhas mudanças não geram novos warnings
+- [ ] Adicionei testes quando apropriado
+- [ ] Todos os testes (novos e existentes) passam
+- [ ] Verifiquei que não há credenciais no código
+- [ ] Testei em ambiente testnet
+- [ ] Atualizei CHANGELOG.md (se aplicável)
+
+## Impacto
+
+<!-- Descreva o impacto em outras partes do sistema -->
+
+- [ ] Requer atualização de dependências
+- [ ] Requer migração de configuração
+- [ ] Requer migração de dados
+- [ ] Mudanças na API
+- [ ] Mudanças no schema de dados
+
+## Notas Adicionais
+
+<!-- Qualquer informação extra relevante para os revisores -->
+
+## Reviewers
+
+<!-- Mencione pessoas que devem revisar este PR -->
+
+cc: @maintainer

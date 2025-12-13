@@ -1,282 +1,245 @@
-# 🤖 App Leonardo - Bot de Trading de Criptomoedas
+# 🤖 R7 Trading Bot
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)
-![Trading](https://img.shields.io/badge/Trading-Crypto-orange.svg)
+> Sistema de trading automatizado multi-bot com orquestração de IA para criptomoedas
 
-> **⚠️ AVISO**: Este bot é para fins educacionais. Trading envolve riscos. Use primeiro em testnet!
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Bot automatizado de trading de criptomoedas com estratégia adaptativa, dashboard em tempo real e sistema completo de análise técnica.
+## 📋 Sobre o Projeto
 
-## ✨ Características Principais
+R7 Trading Bot é um sistema sofisticado de trading automatizado que opera **4+ bots especializados simultaneamente**, cada um focado em diferentes categorias de criptomoedas (stablecoins, voláteis, médias, memecoins). O sistema utiliza aprendizado adaptativo de IA para otimizar estratégias em tempo real com base no histórico de trades.
 
-### 🧠 Estratégia Inteligente
-- **RSI Adaptativo**: Ajustado dinamicamente para cada criptomoeda
-- **MACD**: Confirmação de tendência e momentum  
-- **Médias Móveis**: SMA 20, 50, 200 para suporte/resistência
-- **Perfis Dinâmicos**: Cada crypto tem seus próprios parâmetros
+### ✨ Principais Funcionalidades
 
-### 💰 Gestão de Risco Avançada
-- ✅ Meta diária configurável ($100 padrão)
-- ✅ Stop-loss e take-profit automáticos
-- ✅ Limite de posições simultâneas
-- ✅ Proteção contra drawdown
-- ✅ Controle de exposição por crypto
+- 🤖 **Multi-Bot Coordination**: 4+ bots operando em paralelo com capital distribuído inteligentemente
+- 🧠 **AI Orchestration**: Orquestrador de IA monitora mercado e gera sinais de trade
+- 📊 **Gestão de Capital Avançada**: Risk/Reward mínimo de 2:1 e máximo 2% do portfólio por trade
+- 🎯 **Estratégias Múltiplas**: Smart, Adaptive, Scalping, e bot único especializado
+- 📈 **Dashboards em Tempo Real**: Interface Streamlit + React para monitoramento
+- 🔄 **Aprendizado Adaptativo**: IA aprende com histórico e ajusta parâmetros automaticamente
+- 🛡️ **Segurança Robusta**: Limites diários de perda, proteção de desvio de preço, audit logging
 
-### 📊 Dashboard Interativo
-- **Tempo Real**: Atualização a cada 10 segundos
-- **Saldo Total**: USDT + valor em crypto
-- **Cards das Top 8**: BTC, ETH, SOL, BNB, etc.
-- **Estatísticas**: Win rate, profit/loss, trades
-- **Previsões**: Tendência baseada em IA
+## 🚀 Início Rápido
 
-### 💾 Persistência Completa
-- **SQLite**: Histórico completo de trades
-- **JSON**: Estados e configurações em tempo real
-- **CSV**: Relatórios exportáveis
-- **Backups**: Automáticos a cada 30 minutos
+### Pré-requisitos
 
-## 🚀 Instalação Rápida
+- Python 3.8 ou superior
+- Conta Binance (testnet ou produção)
+- Git
 
-### 1️⃣ Pré-requisitos
-```bash
-# Python 3.9 ou superior
-python --version
+### Instalação
 
-# Git (opcional)
-git --version
-```
-
-### 2️⃣ Clone e Configure
 ```bash
 # Clone o repositório
-git clone https://github.com/SEU_USUARIO/app-leonardo-trading-bot.git
-cd app-leonardo-trading-bot
+git clone https://github.com/seu-usuario/app_r7.git
+cd app_r7
 
 # Crie ambiente virtual
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
 
 # Instale dependências
 pip install -r requirements.txt
+
+# Configure credenciais
+copy config\.env.example config\.env
+# Edite config\.env com suas API keys
 ```
 
-### 3️⃣ Configure Credenciais
-```bash
-# Copie o exemplo
-copy config\.env.example config\.env  # Windows
-# cp config/.env.example config/.env  # Linux/Mac
+### Configuração Inicial
 
-# Edite config/.env com suas API keys da Binance
-notepad config\.env  # Windows
-# nano config/.env   # Linux/Mac
-```
-
-### 4️⃣ Execute
-```bash
-# Terminal 1: Bot principal
-python main.py
-
-# Terminal 2: Dashboard (opcional)
-cd frontend
-python dashboard_saldo.py
-# Acesse: http://localhost:8050
-```
-
-## ⚙️ Configuração
-
-### Credenciais (config/.env)
+1. **Configure suas credenciais** em `config/.env`:
 ```env
-# TESTNET (use primeiro!)
-BINANCE_TESTNET_API_KEY=sua_chave_testnet
-BINANCE_TESTNET_API_SECRET=seu_secret_testnet
-USE_TESTNET=true
-
-# Configurações básicas
-MAX_TRADE_AMOUNT=50.0
-DAILY_PROFIT_TARGET=100.0
+BINANCE_API_KEY=your_api_key_here
+BINANCE_API_SECRET=your_secret_here
+BINANCE_TESTNET=true  # true para testnet, false para produção
 ```
 
-### Estratégia (config/config.yaml)
-```yaml
-trading:
-  symbols:
-    - BTC/USDT
-    - ETH/USDT
-    - SOL/USDT
-    - BNB/USDT
-  
-  amount_per_trade: 50.0
-  max_positions: 6
-  daily_profit_target: 100.0
-  
-  risk_management:
-    stop_loss_percent: 2.0
-    take_profit_percent: 3.0
-    max_drawdown_percent: 10.0
+2. **Revise configurações dos bots** em `config/bots_config.yaml`
+
+3. **Verifique configurações de segurança** em `config/config.yaml`
+
+### Executar o Sistema
+
+```bash
+# Iniciar sistema completo (4 bots + AI)
+python main_multibot.py
+
+# Em outro terminal - Dashboard
+streamlit run frontend/dashboard_multibot.py --server.port 8501
+
+# API Backend (opcional)
+cd backend
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-## 📁 Estrutura do Projeto
+Acesse:
+- 📊 Dashboard: http://localhost:8501
+- 🔌 API: http://localhost:8000/docs
+
+## 📂 Estrutura do Projeto
 
 ```
-App_Leonardo/
-├── 🤖 main.py                 # Bot principal
-├── 📊 frontend/
-│   ├── dashboard_saldo.py     # Dashboard Dash
-│   └── dashboard_v2.py        # Dashboard alternativo
-├── ⚙️ config/
-│   ├── config.yaml           # Configurações
-│   ├── .env.example          # Modelo de credenciais
-│   └── .env                  # Suas credenciais (não commitado)
-├── 🔧 src/
-│   ├── core/                 # Motor principal
-│   ├── strategies/           # Estratégias de trading
-│   ├── indicators/           # Indicadores técnicos
-│   └── safety/              # Sistema de segurança
-├── 💾 data/
-│   ├── trading_history.db   # Histórico SQLite
-│   ├── daily_stats.json     # Estatísticas
-│   └── crypto_profiles.json # Perfis das moedas
-├── 📝 logs/
-│   └── trading_bot.log      # Logs do sistema
-└── 🧪 tests/
-    └── test_*.py            # Testes unitários
+app_r7/
+├── 🤖 main_multibot.py          # Orquestrador principal
+├── 🧠 ai_orchestrator.py        # Motor de IA
+├── 💰 capital_manager.py        # Gestão de capital e risco
+├── config/                      # Configurações
+│   ├── config.yaml             # Config principal
+│   ├── bots_config.yaml        # Config dos bots
+│   └── .env                    # Credenciais (não comitado)
+├── src/                         # Código fonte
+│   ├── coordinator.py          # Coordenador de bots
+│   ├── strategies/             # Estratégias de trading
+│   ├── ai/                     # Componentes de IA
+│   ├── core/                   # Exchange, websocket
+│   └── audit.py                # Sistema de auditoria
+├── frontend/                    # Dashboard Streamlit
+├── frontend-react/              # Interface React
+├── backend/                     # API FastAPI
+├── aws-management/              # Ferramentas AWS
+│   ├── scripts/                # Scripts de manutenção
+│   ├── deployment/             # Deploy AWS
+│   └── monitoring/             # Monitoramento EC2
+├── data/                        # Dados persistidos (não comitado)
+└── logs/                        # Logs do sistema (não comitado)
 ```
 
-## 📊 Dashboard Preview
+## 🎯 Arquitetura
+
+### Fluxo de Decisão de Trade
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  💰 App Leonardo - Saldo em Criptomoedas                    │
-├─────────────────────────────────────────────────────────────┤
-│  💵 USDT      💎 Crypto Value   🏦 Total    📈 Lucro Dia   │
-│  $28,109      $98,110           $126,219    +$15.50        │
-├─────────────────────────────────────────────────────────────┤
-│  🎯 Meta: 15.5%   📊 Trades: 45   ✅ Win: 52%   🟢 Online  │
-├─────────────────────────────────────────────────────────────┤
-│  BTC 🟢 ALTA    ETH ⚪ LATERAL   SOL 🔴 QUEDA             │
-│  $67,234 (+2.3%) $3,456 (-0.8%) $245 (-5.2%)              │
-│                                                             │
-│  BNB 🟢 ALTA    ADA ⚪ LATERAL   DOT 🔴 QUEDA             │
-│  $598 (+1.9%)   $1.23 (+0.1%)   $8.45 (-1.5%)             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────┐
+│  Market Data    │ (ccxt → Binance)
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ AI Orchestrator │ (análise sentimento + tendências)
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Capital Manager │ (valida R:R ≥ 2:1)
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│   Coordinator   │ (seleciona bot e executa)
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Adaptive Engine │ (aprende com resultado)
+└─────────────────┘
 ```
 
-## 🔧 Como Usar
+### Categorias de Bots
 
-### Primeiro Uso
-1. **Configure testnet** na Binance
-2. **Coloque suas credenciais** em `config/.env`  
-3. **Execute com valores pequenos** para aprender
-4. **Monitore pelo dashboard** as primeiras horas
-5. **Ajuste parâmetros** conforme necessário
+| Bot | Categoria | Exemplos | Estratégia |
+|-----|-----------|----------|------------|
+| Bot 1 | Stable | USDT, BUSD, DAI | Baixa volatilidade |
+| Bot 2 | Volatile | BTC, ETH, BNB | Alta volatilidade |
+| Bot 3 | Medium | ADA, DOT, LINK | Volatilidade média |
+| Bot 4 | Meme | DOGE, SHIB | Oportunística |
 
-### Modo Produção
-1. **Teste exaustivamente** no testnet primeiro
-2. **Configure mainnet** com cuidado
-3. **Comece com valores baixos**
-4. **Monitore constantemente**
-5. **Ajuste stop-loss** adequadamente
+## 🛠️ Funcionalidades Avançadas
 
-## 📈 Estratégias Implementadas
+### AI Learning
+- Análise de mercado em tempo real
+- Aprendizado a partir do histórico de trades
+- Ajuste dinâmico de parâmetros (stop loss, take profit)
+- Modo oportunístico para aproveitar volatilidade
 
-### Smart Strategy v2.0
-- **RSI Dinâmico**: 30-70 padrão, ajustado por volatilidade
-- **MACD Confirmation**: Evita falsos sinais
-- **Volume Filter**: Só opera com volume adequado
-- **Trend Following**: Segue tendência das médias móveis
+### Gestão de Risco
+- **R:R mínimo de 2:1** (forçado pelo `capital_manager`)
+- **Máximo 2% do portfólio** por trade
+- **Limites diários de perda** configuráveis
+- **Proteção de desvio de preço** para evitar slippage
 
-### Perfis Adaptativos
-Cada criptomoeda tem parâmetros únicos:
-- **BTC**: Conservador, RSI 25-75
-- **ETH**: Moderado, RSI 30-70  
-- **Altcoins**: Agressivo, RSI 35-65
+### Monitoramento
+- Dashboard em tempo real com métricas de desempenho
+- Logs estruturados com auditoria completa
+- Alertas de posições e P&L por bot
+- Visualizações de distribuição de capital
 
-## ⚠️ Avisos de Segurança
+## ☁️ Deploy em AWS
 
-### 🚨 MUITO IMPORTANTE
-- **USE TESTNET PRIMEIRO**: Nunca vá direto para mainnet
-- **RISCOS FINANCEIROS**: Você pode perder dinheiro
-- **MONITORE SEMPRE**: Bots podem ter bugs
-- **COMECE PEQUENO**: Use valores que pode perder
+O projeto inclui ferramentas completas para deploy em AWS EC2:
 
-### 🔒 Segurança das Credenciais
-- ✅ Arquivo `.env` está no `.gitignore`
-- ✅ Configure IP restrictions na Binance
-- ✅ Use API keys só para trading (não saque)
-- ✅ Monitore logs regularmente
+```bash
+# Menu interativo AWS
+aws-management\aws-menu.bat
 
-## 🤝 Contribuição
+# Ou deploy direto
+bash aws-management/deployment/deploy_aws.sh
+```
+
+Veja [`aws-management/README.md`](aws-management/README.md) para guia completo.
+
+## 📚 Documentação
+
+- 📖 [`INDEX.md`](INDEX.md) - Índice completo da documentação
+- 🚀 [`SETUP_COMPLETO_08_DEC.md`](SETUP_COMPLETO_08_DEC.md) - Guia de setup detalhado
+- ☁️ [`aws-management/`](aws-management/) - Documentação AWS
+- 📊 [`DATABASE_STRATEGY.md`](DATABASE_STRATEGY.md) - Estratégia de migração para DB
+- 🔒 [`REMEDIATION_SECURITY.md`](REMEDIATION_SECURITY.md) - Guia de segurança
+
+## 🧪 Testes
+
+```bash
+# Verificar sistema
+python test_sistema.py
+
+# Testar conexão exchange
+python test_api.py
+
+# Testar dashboard
+python test_dashboard.py
+
+# Testar modo oportunístico
+python test_opportunistic.py
+```
+
+## ⚠️ Avisos Importantes
+
+### Segurança
+- ⚠️ **NUNCA comite** arquivos `.env` ou com credenciais
+- 🔐 Use **testnet** primeiro antes de produção
+- 🛡️ Configure `exchange.testnet: false` apenas após validação completa
+
+### Trading
+- 📉 **Trading envolve risco** significativo de perda financeira
+- 🧪 **Teste em testnet** extensivamente antes de usar capital real
+- 📊 **Monitore constantemente** o comportamento dos bots
+- 🚨 **Configure limites de perda** apropriados para seu perfil de risco
+
+## 🤝 Contribuindo
 
 Contribuições são bem-vindas! Por favor:
 
-1. **Fork** o repositório
-2. Crie sua **branch**: `git checkout -b feature/nova-feature`
-3. **Commit** mudanças: `git commit -m 'Add nova feature'`
-4. **Push** para branch: `git push origin feature/nova-feature`
-5. Abra um **Pull Request**
+1. Fork o projeto
+2. Crie sua feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
 
-### Áreas que Precisam de Ajuda
-- 🧪 Mais testes unitários
-- 📊 Novos indicadores técnicos  
-- 🔔 Sistema de notificações
-- 📱 App mobile
-- 🤖 Estratégias de ML/AI
+## 📝 Licença
 
-## 📚 Documentação Adicional
+Distribuído sob a licença MIT. Veja [`LICENSE`](LICENSE) para mais informações.
 
-- [📖 Arquitetura do Sistema](ARQUITETURA.md)
-- [🎯 Estratégia Adaptativa](ESTRATEGIA_ADAPTATIVA_EXPLICACAO.md)  
-- [📝 Histórico de Correções](HISTORICO_CORRECOES_APRENDIZADO.md)
-- [🚀 Quick Start](QUICK_START.md)
-- [🐳 Setup Docker](SETUP_DOCKER.bat)
+## 🔗 Links Úteis
 
-## 📊 Performance
+- [Binance API Documentation](https://binance-docs.github.io/apidocs/)
+- [CCXT Documentation](https://docs.ccxt.com/)
+- [Streamlit Documentation](https://docs.streamlit.io/)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
 
-### Backtest Results (30 dias)
-- **Total Return**: +12.5%
-- **Sharpe Ratio**: 1.8
-- **Max Drawdown**: -3.2%
-- **Win Rate**: 68%
-- **Profit Factor**: 2.1
+## 📧 Contato
 
-### Live Results (7 dias)
-- **Daily Avg**: +1.2%
-- **Total Trades**: 156
-- **Profitable**: 64%
-- **Max Daily Loss**: -0.8%
+Leonardo - [@seu_twitter](https://twitter.com/seu_twitter)
 
-## 🙏 Agradecimentos
-
-- **CCXT Library**: Interface unificada para exchanges
-- **Dash/Plotly**: Dashboard interativo  
-- **Binance**: API robusta e testnet gratuito
-- **TA-Lib**: Indicadores técnicos
-- **Python Community**: Ferramentas incríveis
-
-## 📄 Licença
-
-Este projeto está sob licença **MIT**. Veja [LICENSE](LICENSE) para detalhes.
-
-### Disclaimer
-```
-Este software é fornecido "como está", sem garantias.
-Trading de criptomoedas envolve riscos significativos.
-O autor não se responsabiliza por perdas financeiras.
-Use por sua conta e risco.
-```
-
-## 👨‍💻 Autor
-
-**Leonardo**
-- 🐙 GitHub: [@leonardo-trading](https://github.com/leonardo-trading)
-- 📧 Email: leonardo.trading@email.com
-- 💼 LinkedIn: [Leonardo Trading](https://linkedin.com/in/leonardo-trading)
+Project Link: [https://github.com/seu-usuario/app_r7](https://github.com/seu-usuario/app_r7)
 
 ---
 
-⭐ **Se este projeto te ajudou, considere dar uma estrela!** ⭐
-
-**Made with ❤️ for the crypto community**
+**⚡ Desenvolvido com Python, IA e muita cafeína ☕**

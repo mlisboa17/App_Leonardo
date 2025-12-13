@@ -32,7 +32,7 @@ class BinanceWebSocket:
     Cliente WebSocket para Binance
     
     Uso:
-        ws = BinanceWebSocket(testnet=True)
+        ws = BinanceWebSocket()
         await ws.subscribe_klines(['BTCUSDT', 'ETHUSDT'], '1m', callback)
         await ws.start()
     """
@@ -40,19 +40,11 @@ class BinanceWebSocket:
     # URLs dos WebSockets
     MAINNET_WS = "wss://stream.binance.com:9443/ws"
     MAINNET_COMBINED = "wss://stream.binance.com:9443/stream"
-    TESTNET_WS = "wss://testnet.binance.vision/ws"
-    TESTNET_COMBINED = "wss://testnet.binance.vision/stream"
     
-    def __init__(self, testnet: bool = None):
-        # Lê configuração de testnet do ambiente (.env)
-        if testnet is None:
-            use_testnet_env = os.getenv('USE_TESTNET', 'false').lower()
-            self.testnet = use_testnet_env == 'true'
-        else:
-            self.testnet = testnet
-            
-        self.base_url = self.TESTNET_WS if self.testnet else self.MAINNET_WS
-        self.combined_url = self.TESTNET_COMBINED if self.testnet else self.MAINNET_COMBINED
+    def __init__(self):
+        self.testnet = False
+        self.base_url = self.MAINNET_WS
+        self.combined_url = self.MAINNET_COMBINED
         
         self.ws = None
         self.is_running = False
@@ -68,7 +60,7 @@ class BinanceWebSocket:
         self.on_ticker: Optional[Callable] = None
         self.on_error: Optional[Callable] = None
         
-        logger.info(f"🔌 WebSocket inicializado ({'TESTNET' if testnet else 'MAINNET'})")
+        logger.info(f"🔌 WebSocket inicializado (MAINNET)")
     
     
     def _build_stream_url(self, streams: List[str]) -> str:
@@ -379,8 +371,8 @@ async def exemplo_kline_callback(kline: dict):
 async def exemplo_uso():
     """Exemplo de como usar o WebSocket"""
     
-    # Cria cliente (mainnet para dados públicos - não precisa autenticação)
-    ws = BinanceWebSocket(testnet=False)
+    # Cria cliente
+    ws = BinanceWebSocket()
     
     # Define símbolos
     symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']

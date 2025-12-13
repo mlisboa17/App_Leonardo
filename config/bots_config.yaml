@@ -53,7 +53,7 @@ available_cryptos:
     volatility: high
 bot_estavel:
   description: 🐢 HOLDER - Cryptos estáveis, movimentos lentos e seguros
-  enabled: false
+  enabled: true
   indicators:
     buy_conditions: all
     buy_macd_cross: true
@@ -96,11 +96,11 @@ bot_estavel:
   strategy_type: holder
   trading:
     amount_per_trade: 50
-    max_positions: 12
+    max_positions: 24
     timeframe: 15m
 bot_medio:
   description: ⚖️ SWING - Cryptos média volatilidade, equilíbrio risco/retorno
-  enabled: false
+  enabled: true
   indicators:
     buy_conditions: majority
     buy_macd_cross: true
@@ -146,11 +146,11 @@ bot_medio:
   strategy_type: swing
   trading:
     amount_per_trade: 60
-    max_positions: 15
+    max_positions: 30
     timeframe: 5m
 bot_meme:
   description: 🚀 SCALPER - Meme coins, ultra-rápido, entradas/saídas frequentes
-  enabled: false
+  enabled: true
   indicators:
     buy_conditions: instant
     buy_macd_momentum: true
@@ -192,7 +192,7 @@ bot_meme:
   strategy_type: scalper
   trading:
     amount_per_trade: 40
-    max_positions: 20
+    max_positions: 40
     timeframe: 1m
 bot_unico:
   adaptive_rules:
@@ -260,11 +260,11 @@ bot_unico:
   strategy_type: adaptive
   trading:
     amount_per_trade: 80
-    max_positions: 25
+    max_positions: 50
     timeframe: 5m
 bot_volatil:
   description: ⚡ MOMENTUM - Cryptos voláteis, movimentos rápidos
-  enabled: false
+  enabled: true
   indicators:
     buy_conditions: any
     buy_macd_cross: true
@@ -305,7 +305,7 @@ bot_volatil:
   strategy_type: momentum
   trading:
     amount_per_trade: 70
-    max_positions: 20
+    max_positions: 40
     timeframe: 3m
 coordinator:
   alerts:
@@ -332,6 +332,34 @@ coordinator:
     enabled: true
     interval_hours: 4
     threshold_pct: 10
+feira_strategy:
+  crypto_factors:
+    ADAUSDT: 0.5
+    AVAXUSDT: 0.5
+    BNBUSDT: 0.3
+    BOMEUSDT: 0.9
+    BTCUSDT: 0.3
+    DOGEUSDT: 0.9
+    ETHUSDT: 0.3
+    LINKUSDT: 0.5
+    MEMEUSDT: 0.9
+    PEPEUSDT: 0.9
+    SHIBUSDT: 0.9
+    SOLUSDT: 0.5
+    WIFUSDT: 0.9
+    XRPUSDT: 0.5
+    default: 0.5
+  description: TP dinâmico que diminui com o tempo (lógica da feira)
+  enabled: true
+  factors:
+    bluechip: 0.3
+    high_vol: 0.5
+    high_vol_low_volume: 0.7
+    meme: 0.9
+    normal: 0.4
+  thresholds:
+    high_volatility_pct: 0.55
+    low_volume_usd: 1000000
 global:
   aggressive_mode: true
   auto_tuner:
@@ -459,46 +487,3 @@ user_control:
   notify_user_on_ai_change: true
   override_cooldown_hours: 24
   require_approval: false
-
-# 🏪 ESTRATÉGIA DE FEIRA - Configurações manuais
-feira_strategy:
-  enabled: true
-  description: "TP dinâmico que diminui com o tempo (lógica da feira)"
-  
-  # Limiares para classificar cryptos
-  thresholds:
-    high_volatility_pct: 0.55      # > 0.55% = alta volatilidade
-    low_volume_usd: 1000000        # < 1M USD = baixo volume
-  
-  # Fatores de redução do TP por categoria
-  factors:
-    bluechip: 0.3                  # BTC, ETH - redução conservadora
-    meme: 0.9                      # DOGE, SHIB - redução agressiva
-    high_vol_low_volume: 0.7       # Alta vol + baixo vol
-    high_vol: 0.5                  # Alta volatilidade apenas
-    normal: 0.4                    # Volatilidade normal
-  
-  # Fatores específicos por crypto (manual override)
-  crypto_factors:
-    # Memes - Feira Agressiva
-    DOGEUSDT: 0.9
-    SHIBUSDT: 0.9
-    PEPEUSDT: 0.9
-    WIFUSDT: 0.9
-    BOMEUSDT: 0.9
-    MEMEUSDT: 0.9
-    
-    # Altas voláteis - Feira Moderada
-    SOLUSDT: 0.5
-    XRPUSDT: 0.5
-    LINKUSDT: 0.5
-    ADAUSDT: 0.5
-    AVAXUSDT: 0.5
-    
-    # Blue chips - Hold Conservador
-    BTCUSDT: 0.3
-    ETHUSDT: 0.3
-    BNBUSDT: 0.3
-    
-    # Default para outros
-    default: 0.5

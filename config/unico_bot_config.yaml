@@ -1,12 +1,12 @@
 ai_monitoring:
   ai_rules:
   - IA SEMPRE observa Fear & Greed Index
-  - IA SEMPRE lê notícias e sentiment de múltiplas fontes
+  - "IA SEMPRE l\xEA not\xEDcias e sentiment de m\xFAltiplas fontes"
   - IA SEMPRE valida sinais antes de executar trades
-  - IA SEMPRE confirma tendências com dados externos
-  - IA ajusta parâmetros dinamicamente baseado em condições reais
-  - IA usa AI Orchestrator para coordenar decisões
-  - IA monitora performance e ajusta estratégias automaticamente
+  - "IA SEMPRE confirma tend\xEAncias com dados externos"
+  - "IA ajusta par\xE2metros dinamicamente baseado em condi\xE7\xF5es reais"
+  - "IA usa AI Orchestrator para coordenar decis\xF5es"
+  - "IA monitora performance e ajusta estrat\xE9gias automaticamente"
   always_active: true
   data_sources:
     fear_greed:
@@ -29,7 +29,7 @@ ai_monitoring:
     market_monitor: true
     opportunistic_mode: true
 enabled: true
-operation_mode: SOLO
+operation_mode: UNICO_BOT
 operation_modes:
   EQUIPE:
     behavior:
@@ -40,23 +40,24 @@ operation_modes:
         min_profit_target: 0.2
         monitoring:
           ai_rules:
-          - IA coordena estratégias entre todos os bots
+          - "IA coordena estrat\xE9gias entre todos os bots"
           - IA redistribui capital baseado em performance
-          - IA monitora Fear & Greed para decisões coletivas
-          - IA valida sinais com múltiplas fontes antes de executar
-          - Bots compartilham informações via AI Orchestrator
+          - "IA monitora Fear & Greed para decis\xF5es coletivas"
+          - "IA valida sinais com m\xFAltiplas fontes antes de executar"
+          - "Bots compartilham informa\xE7\xF5es via AI Orchestrator"
           check_interval_seconds: 60
           fear_greed_api: https://api.alternative.me/fng
           news_sentiment_api: https://cryptopanic.com/api/v1/posts/
         stop_loss: -0.8
         take_profit: 1.2
-      capital_allocation: 'Bot Único: 40% | 4 bots: 15% cada'
+      capital_allocation: "Bot \xDAnico: 40% | 4 bots: 15% cada"
       pause_other_bots: false
       profit_sharing: Lucro dividido igualmente entre os 5 bots (20% cada)
     description: Modo colaborativo - Todos os bots trabalham juntos, lucro dividido
       igualmente
-    nickname: A Sinfonia 🎼
-    reference: Orquestra Filarmônica de Viena – cooperação que gera harmonia
+    nickname: "A Sinfonia \U0001F3BC"
+    reference: "Orquestra Filarm\xF4nica de Viena \u2013 coopera\xE7\xE3o que gera\
+      \ harmonia"
   FOMINHA:
     behavior:
       ai_strategy:
@@ -67,36 +68,37 @@ operation_modes:
         monitoring:
           ai_rules:
           - IA monitora Fear & Greed Index constantemente
-          - IA lê notícias e sentiment em tempo real
-          - IA ajusta RSI e parâmetros baseado em dados externos
-          - IA confirma tendências com múltiplas fontes
+          - "IA l\xEA not\xEDcias e sentiment em tempo real"
+          - "IA ajusta RSI e par\xE2metros baseado em dados externos"
+          - "IA confirma tend\xEAncias com m\xFAltiplas fontes"
           check_interval_seconds: 30
           fear_greed_api: https://api.alternative.me/fng
           news_sentiment_api: https://cryptopanic.com/api/v1/posts/
         stop_loss: -0.5
         take_profit_fast: 0.8
-      capital_allocation: Bot Único + 4 bots ATIVOS
+      capital_allocation: "Bot \xDAnico + 4 bots ATIVOS"
       pause_other_bots: false
-      profit_sharing: Bot Único fica com 70% dos lucros de TODOS os bots
-    description: Modo agressivo - IA busca MÁXIMO lucro rápido
-    nickname: O Ditador 👑
-    reference: Josef Stalin – centralizou poder, teve vitórias e crueldades
+      profit_sharing: "Bot \xDAnico fica com 70% dos lucros de TODOS os bots"
+    description: "Modo agressivo - IA busca M\xC1XIMO lucro r\xE1pido"
+    nickname: "O Ditador \U0001F451"
+    reference: "Josef Stalin \u2013 centralizou poder, teve vit\xF3rias e crueldades"
   HYBRID:
     behavior:
-      capital_allocation: Dividido entre 5 bots (cada um com carteira própria)
+      capital_allocation: "Dividido entre 5 bots (cada um com carteira pr\xF3pria)"
       pause_other_bots: false
-      profit_sharing: Cada bot fica com seu próprio lucro
-    description: Bot Único + 4 bots trabalhando juntos
-    nickname: A República ⚖️
-    reference: Platão – descreveu uma sociedade organizada em funções distintas
+      profit_sharing: "Cada bot fica com seu pr\xF3prio lucro"
+    description: "Bot \xDAnico + 4 bots trabalhando juntos"
+    nickname: "A Rep\xFAblica \u2696\uFE0F"
+    reference: "Plat\xE3o \u2013 descreveu uma sociedade organizada em fun\xE7\xF5\
+      es distintas"
   SOLO:
     behavior:
-      capital_allocation: 100% para Bot Único
+      capital_allocation: "100% para Bot \xDAnico"
       pause_other_bots: true
-      profit_sharing: Bot Único fica com tudo
-    description: Bot Único assume tudo - Pausa os 4 bots
-    nickname: O Filósofo 🏛️
-    reference: Sócrates – pensava e agia sozinho, questionando tudo
+      profit_sharing: "Bot \xDAnico fica com tudo"
+    description: "Bot \xDAnico assume tudo - Pausa os 4 bots"
+    nickname: "O Fil\xF3sofo \U0001F3DB\uFE0F"
+    reference: "S\xF3crates \u2013 pensava e agia sozinho, questionando tudo"
 unico_bot:
   crypto_profiles:
     AAVEUSDT:

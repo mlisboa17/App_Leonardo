@@ -9,26 +9,13 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# ========================================
-# CORREÇÃO DE SALDO TESTNET
-# ========================================
-# A Binance Testnet retorna valores 10x maiores que o real
-# Este fator corrige os valores para exibição correta
-TESTNET_BALANCE_CORRECTION = 10.0
-
 
 class ExchangeClient:
     """Cliente para conexão com exchanges"""
     
-    def __init__(self, exchange_name: str, api_key: str, api_secret: str, testnet: bool = None):
+    def __init__(self, exchange_name: str, api_key: str, api_secret: str):
         self.exchange_name = exchange_name
-        
-        # Lê configuração de testnet do ambiente (.env)
-        if testnet is None:
-            use_testnet_env = os.getenv('USE_TESTNET', 'false').lower()
-            self.testnet = use_testnet_env == 'true'
-        else:
-            self.testnet = testnet
+        self.testnet = False
         
         # Inicializa exchange via CCXT
         exchange_class = getattr(ccxt, exchange_name)
@@ -43,14 +30,6 @@ class ExchangeClient:
                 'recvWindow': 60000,  # ✅ Janela de tempo maior (60 segundos)
             }
         })
-        
-        # Ativa testnet se configurado
-        if testnet:
-            if hasattr(self.exchange, 'set_sandbox_mode'):
-                self.exchange.set_sandbox_mode(True)
-                logger.info(f"🧪 Modo TESTNET ativado para {exchange_name}")
-            else:
-                logger.warning(f"⚠️ {exchange_name} não suporta testnet via ccxt")
         
         # ✅ Carrega mercados para sincronizar tempo
         try:

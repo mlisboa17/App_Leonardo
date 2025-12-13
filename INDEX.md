@@ -47,6 +47,29 @@
   - Métricas esperadas
   - Quick reference
 
+### 🔴 AWS & DEPLOY
+- **`aws-management/`** - **NOVA PASTA CENTRALIZADA**
+  - 📁 `scripts/` - Scripts de manutenção EC2
+  - 📁 `deployment/` - Deploy e conexão AWS
+  - 📁 `monitoring/` - Monitoramento da infraestrutura
+  - 📁 `docs/` - Documentação completa AWS
+  - 📁 `services/` - Configurações systemd
+  - 📁 `config/` - Configurações Amazon Q
+  - 🚀 `aws-menu.bat` - **MENU PRINCIPAL**
+  - 🚀 `aws-menu.ps1` - **MENU POWERSHELL**
+
+**Acesso Rápido:**
+```bash
+# Menu interativo
+aws-management\aws-menu.bat
+
+# Conectar AWS
+aws-management\deployment\DEPLOY_AWS_CONECTAR.bat
+
+# Monitor EC2  
+aws-management\monitoring\monitorar_ec2.py
+```
+
 ---
 
 ## 💻 CÓDIGO PYTHON
