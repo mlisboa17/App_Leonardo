@@ -1,5 +1,13 @@
 # Seu backend/main.py (Corrigido para incluir imports ausentes)
 
+# Carrega variáveis de ambiente ANTES de qualquer import
+try:
+    from dotenv import load_dotenv
+    load_dotenv('../config/.env')
+    print("✅ Variáveis de ambiente carregadas no backend")
+except ImportError:
+    print("⚠️ python-dotenv não instalado no backend. Usando variáveis do sistema.")
+
 import os
 import sys
 import json
@@ -12,7 +20,6 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any, List 
 from pathlib import Path
 import yaml 
-
 
 # Corrigir imports para funcionar mesmo rodando de backend/
 import sys, os
@@ -255,6 +262,129 @@ async def get_dashboard_positions():
             return positions
         else:
             return {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/positions/close_all", summary="Fechar todas as posições")
+async def close_all_positions():
+    """Fecha todas as posições abertas - EXECUÇÃO REAL"""
+    try:
+        from src.coordinator import get_coordinator
+        
+        coordinator = get_coordinator()
+        positions_path = Path("data/multibot_positions.json")
+        
+        if not positions_path.exists():
+            return {"message": "Nenhuma posição encontrada."}
+        
+        with open(positions_path, 'r') as f:
+            positions = json.load(f)
+        
+        if not positions:
+            return {"message": "Nenhuma posição aberta."}
+        
+        closed_count = 0
+        total_pnl = 0
+        
+        for symbol, pos_data in positions.items():
+            try:
+                amount = pos_data.get('amount', 0)
+                if amount > 0:
+                    # Executar venda real
+                    order_result = coordinator.exchange.create_market_order(symbol, 'sell', amount)
+                    
+                    if order_result and order_result.get('status') == 'closed':
+                        closed_count += 1
+                        # Calcular P&L aproximado
+                        entry_price = pos_data.get('entry_price', 0)
+                        current_price = order_result.get('price', 0) or entry_price
+                        pnl = (current_price - entry_price) * amount
+                        total_pnl += pnl
+                        
+                        print(f"✅ Posição {symbol} fechada: {amount} @ {current_price:.2f} (P&L: ${pnl:.2f})")
+                    else:
+                        print(f"❌ Erro ao fechar {symbol}: {order_result}")
+                        
+            except Exception as e:
+                print(f"❌ Erro ao fechar {symbol}: {e}")
+                continue
+        
+        # Limpar arquivo de posições após fechamento real
+        with open(positions_path, 'w') as f:
+            json.dump({}, f)
+        
+        return {
+            "message": f"{closed_count} posições foram fechadas com REAL. P&L total: ${total_pnl:.2f}",
+            "positions_closed": closed_count,
+            "total_pnl": round(total_pnl, 2)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/positions/close_profitable", summary="Fechar apenas posições lucrativas")
+async def close_profitable_positions():
+    """Fecha apenas as posições que estão no lucro - EXECUÇÃO REAL"""
+    try:
+        from src.coordinator import get_coordinator
+        
+        coordinator = get_coordinator()
+        positions_path = Path("data/multibot_positions.json")
+        
+        if not positions_path.exists():
+            return {"message": "Nenhuma posição encontrada."}
+        
+        with open(positions_path, 'r') as f:
+            positions = json.load(f)
+        
+        if not positions:
+            return {"message": "Nenhuma posição aberta."}
+        
+        closed_count = 0
+        total_pnl = 0
+        
+        # Verificar quais posições são lucrativas
+        for symbol, pos_data in list(positions.items()):
+            try:
+                entry_price = pos_data.get('entry_price', 0)
+                amount = pos_data.get('amount', 0)
+                
+                # Obter preço atual real da exchange
+                ticker = coordinator.exchange.exchange.fetch_ticker(symbol)
+                current_price = ticker.get('last', 0)
+                
+                if current_price > 0:
+                    pnl = (current_price - entry_price) * amount
+                    
+                    if pnl > 0:  # Só fechar se estiver no lucro
+                        # Executar venda real
+                        order_result = coordinator.exchange.create_market_order(symbol, 'sell', amount)
+                        
+                        if order_result and order_result.get('status') == 'closed':
+                            closed_count += 1
+                            total_pnl += pnl
+                            
+                            # Remover do arquivo
+                            del positions[symbol]
+                            
+                            print(f"✅ Posição lucrativa {symbol} fechada: {amount} @ {current_price:.2f} (Lucro: ${pnl:.2f})")
+                        else:
+                            print(f"❌ Erro ao fechar {symbol}: {order_result}")
+                            
+            except Exception as e:
+                print(f"❌ Erro ao processar {symbol}: {e}")
+                continue
+        
+        # Salvar posições restantes
+        with open(positions_path, 'w') as f:
+            json.dump(positions, f)
+        
+        return {
+            "message": f"{closed_count} posições lucrativas foram fechadas com REAL. Lucro total: ${total_pnl:.2f}",
+            "positions_closed": closed_count,
+            "total_profit": round(total_pnl, 2)
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

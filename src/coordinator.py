@@ -299,10 +299,10 @@ class BotCoordinator:
             self.logger.addHandler(file_handler)
     
     def _setup_exchange(self) -> ExchangeClient:
-        """Configura cliente da exchange - APENAS PRODUCAO"""
+        """Configura cliente da exchange"""
         global_config = self.config.get('global', {})
         
-        # Carrega credenciais de PRODUCAO apenas
+        # Carrega credenciais
         api_key = os.getenv('BINANCE_API_KEY', '')
         api_secret = os.getenv('BINANCE_API_SECRET', '')
         
@@ -310,12 +310,21 @@ class BotCoordinator:
             self.logger.error("CREDENCIAIS BINANCE_API_KEY/SECRET nao encontradas no .env!")
             raise ValueError("Credenciais Binance não configuradas")
         
-        self.logger.warning(f"[PRODUCAO] MODO PRODUCAO - DINHEIRO REAL!")
+        # Verifica se é testnet
+        testnet = global_config.get('testnet', False)
+        env_type = "TESTNET" if testnet else "PRODUCAO"
+        
+        self.logger.warning(f"[{env_type}] MODO {env_type} - {'TESTE SEGURO' if testnet else 'DINHEIRO REAL'}!")
+        
+        # Carrega configuração dry_run
+        dry_run = global_config.get('execution', {}).get('dry_run', False)
         
         return ExchangeClient(
             exchange_name=global_config.get('exchange', 'binance'),
             api_key=api_key,
-            api_secret=api_secret
+            api_secret=api_secret,
+            testnet=testnet,
+            dry_run=dry_run
         )
     
     def _init_bots(self):

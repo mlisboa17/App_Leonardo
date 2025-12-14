@@ -13,30 +13,44 @@ logger = logging.getLogger(__name__)
 class ExchangeClient:
     """Cliente para conexão com exchanges"""
     
-    def __init__(self, exchange_name: str, api_key: str, api_secret: str):
+    def __init__(self, exchange_name: str, api_key: str, api_secret: str, testnet: bool = False, dry_run: bool = False):
         self.exchange_name = exchange_name
-        self.testnet = False
+        self.testnet = testnet
+        self.dry_run = dry_run
         
         # Inicializa exchange via CCXT
         exchange_class = getattr(ccxt, exchange_name)
-        self.exchange = exchange_class({
+        exchange_config = {
             'apiKey': api_key,
             'secret': api_secret,
             'enableRateLimit': True,
-            'timeout': 30000,  # 30 segundos de timeout
+            'timeout': 60000,  # 60 segundos de timeout (aumentado)
             'options': {
                 'defaultType': 'spot',  # spot, future, swap
                 'adjustForTimeDifference': True,  # ✅ Ajusta diferença de tempo automaticamente
                 'recvWindow': 60000,  # ✅ Janela de tempo maior (60 segundos)
             }
-        })
+        }
         
-        # ✅ Carrega mercados para sincronizar tempo
+        # Adiciona sandbox se for testnet
+        if testnet:
+            exchange_config['sandbox'] = True
+        
+        self.exchange = exchange_class(exchange_config)
+        
+        # ✅ Carrega mercados com timeout maior e retry
         try:
+            logger.info("🔄 Carregando mercados da exchange...")
             self.exchange.load_markets()
-            logger.info(f"✅ Mercados carregados e tempo sincronizado")
+            logger.info(f"✅ Mercados carregados com sucesso")
+        except KeyboardInterrupt:
+            logger.warning("⚠️ Interrupção detectada durante carregamento de mercados - pode ser timeout de rede")
+            logger.info("🔄 Continuando sem carregar mercados - algumas funcionalidades podem ser limitadas")
+            # Trata como erro de rede e continua
         except Exception as e:
             logger.warning(f"⚠️ Erro ao carregar mercados: {e}")
+            logger.info("🔄 Continuando sem carregar mercados - algumas funcionalidades podem ser limitadas")
+            # Não falha - continua sem mercados carregados
                 
         logger.info(f"✅ Conectado à {exchange_name}")
         
@@ -55,19 +69,36 @@ class ExchangeClient:
             logger.error(f"❌ Erro na conexão: {e}")
             return False
     
+    def _normalize_symbol(self, symbol: str) -> str:
+        """Converte símbolos do formato BNBUSDT para BNB/USDT (formato CCXT)"""
+        if symbol.endswith('USDT') and len(symbol) > 4 and '/' not in symbol:
+            base = symbol[:-4]  # Remove 'USDT'
+            return f"{base}/USDT"
+        return symbol
+    
     def fetch_ticker(self, symbol: str) -> Optional[Dict]:
         """Obtém preço atual de um par"""
         try:
-            ticker = self.exchange.fetch_ticker(symbol)
+            ccxt_symbol = self._normalize_symbol(symbol)
+            ticker = self.exchange.fetch_ticker(ccxt_symbol)
             return ticker
         except Exception as e:
             logger.error(f"❌ Erro ao buscar ticker {symbol}: {e}")
             return None
     
+    def is_valid_symbol(self, symbol: str) -> bool:
+        """Verifica se um símbolo é válido na exchange"""
+        if not hasattr(self.exchange, 'markets') or not self.exchange.markets:
+            return False
+
+        ccxt_symbol = self._normalize_symbol(symbol)
+        return ccxt_symbol in self.exchange.markets
+    
     def fetch_ohlcv(self, symbol: str, timeframe: str = '1h', limit: int = 100) -> Optional[List]:
         """Obtém dados históricos OHLCV"""
         try:
-            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            ccxt_symbol = self._normalize_symbol(symbol)
+            ohlcv = self.exchange.fetch_ohlcv(ccxt_symbol, timeframe, limit=limit)
             logger.info(f"📊 {len(ohlcv)} candles obtidos para {symbol} ({timeframe})")
             return ohlcv
         except Exception as e:
@@ -109,9 +140,24 @@ class ExchangeClient:
         Cria ordem a mercado com ajuste automático de saldo
         side: 'buy' ou 'sell'
         """
+        ccxt_symbol = self._normalize_symbol(symbol)
+        
+        if self.dry_run:
+            logger.info(f"🔄 DRY RUN: Simulando ordem MARKET {side.upper()}: {amount} {symbol}")
+            # Retorna ordem simulada
+            return {
+                'id': f'dry_run_{int(time.time())}',
+                'symbol': symbol,
+                'side': side,
+                'amount': amount,
+                'status': 'filled',
+                'type': 'market',
+                'dry_run': True
+            }
+        
         try:
             # Primeira tentativa com valor original
-            order = self.exchange.create_market_order(symbol, side, amount)
+            order = self.exchange.create_market_order(ccxt_symbol, side, amount)
             logger.info(f"📝 Ordem MARKET {side.upper()}: {amount} {symbol} - ID: {order['id']}")
             return order
         except Exception as e:
@@ -167,7 +213,8 @@ class ExchangeClient:
         side: 'buy' ou 'sell'
         """
         try:
-            order = self.exchange.create_limit_order(symbol, side, amount, price)
+            ccxt_symbol = self._normalize_symbol(symbol)
+            order = self.exchange.create_limit_order(ccxt_symbol, side, amount, price)
             logger.info(f"📝 Ordem LIMIT {side.upper()}: {amount} {symbol} @ {price} - ID: {order['id']}")
             return order
         except Exception as e:
@@ -177,7 +224,8 @@ class ExchangeClient:
     def cancel_order(self, order_id: str, symbol: str) -> bool:
         """Cancela uma ordem"""
         try:
-            self.exchange.cancel_order(order_id, symbol)
+            ccxt_symbol = self._normalize_symbol(symbol)
+            self.exchange.cancel_order(order_id, ccxt_symbol)
             logger.info(f"❌ Ordem {order_id} cancelada")
             return True
         except Exception as e:
@@ -187,7 +235,8 @@ class ExchangeClient:
     def fetch_order_status(self, order_id: str, symbol: str) -> Optional[Dict]:
         """Verifica status de uma ordem (ANTI-ALUCINAÇÃO)"""
         try:
-            order = self.exchange.fetch_order(order_id, symbol)
+            ccxt_symbol = self._normalize_symbol(symbol)
+            order = self.exchange.fetch_order(order_id, ccxt_symbol)
             logger.info(f"📋 Status ordem {order_id}: {order['status']}")
             return order
         except Exception as e:
@@ -197,7 +246,8 @@ class ExchangeClient:
     def fetch_open_orders(self, symbol: Optional[str] = None) -> List[Dict]:
         """Obtém todas as ordens abertas"""
         try:
-            orders = self.exchange.fetch_open_orders(symbol)
+            ccxt_symbol = self._normalize_symbol(symbol) if symbol else None
+            orders = self.exchange.fetch_open_orders(ccxt_symbol)
             logger.info(f"📋 {len(orders)} ordens abertas")
             return orders
         except Exception as e:

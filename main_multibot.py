@@ -18,6 +18,14 @@ Uso:
 ============================================================
 """
 
+# Carrega variáveis de ambiente ANTES de qualquer import
+try:
+    from dotenv import load_dotenv
+    load_dotenv('config/.env')
+    print("✅ Variáveis de ambiente carregadas do .env")
+except ImportError:
+    print("⚠️ python-dotenv não instalado. Usando variáveis do sistema.")
+
 import os
 import sys
 import time
@@ -179,12 +187,20 @@ class MultiBotEngine:
         # Setup logging
         self.logger = logging.getLogger('MultiBotEngine')
         self.logger.setLevel(logging.INFO)
-        
+
         if not self.logger.handlers:
             handler = logging.StreamHandler()
             handler.setFormatter(logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             ))
+            # Configura codificação UTF-8 para Windows
+            import sys
+            if sys.platform == 'win32':
+                try:
+                    import io
+                    handler.stream = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+                except:
+                    pass  # Fallback para codificação padrão
             self.logger.addHandler(handler)
         
         # Carrega posições existentes
@@ -727,19 +743,36 @@ class MultiBotEngine:
             # Saldo USDT
             usdt_balance = balance.get('USDT', {}).get('free', 0) + balance.get('USDT', {}).get('used', 0)
             
-            # Saldo em cryptos
+            # Saldo em cryptos (incluindo posições abertas)
             crypto_balance = 0
             crypto_positions = {}
             
+            # Identifica assets que têm posições abertas (para evitar duplicatas)
+            position_assets = set()
+            for symbol, pos_data in self.positions.items():
+                asset = symbol.replace('USDT', '') if symbol.endswith('USDT') else symbol
+                position_assets.add(asset)
+            
+            # Primeiro, adiciona saldos livres de criptos (exceto assets com posições abertas)
             for asset, data in balance.items():
                 if asset in ['USDT', 'info', 'free', 'used', 'total', 'debt', 'timestamp', 'datetime']:
                     continue
                 
+                # Pula assets que têm posições abertas para evitar duplicatas
+                if asset in position_assets:
+                    continue
+                
                 total_amount = data.get('free', 0) + data.get('used', 0)
                 if total_amount > 0:
+                    symbol = f"{asset}USDT"
+                    # ✅ Valida se o símbolo existe antes de buscar ticker
+                    if not self.exchange.is_valid_symbol(symbol):
+                        self.logger.warning(f"⚠️ Símbolo {symbol} não existe na exchange - pulando")
+                        continue
+                    
                     try:
                         # Obtém preço atual
-                        ticker = self.exchange.fetch_ticker(f"{asset}USDT")
+                        ticker = self.exchange.fetch_ticker(symbol)
                         if ticker:
                             price = ticker.get('last', ticker.get('close', 0))
                             value_usd = total_amount * price
@@ -752,6 +785,51 @@ class MultiBotEngine:
                                 }
                     except:
                         pass
+            
+            # Segundo, adiciona valor das posições abertas do bot
+            for symbol, pos_data in self.positions.items():
+                if symbol not in crypto_positions:  # Evita duplicatas
+                    try:
+                        # Remove 'USDT' do final para obter o asset
+                        asset = symbol.replace('USDT', '') if symbol.endswith('USDT') else symbol
+                        amount = pos_data.get('amount', 0)
+                        entry_price = pos_data.get('entry_price', 0)
+                        
+                        # Usa preço atual para calcular valor corrente
+                        ticker = self.exchange.fetch_ticker(symbol)
+                        if ticker:
+                            current_price = ticker.get('last', ticker.get('close', entry_price))
+                            value_usd = amount * current_price
+                            
+                            if value_usd > 0.01:
+                                crypto_balance += value_usd
+                                crypto_positions[asset] = {
+                                    'amount': amount,
+                                    'price': current_price,
+                                    'value_usd': value_usd,
+                                    'entry_price': entry_price,
+                                    'pnl_pct': ((current_price - entry_price) / entry_price) * 100
+                                }
+                    except Exception as e:
+                        self.logger.warning(f"⚠️ Erro ao calcular valor da posição {symbol}: {e}")
+                        # Fallback: usa preço de entrada
+                        try:
+                            amount = pos_data.get('amount', 0)
+                            entry_price = pos_data.get('entry_price', 0)
+                            value_usd = amount * entry_price
+                            
+                            if value_usd > 0.01:
+                                crypto_balance += value_usd
+                                asset = symbol.replace('USDT', '') if symbol.endswith('USDT') else symbol
+                                crypto_positions[asset] = {
+                                    'amount': amount,
+                                    'price': entry_price,
+                                    'value_usd': value_usd,
+                                    'entry_price': entry_price,
+                                    'pnl_pct': 0
+                                }
+                        except:
+                            pass
             
             # Saldo em EARN (Simple Earn Flexible + Locked)
             earn_balance = 0
@@ -954,6 +1032,7 @@ class MultiBotEngine:
         """
         Sincroniza posições locais com o saldo real na exchange.
         Detecta cryptos que temos mas não estão registradas.
+        Trata timeouts e interrupções de rede.
         """
         print("   🔄 Sincronizando posições com a exchange...")
         
@@ -996,12 +1075,16 @@ class MultiBotEngine:
             
             if synced > 0:
                 print(f"   📊 {synced} posições sincronizadas")
-                self._save_positions()
-            else:
-                print(f"   ✅ Posições já estavam sincronizadas ({len(self.positions)} registradas)")
                 
+        except KeyboardInterrupt:
+            print("   ⚠️ Sincronização interrompida - continuando sem sincronização")
+            self.logger.warning("⚠️ Sincronização de posições interrompida por timeout de rede")
         except Exception as e:
-            self.logger.error(f"Erro ao sincronizar: {e}")
+            print(f"   ⚠️ Erro na sincronização: {e}")
+            self.logger.error(f"Erro na sincronização de posições: {e}")
+            
+        # Salva posições após sincronização
+        self._save_positions()
     
     def _run_unico_bot_cycle(self):
         """
@@ -1645,7 +1728,15 @@ class MultiBotEngine:
         # REMOVIDO: Liquidação automática
         # Agora o bot gerencia as posições existentes
         print("\n📊 FASE 1: VERIFICANDO POSIÇÕES EXISTENTES")
-        self._sync_positions_with_exchange()
+        try:
+            self._sync_positions_with_exchange()
+        except KeyboardInterrupt:
+            print("   ⚠️ Sincronização interrompida - continuando com posições locais")
+            self.logger.warning("⚠️ Sincronização inicial interrompida - usando posições locais")
+        except Exception as e:
+            print(f"   ⚠️ Erro na sincronização inicial: {e}")
+            self.logger.error(f"Erro na sincronização inicial: {e}")
+            print("   🔄 Continuando com posições locais...")
         
         # ===== FASE 2: POUPANÇA DESABILITADA POR ENQUANTO =====
         print("\n💰 FASE 2: POUPANÇA (DESABILITADA)")
@@ -1673,11 +1764,14 @@ class MultiBotEngine:
         try:
             while self.running:
                 self.iteration += 1
+                print(f"\n🔄 ITERAÇÃO {self.iteration} - Iniciando...")
                 
                 # ===== EXECUTA NO MODO APROPRIADO =====
                 if self.unico_bot_mode:
                     # Modo UnicoBot - processa todas as cryptos
+                    print("🤖 Executando ciclo UnicoBot...")
                     self._run_unico_bot_cycle()
+                    print("✅ Ciclo UnicoBot concluído")
                 else:
                     # Modo MultiBots - processa cada bot separadamente
                     for bot_type in self.coordinator.bots.keys():
@@ -1692,6 +1786,7 @@ class MultiBotEngine:
                             if pos['bot_type'] == bot.bot_type
                         )
                 
+                print(f"💾 Salvando estado...")
                 # Salva estado
                 self.coordinator.save_state()
                 
@@ -1707,7 +1802,10 @@ class MultiBotEngine:
                 time.sleep(interval)
                 
         except KeyboardInterrupt:
-            print("\n\n⚠️ Parando bots...")
+            print("\n\n⚠️ Parando bots... (KeyboardInterrupt)")
+        except Exception as e:
+            print(f"\n❌ ERRO no loop principal: {e}")
+            print("⚠️ Parando bots devido a erro...")
         finally:
             self.running = False
             self.coordinator.stats.status = "stopped"

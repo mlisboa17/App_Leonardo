@@ -4,9 +4,9 @@ data:
   csv_reports: data/reports
 exchange:
   name: binance
-  testnet: false  # ⚠️ PRODUÇÃO - Dinheiro Real!
+  testnet: false  # PRODUÇÃO - DINHEIRO REAL
 execution:
-  dry_run: false
+  dry_run: false  # PRODUÇÃO - TRADES REAIS
   interval_seconds: 3
 indicators:
   macd:
