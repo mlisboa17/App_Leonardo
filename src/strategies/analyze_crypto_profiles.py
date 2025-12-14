@@ -524,7 +524,7 @@ class CryptoProfileAnalyzer:
         
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        with open(output_path, 'w') as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(all_profiles, f, indent=2, default=str)
         
         print(f"\n✅ Perfis salvos em: {output_path}")

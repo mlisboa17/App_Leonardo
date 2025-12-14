@@ -90,7 +90,7 @@ class PortfolioManager:
         
         try:
             if os.path.exists(self.config_path):
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
                     rules = json.load(f)
                     return rules
             else:
@@ -105,7 +105,7 @@ class PortfolioManager:
         """Salva as regras no arquivo"""
         try:
             os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(rules, f, indent=2)
             return True
         except Exception as e:

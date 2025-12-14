@@ -15,6 +15,21 @@ available_cryptos:
   - name: Internet Computer
     symbol: ICPUSDT
     volatility: medium
+  - name: Tron
+    symbol: TRXUSDT
+    volatility: medium
+  - name: Chainlink
+    symbol: LINKUSDT
+    volatility: medium
+  - name: Polkadot
+    symbol: DOTUSDT
+    volatility: medium
+  - name: Avalanche
+    symbol: AVAXUSDT
+    volatility: medium
+  - name: Near
+    symbol: NEARUSDT
+    volatility: medium
   meme:
   - name: Dogwifhat
     symbol: WIFUSDT
@@ -34,6 +49,9 @@ available_cryptos:
     volatility: low
   - name: Maker
     symbol: MKRUSDT
+    volatility: low
+  - name: Litecoin
+    symbol: LTCUSDT
     volatility: low
   volatile:
   - name: Fantom
@@ -68,16 +86,22 @@ bot_estavel:
   portfolio:
   - name: Bitcoin
     symbol: BTCUSDT
-    weight: 40
+    weight: 30
   - name: Ethereum
     symbol: ETHUSDT
-    weight: 30
+    weight: 25
   - name: BNB
     symbol: BNBUSDT
-    weight: 15
+    weight: 10
   - name: Litecoin
     symbol: LTCUSDT
-    weight: 15
+    weight: 10
+  - name: Uniswap
+    symbol: UNIUSDT
+    weight: 12.5
+  - name: Aave
+    symbol: AAVEUSDT
+    weight: 12.5
   risk:
     max_hold_minutes: 240
     min_interval_minutes: 60
@@ -223,22 +247,28 @@ bot_unico:
   portfolio:
   - name: Bitcoin
     symbol: BTCUSDT
-    weight: 20
+    weight: 15
   - name: Ethereum
     symbol: ETHUSDT
-    weight: 20
+    weight: 15
   - name: Solana
     symbol: SOLUSDT
-    weight: 15
+    weight: 12
   - name: BNB
     symbol: BNBUSDT
-    weight: 15
+    weight: 12
   - name: Cardano
     symbol: ADAUSDT
-    weight: 15
+    weight: 12
   - name: Dogecoin
     symbol: DOGEUSDT
-    weight: 15
+    weight: 12
+  - name: Uniswap
+    symbol: UNIUSDT
+    weight: 11
+  - name: Aave
+    symbol: AAVEUSDT
+    weight: 11
   risk:
     dynamic_adjustment: true
     max_hold_minutes: 120
@@ -487,3 +517,20 @@ user_control:
   notify_user_on_ai_change: true
   override_cooldown_hours: 24
   require_approval: false
+
+monitored_pairs:
+  - BTC/USDT
+  - ETH/USDT
+  - UNI/USDT
+  - AAVE/USDT
+  - SOL/USDT
+  - BNB/USDT
+  - PEPE/USDT
+  - XRP/USDT
+  - DOGE/USDT
+  - LTC/USDT
+  - TRX/USDT
+  - LINK/USDT
+  - DOT/USDT
+  - AVAX/USDT
+  - NEAR/USDT

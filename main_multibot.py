@@ -766,7 +766,7 @@ class MultiBotEngine:
                 if total_amount > 0:
                     symbol = f"{asset}USDT"
                     # ✅ Valida se o símbolo existe antes de buscar ticker
-                    if not self.exchange.is_valid_symbol(symbol):
+                    if not self.is_valid_symbol(symbol):
                         self.logger.warning(f"⚠️ Símbolo {symbol} não existe na exchange - pulando")
                         continue
                     

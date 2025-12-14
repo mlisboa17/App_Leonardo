@@ -4,6 +4,7 @@ Módulo de Conexão com Exchanges via CCXT
 import ccxt
 import logging
 import os
+import time
 from typing import Optional, Dict, List
 from datetime import datetime
 

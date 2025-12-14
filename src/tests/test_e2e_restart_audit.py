@@ -87,7 +87,7 @@ class TestRestartGracioso:
         assert coordinator.stats_file.exists(), "Arquivo de estado não foi criado"
         
         # Carrega estado em nova instância
-        with open(coordinator.stats_file, 'r') as f:
+        with open(coordinator.stats_file, 'r', encoding='utf-8') as f:
             state_data = json.load(f)
         
         # Verifica se posições foram salvas
@@ -230,14 +230,14 @@ class TestWatcherIntegration:
             'last_action_at': datetime.now().isoformat()
         }
         
-        with open(status_file, 'w') as f:
+        with open(status_file, 'w', encoding='utf-8') as f:
             json.dump(status_data, f)
         
         # Verifica se arquivo foi criado
         assert status_file.exists()
         
         # Verifica se conteúdo pode ser lido
-        with open(status_file, 'r') as f:
+        with open(status_file, 'r', encoding='utf-8') as f:
             loaded = json.load(f)
         
         assert loaded['last_action'] == 'restart'

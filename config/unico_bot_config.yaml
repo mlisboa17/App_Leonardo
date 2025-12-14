@@ -177,39 +177,47 @@ unico_bot:
   - category: estavel
     name: Bitcoin
     symbol: BTCUSDT
-    weight: 20
+    weight: 15
   - category: estavel
     name: Ethereum
     symbol: ETHUSDT
-    weight: 18
+    weight: 15
   - category: estavel
     name: BNB
     symbol: BNBUSDT
     weight: 12
+  - category: estavel
+    name: Uniswap
+    symbol: UNIUSDT
+    weight: 10
+  - category: estavel
+    name: Litecoin
+    symbol: LTCUSDT
+    weight: 8
   - category: medio
     name: Solana
     symbol: SOLUSDT
-    weight: 12
+    weight: 10
   - category: medio
     name: Polkadot
     symbol: DOTUSDT
-    weight: 10
-  - category: medio
-    name: Uniswap
-    symbol: UNIUSDT
     weight: 8
   - category: medio
-    name: Aave
-    symbol: AAVEUSDT
-    weight: 8
-  - category: volatil
-    name: XRP
-    symbol: XRPUSDT
+    name: Tron
+    symbol: TRXUSDT
     weight: 6
-  - category: meme
-    name: Dogecoin
-    symbol: DOGEUSDT
+  - category: medio
+    name: Chainlink
+    symbol: LINKUSDT
     weight: 6
+  - category: medio
+    name: Avalanche
+    symbol: AVAXUSDT
+    weight: 5
+  - category: medio
+    name: Near
+    symbol: NEARUSDT
+    weight: 5
   safety:
     cool_down_minutes: 2
     max_consecutive_losses: 4

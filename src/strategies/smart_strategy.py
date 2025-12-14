@@ -471,7 +471,7 @@ class SmartStrategy:
         for path in profile_paths:
             if os.path.exists(path):
                 try:
-                    with open(path, 'r') as f:
+                    with open(path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                     print(f"   ✅ Perfis carregados de: {path}")
                     return data

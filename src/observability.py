@@ -188,7 +188,7 @@ class MetricsCollector:
         """Salva métricas em arquivo JSON"""
         metrics_data = self.get_summary()
         
-        with open(output_file, 'w') as f:
+        with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(metrics_data, f, indent=2, default=str)
         
         self.logger.info(f"Métricas salvas em {output_file}")
