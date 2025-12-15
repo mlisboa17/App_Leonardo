@@ -106,11 +106,31 @@ unico_bot:
       category: medio
       rsi_mean: 50
       sell_rsi: 59
+    ADAUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    ATOMUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    AVAXUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
     BNBUSDT:
       buy_rsi: 43
       category: estavel
       rsi_mean: 50
       sell_rsi: 57
+    BOMEUSDT:
+      buy_rsi: 32
+      category: meme
+      rsi_mean: 50
+      sell_rsi: 68
     BTCUSDT:
       buy_rsi: 44
       category: estavel
@@ -131,16 +151,86 @@ unico_bot:
       category: estavel
       rsi_mean: 50
       sell_rsi: 56
+    FILUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    GALAUSDT:
+      buy_rsi: 36
+      category: volatil
+      rsi_mean: 48
+      sell_rsi: 64
+    ICPUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    LINKUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    LTCUSDT:
+      buy_rsi: 43
+      category: estavel
+      rsi_mean: 50
+      sell_rsi: 57
+    MATICUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    MEMEUSDT:
+      buy_rsi: 32
+      category: meme
+      rsi_mean: 50
+      sell_rsi: 68
+    NEARUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    PEPEUSDT:
+      buy_rsi: 32
+      category: meme
+      rsi_mean: 50
+      sell_rsi: 68
+    SANDUSDT:
+      buy_rsi: 36
+      category: volatil
+      rsi_mean: 48
+      sell_rsi: 64
+    SHIBUSDT:
+      buy_rsi: 32
+      category: meme
+      rsi_mean: 50
+      sell_rsi: 68
     SOLUSDT:
       buy_rsi: 41
       category: medio
       rsi_mean: 50
       sell_rsi: 59
+    TRXUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
     UNIUSDT:
       buy_rsi: 41
       category: medio
       rsi_mean: 50
       sell_rsi: 59
+    VETUSDT:
+      buy_rsi: 40
+      category: medio
+      rsi_mean: 50
+      sell_rsi: 60
+    WIFUSDT:
+      buy_rsi: 32
+      category: meme
+      rsi_mean: 50
+      sell_rsi: 68
     XRPUSDT:
       buy_rsi: 38
       category: volatil
@@ -177,39 +267,43 @@ unico_bot:
   - category: estavel
     name: Bitcoin
     symbol: BTCUSDT
-    weight: 15
+    weight: 10
   - category: estavel
     name: Ethereum
     symbol: ETHUSDT
-    weight: 15
+    weight: 10
   - category: estavel
     name: BNB
     symbol: BNBUSDT
-    weight: 12
+    weight: 8
   - category: estavel
     name: Uniswap
     symbol: UNIUSDT
-    weight: 10
+    weight: 7
   - category: estavel
     name: Litecoin
     symbol: LTCUSDT
-    weight: 8
+    weight: 6
   - category: medio
     name: Solana
     symbol: SOLUSDT
-    weight: 10
+    weight: 8
+  - category: medio
+    name: Cardano
+    symbol: ADAUSDT
+    weight: 6
   - category: medio
     name: Polkadot
     symbol: DOTUSDT
-    weight: 8
+    weight: 6
   - category: medio
     name: Tron
     symbol: TRXUSDT
-    weight: 6
+    weight: 5
   - category: medio
     name: Chainlink
     symbol: LINKUSDT
-    weight: 6
+    weight: 5
   - category: medio
     name: Avalanche
     symbol: AVAXUSDT
@@ -217,11 +311,71 @@ unico_bot:
   - category: medio
     name: Near
     symbol: NEARUSDT
-    weight: 5
+    weight: 4
+  - category: medio
+    name: XRP
+    symbol: XRPUSDT
+    weight: 4
+  - category: medio
+    name: Polygon
+    symbol: MATICUSDT
+    weight: 3
+  - category: medio
+    name: Cosmos
+    symbol: ATOMUSDT
+    weight: 3
+  - category: medio
+    name: Internet Computer
+    symbol: ICPUSDT
+    weight: 3
+  - category: medio
+    name: Filecoin
+    symbol: FILUSDT
+    weight: 3
+  - category: medio
+    name: VeChain
+    symbol: VETUSDT
+    weight: 3
+  - category: volatil
+    name: Dogecoin
+    symbol: DOGEUSDT
+    weight: 4
+  - category: volatil
+    name: Aave
+    symbol: AAVEUSDT
+    weight: 4
+  - category: meme
+    name: Pepe
+    symbol: PEPEUSDT
+    weight: 3
+  - category: meme
+    name: Shiba Inu
+    symbol: SHIBUSDT
+    weight: 3
+  - category: meme
+    name: Dogwifhat
+    symbol: WIFUSDT
+    weight: 3
+  - category: meme
+    name: Book of Meme
+    symbol: BOMEUSDT
+    weight: 2
+  - category: meme
+    name: Memecoin
+    symbol: MEMEUSDT
+    weight: 2
+  - category: volatil
+    name: Gala Games
+    symbol: GALAUSDT
+    weight: 2
+  - category: volatil
+    name: The Sandbox
+    symbol: SANDUSDT
+    weight: 2
   safety:
     cool_down_minutes: 2
     max_consecutive_losses: 4
-    max_daily_loss_pct: 3.0
+    max_daily_loss_pct: 20.0
     max_drawdown_pct: 10.0
   smart_strategy:
     max_hold_minutes: 30
@@ -260,7 +414,7 @@ unico_bot:
     min_trade_profit: 0.15
     monthly_profit: 50
   trading:
-    amount_per_trade: 50
+    amount_per_trade: 100
     interval_seconds: 5
     max_positions: 20
     max_total_investment: 350

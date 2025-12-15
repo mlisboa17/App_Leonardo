@@ -58,7 +58,23 @@ try:
     AI_AVAILABLE = True
 except ImportError as e:
     AI_AVAILABLE = False
+
+# ===== IMPORTAÇÃO DO CAPITAL MANAGER =====
+try:
+    from capital_manager import CapitalManager
+    CAPITAL_MANAGER_AVAILABLE = True
+except ImportError as e:
+    CAPITAL_MANAGER_AVAILABLE = False
+    print(f"⚠️ CapitalManager não disponível: {e}")
     print(f"⚠️ AI não disponível: {e}")
+
+# ===== IMPORTAÇÃO DO SAFETY MANAGER =====
+try:
+    from src.safety.safety_manager import SafetyManager
+    SAFETY_MANAGER_AVAILABLE = True
+except ImportError as e:
+    SAFETY_MANAGER_AVAILABLE = False
+    print(f"⚠️ SafetyManager não disponível: {e}")
 
 # ===== IMPORTAÇÃO DO AUTO-TUNER =====
 try:
@@ -150,6 +166,36 @@ class MultiBotEngine:
             self.ai_enabled = False
             print("⚠️ IA não disponível - operando sem AI")
         
+        # ===== INICIALIZAÇÃO DO CAPITAL MANAGER =====
+        self.capital_manager = None
+        if CAPITAL_MANAGER_AVAILABLE:
+            try:
+                self.capital_manager = CapitalManager()
+                print("💰 Capital Manager inicializado com otimização temporal!")
+                print("   → Posições ajustadas automaticamente por horário ótimo")
+            except Exception as e:
+                print(f"⚠️ Erro ao inicializar CapitalManager: {e}")
+                self.capital_manager = None
+        else:
+            print("⚠️ Capital Manager não disponível - usando tamanhos fixos")
+        
+        # ===== INICIALIZAÇÃO DO SAFETY MANAGER =====
+        self.safety_manager = None
+        if SAFETY_MANAGER_AVAILABLE:
+            try:
+                # Carrega configurações de segurança
+                safety_config = self.coordinator.config.get('global', {}).get('safety', {})
+                
+                self.safety_manager = SafetyManager(safety_config)
+                print("🛡️ Safety Manager inicializado!")
+                print(f"   → Limite diário: {self.safety_manager.kill_switch.max_daily_loss}%")
+                print(f"   → Max drawdown: {self.safety_manager.kill_switch.max_drawdown_pct}%")
+            except Exception as e:
+                print(f"⚠️ Erro ao inicializar SafetyManager: {e}")
+                self.safety_manager = None
+        else:
+            print("⚠️ Safety Manager não disponível - sem proteção automática")
+
         # ===== INICIALIZAÇÃO DO AUTO-TUNER =====
         self.autotuner = None
         self.autotuner_enabled = True
@@ -1095,14 +1141,26 @@ class MultiBotEngine:
         return recover_amount
     
     def get_balance(self) -> float:
-        """Retorna saldo USDT"""
+        """Retorna saldo USDT disponível com validação extra"""
         try:
             balance = self.exchange.fetch_balance()
             if balance:
-                return balance.get('USDT', {}).get('free', 0)
+                free_usdt = balance.get('USDT', {}).get('free', 0)
+                total_usdt = balance.get('USDT', {}).get('total', 0)
+                used_usdt = balance.get('USDT', {}).get('used', 0)
+
+                # Log detalhado para debug
+                print(f"[SALDO DEBUG] USDT - Free: ${free_usdt:.2f}, Used: ${used_usdt:.2f}, Total: ${total_usdt:.2f}")
+
+                # Validação: free + used deve ser aproximadamente igual a total
+                if abs((free_usdt + used_usdt) - total_usdt) > 0.01:
+                    print(f"[SALDO WARNING] Inconsistência no saldo: free+used ({free_usdt + used_usdt:.2f}) != total ({total_usdt:.2f})")
+
+                return free_usdt
             return 0
         except Exception as e:
             self.logger.error(f"Erro ao obter saldo: {e}")
+            print(f"[SALDO ERROR] Falha ao consultar saldo: {e}")
             return 0
     
     def _sync_positions_with_exchange(self):
@@ -1308,12 +1366,42 @@ class MultiBotEngine:
                         signal, reason, indicators = self.unico_bot.analyze_symbol(symbol, df)
                         
                         if signal == 'BUY':
-                            # Calcula quantidade
+                            # Calcula quantidade usando Capital Manager (se disponível)
                             current_price = df.iloc[-1]['close']
-                            trade_amount = min(amount_per_trade, usdt_balance)
+                            
+                            if self.capital_manager:
+                                # Usa otimização temporal do Capital Manager
+                                stop_loss = current_price * 0.995  # -0.5%
+                                take_profit = current_price * 1.015  # +1.5%
+                                
+                                position_size = self.capital_manager.calculate_optimal_position_size(
+                                    symbol, current_price, stop_loss, take_profit, 'unico_bot'
+                                )
+                                
+                                print(f"💰 Capital Manager: {symbol} | Tamanho otimizado: ${position_size:.2f}")
+                                trade_amount = position_size
+                            else:
+                                # Fallback para valor fixo
+                                trade_amount = min(amount_per_trade, usdt_balance)
+                            
                             crypto_amount = trade_amount / current_price
                             
                             print(f"🔍 DEBUG: Tentando comprar {symbol} | Preço: ${current_price:.6f} | Trade Amount: ${trade_amount:.2f} | Crypto Amount: {crypto_amount:.6f} | Saldo USDT: ${usdt_balance:.2f}")
+                            
+                            # ===== VERIFICAÇÃO DE LIMITE DIÁRIO =====
+                            if self.safety_manager:
+                                # Calcula PnL diário atual
+                                daily_pnl = sum(
+                                    stats.get('daily_pnl', 0) 
+                                    for stats in self.bot_stats.values()
+                                )
+                                
+                                # Verifica se atingiu limite diário
+                                if self.safety_manager.kill_switch.check_daily_loss(daily_pnl):
+                                    print(f"🛑 BLOQUEADO: Limite diário de perda atingido (${abs(daily_pnl):.2f} >= ${self.safety_manager.kill_switch.max_daily_loss})")
+                                    print("   → Bot será parado para proteção de capital")
+                                    self.stop()
+                                    return
                             
                             # Executa compra
                             order = self.exchange.create_market_order(
@@ -1546,6 +1634,20 @@ class MultiBotEngine:
             # Calcula quantidade de crypto
             amount_crypto = total_amount / price
             
+            # ===== VERIFICAÇÃO DE LIMITE DIÁRIO =====
+            if self.safety_manager:
+                # Calcula PnL diário atual
+                daily_pnl = sum(
+                    stats.get('daily_pnl', 0) 
+                    for stats in self.bot_stats.values()
+                )
+                
+                # Verifica se atingiu limite diário
+                if self.safety_manager.kill_switch.check_daily_loss(daily_pnl):
+                    print(f"🛑 BLOQUEADO: Limite diário de perda atingido (${abs(daily_pnl):.2f} >= ${self.safety_manager.kill_switch.max_daily_loss})")
+                    print("   → Super oportunidade cancelada para proteção de capital")
+                    return
+            
             # Executa ordem
             order = self.exchange.create_market_order(
                 symbol=symbol,
@@ -1628,7 +1730,7 @@ class MultiBotEngine:
             except Exception as e:
                 self.logger.warning(f"⚠️ Erro na AI: {e} - prosseguindo com compra")
         
-        # Verifica saldo
+# Verifica saldo COM ATUALIZAÇÃO EM TEMPO REAL
         balance = self.get_balance()
         if balance < amount_usd:
             self.logger.warning(f"Saldo insuficiente: ${balance:.2f} < ${amount_usd}")
@@ -1639,6 +1741,13 @@ class MultiBotEngine:
                 usdt_free = spot_balance.get('free', {}).get('USDT', 0)
                 usdt_used = spot_balance.get('used', {}).get('USDT', 0)
                 print(f"[SALDO USDT SPOT] total={usdt_total}, free={usdt_free}, used={usdt_used}")
+                print(f"[SALDO VERIFICAÇÃO] Necessário: ${amount_usd}, Disponível: ${usdt_free}")
+                if usdt_free >= amount_usd:
+                    print(f"[SALDO OK] Saldo suficiente, prosseguindo...")
+                    balance = usdt_free  # Atualiza balance com valor real
+                else:
+                    print(f"[SALDO INSUFICIENTE] Abortando trade")
+                    return
             except Exception as e:
                 print(f"[ERRO ao consultar saldo USDT spot]: {e}")
             return
@@ -1731,6 +1840,20 @@ class MultiBotEngine:
             if balance < order_value * 1.01:  # 1% margem de segurança
                 print(f"[BLOQUEADO] Saldo insuficiente com margem: ${balance:.2f} < ${order_value * 1.01:.2f}")
                 return
+            
+            # ===== VERIFICAÇÃO DE LIMITE DIÁRIO =====
+            if self.safety_manager:
+                # Calcula PnL diário atual
+                daily_pnl = sum(
+                    stats.get('daily_pnl', 0) 
+                    for stats in self.bot_stats.values()
+                )
+                
+                # Verifica se atingiu limite diário
+                if self.safety_manager.kill_switch.check_daily_loss(daily_pnl):
+                    print(f"🛑 BLOQUEADO: Limite diário de perda atingido (${abs(daily_pnl):.2f} >= ${self.safety_manager.kill_switch.max_daily_loss})")
+                    print("   → Trade cancelado para proteção de capital")
+                    return
             
             # Executa ordem
             print(f"[EXECUTANDO ORDEM] create_market_order: symbol={symbol}, side=buy, amount={amount_crypto}")

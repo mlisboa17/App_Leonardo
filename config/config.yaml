@@ -26,16 +26,16 @@ logging:
   file: logs/trading_bot.log
   level: INFO
 safety:
-  max_daily_loss: 150.0
-  max_drawdown: 25
-  price_deviation_limit: 30.0
+  max_daily_loss: 100.0
+  max_drawdown: 5
+  price_deviation_limit: 20.0
 strategy:
   type: smart
 trading:
-  amount_per_trade: 500.0
-  daily_profit_target: 300.0  # Aumentado para mais lucro
+  amount_per_trade: 100.0
+  daily_profit_target: 25.0  # Meta diária equilibrada
   max_positions: 25  # Mais posições simultâneas
-  max_total_investment: 150000.0  # Mais capital em jogo
+  max_total_investment: 200.0  # APENAS 10% do capital inicial
   symbols:
   - BTC/USDT
   - ETH/USDT
@@ -45,4 +45,23 @@ trading:
   - LINK/USDT
   - DOGE/USDT
   - LTC/USDT
+  - ADA/USDT
+  - DOT/USDT
+  - AVAX/USDT
+  - UNI/USDT
+  - AAVE/USDT
+  - NEAR/USDT
+  - TRX/USDT
+  - MATIC/USDT
+  - ATOM/USDT
+  - ICP/USDT
+  - FIL/USDT
+  - VET/USDT
+  - PEPE/USDT
+  - SHIB/USDT
+  - WIF/USDT
+  - BOME/USDT
+  - MEME/USDT
+  - GALA/USDT
+  - SAND/USDT
   timeframe: 1m

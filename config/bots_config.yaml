@@ -247,28 +247,64 @@ bot_unico:
   portfolio:
   - name: Bitcoin
     symbol: BTCUSDT
-    weight: 15
+    weight: 10
   - name: Ethereum
     symbol: ETHUSDT
-    weight: 15
+    weight: 10
   - name: Solana
     symbol: SOLUSDT
-    weight: 12
+    weight: 8
   - name: BNB
     symbol: BNBUSDT
-    weight: 12
+    weight: 8
   - name: Cardano
     symbol: ADAUSDT
-    weight: 12
+    weight: 8
   - name: Dogecoin
     symbol: DOGEUSDT
-    weight: 12
+    weight: 8
   - name: Uniswap
     symbol: UNIUSDT
-    weight: 11
+    weight: 7
   - name: Aave
     symbol: AAVEUSDT
-    weight: 11
+    weight: 7
+  - name: Chainlink
+    symbol: LINKUSDT
+    weight: 6
+  - name: Polkadot
+    symbol: DOTUSDT
+    weight: 6
+  - name: Avalanche
+    symbol: AVAXUSDT
+    weight: 6
+  - name: Near
+    symbol: NEARUSDT
+    weight: 5
+  - name: XRP
+    symbol: XRPUSDT
+    weight: 5
+  - name: Litecoin
+    symbol: LTCUSDT
+    weight: 4
+  - name: Tron
+    symbol: TRXUSDT
+    weight: 4
+  - name: Polygon
+    symbol: MATICUSDT
+    weight: 3
+  - name: Cosmos
+    symbol: ATOMUSDT
+    weight: 3
+  - name: Internet Computer
+    symbol: ICPUSDT
+    weight: 3
+  - name: Filecoin
+    symbol: FILUSDT
+    weight: 3
+  - name: VeChain
+    symbol: VETUSDT
+    weight: 3
   risk:
     dynamic_adjustment: true
     max_hold_minutes: 120
@@ -464,7 +500,7 @@ global:
     consecutive_losses_pause: 4
     cool_down_after_losses: 3
     emergency_stop_loss: 25.0
-    max_daily_loss_pct: 5.0
+    max_daily_loss_pct: 20.0
     max_drawdown_pct: 20.0
     max_monthly_loss_pct: 15.0
     max_weekly_loss_pct: 10.0

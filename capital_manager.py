@@ -178,12 +178,63 @@ class CapitalManager:
         # Todas as verificações passaram
         return True, "✅ Sinal válido para execução"
     
+    def get_timing_multiplier(self, symbol: str, bot: str, current_time=None) -> float:
+        """
+        Retorna multiplicador de capital baseado no timing ótimo.
+        Baseado na análise de 233 trades reais.
+        
+        Multiplicadores:
+        - 1.5x: Horários premium (9h-11h segunda-feira)
+        - 1.2x: Bons horários (manhã sábado, 13h segunda)
+        - 0.5x: Maus horários (madrugada, domingo)
+        - 1.0x: Horários neutros
+        """
+        from datetime import datetime
+        
+        now = current_time or datetime.now()
+        hour = now.hour
+        weekday = now.weekday()  # 0=segunda, 6=domingo
+        
+        # Categorizar cripto
+        large_cap = ['BTCUSDT', 'ETHUSDT']
+        meme_coins = ['DOGEUSDT', 'SHIBUSDT', 'PEPEUSDT', 'BONKUSDT', 'WIFUSDT']
+        
+        symbol_category = 'mid_cap'
+        if symbol in large_cap:
+            symbol_category = 'large_cap'
+        elif symbol in meme_coins:
+            symbol_category = 'meme'
+        
+        # MAUS HORÁRIOS (0.5x multiplicador - reduzir exposição) - VERIFICAR PRIMEIRO
+        if weekday == 6:  # DOMINGO - sempre ruim
+            return 0.5
+        
+        # HORÁRIOS PARA MEME COINS (1.3x) - antes da madrugada para memes
+        if symbol_category == 'meme' and 5 <= hour <= 7:  # 5h-7h para memes
+            return 1.3
+        
+        # Madrugada (exceto para memes que já foram tratados)
+        if 0 <= hour <= 5:  # Madrugada
+            return 0.5
+        
+        # HORÁRIOS PREMIUM (1.5x multiplicador) - APENAS SEGUNDA 9-11h
+        if weekday == 0 and 9 <= hour <= 11:  # Segunda 9h-11h
+            return 1.5
+        
+        # BONS HORÁRIOS (1.2x multiplicador)
+        if (weekday == 5 and 6 <= hour <= 12) or (weekday == 0 and hour == 13):  # Sábado manhã ou segunda 13h
+            return 1.2
+        
+        # NEUTRO (1.0x)
+        return 1.0
+    
     def calculate_optimal_position_size(self, 
                                        symbol: str,
                                        entry_price: float,
                                        stop_loss_price: float,
                                        take_profit_price: float,
-                                       bot: str = 'bot_estavel') -> float:
+                                       bot: str = 'bot_estavel',
+                                       current_time=None) -> float:
         """
         Calcula o tamanho de posição ótimo baseado em:
         - Risco máximo permitido (2% do capital)
@@ -203,6 +254,10 @@ class CapitalManager:
         
         # Tamanho baseado em risco
         position_size = max_risk / risk_per_unit
+        
+        # Aplicar multiplicador de timing
+        timing_multiplier = self.get_timing_multiplier(symbol, bot, current_time)
+        position_size *= timing_multiplier
         
         # Aplicar limites do bot
         if bot in self.bot_limits:

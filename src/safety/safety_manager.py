@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 ABSOLUTE_LIMITS = {
     # Limites de perda
     'MAX_LOSS_PER_TRADE_PCT': 3.0,      # Max 3% por trade
-    'MAX_LOSS_DAILY_PCT': 5.0,           # Max 5% por dia
-    'MAX_DRAWDOWN_PCT': 10.0,            # Max 10% drawdown
-    'EMERGENCY_STOP_PCT': 15.0,          # Para TUDO se perder 15%
+    'MAX_LOSS_DAILY_PCT': 20.0,          # Max 20% por dia (ajustado para permitir maiores perdas)
+    'MAX_DRAWDOWN_PCT': 25.0,            # Max 25% drawdown (ajustado)
+    'EMERGENCY_STOP_PCT': 30.0,          # Para TUDO se perder 30% (ajustado)
     
     # Limites de ordem
     'MIN_ORDER_SIZE': 10.0,              # Minimo $10 por ordem
