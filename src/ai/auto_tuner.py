@@ -254,7 +254,7 @@ class AutoTuner:
         try:
             stats_file = Path("data/daily_stats.json")
             if stats_file.exists():
-                with open(stats_file, 'r') as f:
+                with open(stats_file, 'r', encoding='utf-8') as f:
                     stats = json.load(f)
                     return stats.get('pnl_7d', 0)
         except:
@@ -266,7 +266,7 @@ class AutoTuner:
         try:
             stats_file = Path("data/daily_stats.json")
             if stats_file.exists():
-                with open(stats_file, 'r') as f:
+                with open(stats_file, 'r', encoding='utf-8') as f:
                     stats = json.load(f)
                     return stats.get('win_rate', 0.5)
         except:

@@ -117,7 +117,7 @@ class AdaptiveEngine:
         try:
             insights_file = os.path.join(self.model_dir, "insights.json")
             if os.path.exists(insights_file):
-                with open(insights_file, 'r') as f:
+                with open(insights_file, 'r', encoding='utf-8') as f:
                     self.insights = json.load(f)
                 logger.info("✅ Insights carregados")
         except Exception as e:

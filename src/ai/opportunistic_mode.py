@@ -147,7 +147,7 @@ class OpportunisticMode:
         """Carrega estado"""
         if self.state_file.exists():
             try:
-                with open(self.state_file, 'r') as f:
+                with open(self.state_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except:
                 pass

@@ -151,7 +151,7 @@ async def liquidate_all(
     
     # Carregar posições
     try:
-        with open("data/multibot_positions.json", 'r') as f:
+        with open("data/multibot_positions.json", 'r', encoding='utf-8') as f:
             positions = json.load(f).get("positions", [])
     except:
         positions = []
@@ -188,7 +188,7 @@ async def close_position(
     """
     # Carregar posições
     try:
-        with open("data/multibot_positions.json", 'r') as f:
+        with open("data/multibot_positions.json", 'r', encoding='utf-8') as f:
             data = json.load(f)
             positions = data.get("positions", [])
     except:

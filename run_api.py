@@ -9,11 +9,20 @@ import uvicorn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 if __name__ == "__main__":
-    from backend.main import app
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=8001, 
-        reload=False,
-        log_level="info"
-    )
+    try:
+        print("🚀 Iniciando FastAPI...")
+        from backend.main import app
+        print("✅ Backend carregado com sucesso")
+
+        uvicorn.run(
+            app,
+            host="0.0.0.0",
+            port=8001,
+            reload=False,
+            log_level="info"
+        )
+    except Exception as e:
+        print(f"❌ Erro ao iniciar FastAPI: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

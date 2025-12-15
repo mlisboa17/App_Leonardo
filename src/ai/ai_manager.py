@@ -92,7 +92,7 @@ class AIManager:
         state_file = os.path.join(self.ai_data_dir, "ai_state.json")
         try:
             if os.path.exists(state_file):
-                with open(state_file, 'r') as f:
+                with open(state_file, 'r', encoding='utf-8') as f:
                     state = json.load(f)
                     self.last_training = state.get('last_training')
                     self.last_market_scan = state.get('last_market_scan')
@@ -309,7 +309,7 @@ class AIManager:
         for file_path in history_files:
             if os.path.exists(file_path):
                 try:
-                    with open(file_path, 'r') as f:
+                    with open(file_path, 'r', encoding='utf-8') as f:
                         file_trades = json.load(f)
                         if isinstance(file_trades, list):
                             trades.extend(file_trades)
@@ -394,7 +394,7 @@ class AIManager:
             
             trades = []
             if os.path.exists(ai_history_file):
-                with open(ai_history_file, 'r') as f:
+                with open(ai_history_file, 'r', encoding='utf-8') as f:
                     trades = json.load(f)
             
             trades.append({

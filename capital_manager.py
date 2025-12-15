@@ -130,7 +130,7 @@ class CapitalManager:
             
             # Carregar posições abertas
             if self.positions_file.exists():
-                with open(self.positions_file, 'r') as f:
+                with open(self.positions_file, 'r', encoding='utf-8') as f:
                     self.open_positions = json.load(f)
             
             # Carregar histórico de trades

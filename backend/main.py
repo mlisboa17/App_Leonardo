@@ -126,7 +126,8 @@ def sync_positions_with_binance(coordinator):
 @app.post("/api/v1/ai/suggest", response_model=AISuggestion, summary="Obter Sugestão Otimizada da IA.")
 async def suggest_ai_action():
     try:
-        suggestion = ai_advisor.generate_ai_suggestion()
+        ai_service = get_ai_advisor()
+        suggestion = ai_service.generate_ai_suggestion()
         return suggestion
     except Exception as e:
         # Registrar o erro antes de retornar uma HTTP 500
@@ -179,6 +180,56 @@ async def set_strategy(strategy_data: Dict[str, Any]):
         return {"status": "success", "message": f"Modo de operação {strategy} aplicado com sucesso"}
     except Exception as e:
         get_audit_logger().error(f"Erro ao definir estratégia: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/ai/current-model", summary="Obter Modelo IA Atual")
+async def get_current_model():
+    """Retorna informações sobre o modelo de IA atualmente em uso"""
+    try:
+        from src.ai_advisor.decision_service import DecisionService
+        service = DecisionService()
+        model_info = service.get_current_model_info()
+        return {"status": "success", "model_info": model_info}
+    except Exception as e:
+        get_audit_logger().error(f"Erro ao obter modelo atual: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/v1/ai/set-model", summary="Definir Modelo IA Ativo")
+async def set_ai_model(model_data: Dict[str, Any]):
+    """Define o modelo de IA ativo para o sistema"""
+    try:
+        model = model_data.get("model", "").lower()
+        if model not in ["gemini", "grok"]:
+            raise HTTPException(status_code=400, detail="Modelo deve ser 'gemini' ou 'grok'")
+
+        # Salvar modelo no arquivo de configuração
+        import json
+        from pathlib import Path
+        from datetime import datetime
+
+        model_config_path = Path("data/ai/current_model.json")
+        model_config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        config = {
+            "model": model,
+            "saved_at": datetime.now().isoformat(),
+            "version": "1.0"
+        }
+
+        with open(model_config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+
+        # Log da mudança
+        get_audit_logger().log_config_change(
+            bot_type='ai_system',
+            old_config={},
+            new_config={'ai_model': model},
+            source='api'
+        )
+
+        return {"status": "success", "message": f"Modelo IA {model.upper()} definido com sucesso. Reinicie o sistema para aplicar."}
+    except Exception as e:
+        get_audit_logger().error(f"Erro ao definir modelo IA: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/ai/start-bots", summary="Iniciar Todos os Bots")
@@ -663,3 +714,6 @@ async def get_ai_component_logs(component: str = "all", limit: int = 50):
         raise HTTPException(status_code=500, detail=f"Erro ao obter logs da IA: {str(e)}")
 
 # Adicione suas outras rotas aqui (Dashboard, Logs de Bot, etc.)
+
+# Exportar app para importação
+__all__ = ['app']

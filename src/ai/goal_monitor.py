@@ -72,7 +72,7 @@ class GoalMonitor:
         """Carrega histórico de metas"""
         if self.data_file.exists():
             try:
-                with open(self.data_file, 'r') as f:
+                with open(self.data_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except:
                 pass

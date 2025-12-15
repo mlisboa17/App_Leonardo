@@ -111,7 +111,7 @@ class AdaptiveAIMonitor:
             if not trades_file.exists():
                 return
             
-            with open(trades_file, 'r') as f:
+            with open(trades_file, 'r', encoding='utf-8') as f:
                 trades = json.load(f)
             
             # Analisa últimos trades de cada bot
@@ -156,7 +156,7 @@ class AdaptiveAIMonitor:
                 self.logger.warning(f"Config não encontrado: {self.config_path}")
                 return
             
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             
             # Carrega saldo atual
@@ -239,7 +239,7 @@ class AdaptiveAIMonitor:
         try:
             balances_file = Path("data/dashboard_balances.json")
             if balances_file.exists():
-                with open(balances_file, 'r') as f:
+                with open(balances_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
         except Exception as e:
             self.logger.error(f"Erro ao carregar balances: {e}")

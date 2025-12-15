@@ -139,7 +139,7 @@ class AutoConfig:
         try:
             edits_file = os.path.join(self.config_history_dir, "manual_edits.json")
             if os.path.exists(edits_file):
-                with open(edits_file, 'r') as f:
+                with open(edits_file, 'r', encoding='utf-8') as f:
                     self.manual_edits = json.load(f)
         except Exception as e:
             logger.warning(f"⚠️ Erro ao carregar edições manuais: {e}")
@@ -395,7 +395,7 @@ class AutoConfig:
         try:
             history_file = os.path.join(self.config_history_dir, "changes_history.json")
             if os.path.exists(history_file):
-                with open(history_file, 'r') as f:
+                with open(history_file, 'r', encoding='utf-8') as f:
                     self.changes_history = json.load(f)
         except Exception as e:
             logger.warning(f"⚠️ Erro ao carregar histórico: {e}")

@@ -102,7 +102,7 @@ class MarketScanner:
         try:
             cache_file = os.path.join(self.cache_dir, "processed_news.json")
             if os.path.exists(cache_file):
-                with open(cache_file, 'r') as f:
+                with open(cache_file, 'r', encoding='utf-8') as f:
                     self.processed_news = set(json.load(f))
         except Exception as e:
             logger.warning(f"Erro ao carregar cache: {e}")

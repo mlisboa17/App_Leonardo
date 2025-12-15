@@ -262,7 +262,7 @@ unico_bot:
   trading:
     amount_per_trade: 50
     interval_seconds: 5
-    max_positions: 9
+    max_positions: 20
     max_total_investment: 350
     timeframe: 1m
   trend_detection:

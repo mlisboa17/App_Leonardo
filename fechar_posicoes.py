@@ -59,7 +59,7 @@ def fechar_posicoes():
         print("❌ Arquivo de posições não encontrado!")
         return False
     
-    with open(positions_file, 'r') as f:
+    with open(positions_file, 'r', encoding='utf-8') as f:
         positions = json.load(f)
     
     if not positions:

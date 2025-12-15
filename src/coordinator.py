@@ -349,7 +349,7 @@ class BotCoordinator:
         """Carrega estado anterior do arquivo"""
         if self.stats_file.exists():
             try:
-                with open(self.stats_file, 'r') as f:
+                with open(self.stats_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 # Restaura estatísticas globais
                 self.stats.total_pnl = data.get('total_pnl', 0.0)
@@ -558,7 +558,7 @@ class BotCoordinator:
                     time.sleep(1)
                     continue
                     
-                with open(self.bot_status_file, 'r') as f:
+                with open(self.bot_status_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 action = data.get('last_action')
                 target = data.get('target_bot')

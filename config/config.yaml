@@ -33,9 +33,9 @@ strategy:
   type: smart
 trading:
   amount_per_trade: 500.0
-  daily_profit_target: 100.0
-  max_positions: 15
-  max_total_investment: 100000.0
+  daily_profit_target: 300.0  # Aumentado para mais lucro
+  max_positions: 25  # Mais posições simultâneas
+  max_total_investment: 150000.0  # Mais capital em jogo
   symbols:
   - BTC/USDT
   - ETH/USDT

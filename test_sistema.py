@@ -1,7 +1,7 @@
 import json
 
 # Ler saldos
-with open('data/dashboard_balances.json', 'r') as f:
+with open('data/dashboard_balances.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 print("="*60)

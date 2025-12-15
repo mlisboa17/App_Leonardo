@@ -68,16 +68,33 @@ except ImportError as e:
     AUTOTUNER_AVAILABLE = False
     print(f"⚠️ AutoTuner não disponível: {e}")
 
-# ===== IMPORTAÇÃO DO AI MONITOR (MONITORA TODOS OS 5 BOTS) =====
-try:
-    from src.ai_monitor import get_ai_monitor, AdaptiveAIMonitor
-    AI_MONITOR_AVAILABLE = True
-except ImportError as e:
-    AI_MONITOR_AVAILABLE = False
-    print(f"⚠️ AI Monitor não disponível: {e}")
+# ===== SEM IA - APENAS ESTRATÉGIAS TÉCNICAS =====
+# AI Monitor removido - sistema funciona apenas com análise técnica
+AI_MONITOR_AVAILABLE = False
 
 
 class MultiBotEngine:
+    def redeem_earn_flexible(self, min_amount=10):
+        """Resgata automaticamente saldo de TODOS os ativos do Earn Flexível para Spot se disponível e acima do mínimo."""
+        try:
+            flexible_positions = self.exchange.exchange.sapi_get_simple_earn_flexible_position()
+            if flexible_positions and 'rows' in flexible_positions:
+                for pos in flexible_positions['rows']:
+                    asset = pos.get('asset')
+                    amount = float(pos.get('totalAmount', 0))
+                    can_redeem = pos.get('canRedeem', False)
+                    if can_redeem and amount >= min_amount:
+                        params = {
+                            'productId': asset,
+                            'amount': str(amount),
+                            'type': 'FAST'
+                        }
+                        result = self.exchange.exchange.sapi_post_simple_earn_flexible_redeem(params)
+                        print(f"\n[Earn] Resgate automático solicitado: {amount} {asset} para Spot! Resultado: {result}")
+                    else:
+                        print(f"[Earn] Nada a resgatar ou valor insuficiente para {asset} (disponível: {amount})")
+        except Exception as e:
+            print(f"[Earn] Erro ao tentar resgatar do Earn Flexível: {e}")
     """
     Engine principal que executa todos os bots em paralelo.
     Agora com IA adaptativa e AUTO-TUNER integrados!
@@ -118,9 +135,6 @@ class MultiBotEngine:
         # Exchange compartilhada
         self.exchange = self.coordinator.exchange
         
-        # Indicadores
-        self.indicators = TechnicalIndicators()
-        
         # ===== INICIALIZAÇÃO DA IA =====
         self.ai_manager = None
         self.ai_enabled = True
@@ -128,7 +142,7 @@ class MultiBotEngine:
             try:
                 self.ai_manager = get_ai_manager()
                 self.ai_manager.start_background_tasks()
-                print("🤖 Sistema de IA inicializado!")
+                print("Sistema de IA inicializado!")
             except Exception as e:
                 print(f"⚠️ Erro ao inicializar IA: {e}")
                 self.ai_enabled = False
@@ -150,25 +164,87 @@ class MultiBotEngine:
                 self.autotuner_enabled = False
         else:
             self.autotuner_enabled = False
-            print("⚠️ AutoTuner não disponível - configs estáticas")
+            print("⚠️ AutoTuner não disponível")
         
-        # ===== INICIALIZAÇÃO DO AI MONITOR (MONITORA TODOS OS 5 BOTS) =====
-        self.ai_monitor = None
-        self.ai_monitor_enabled = True
-        if AI_MONITOR_AVAILABLE:
+        # ===== LISTA CONFIGURAÇÕES INICIAIS =====
+        print("\n===== CONFIGURAÇÕES INICIAIS DO BOT =====")
+        print(f"Exchange: {self.exchange.exchange.name}")
+        print(f"API Key: {os.getenv('BINANCE_API_KEY', '***')[:6]}... (oculta)")
+        print(f"Modo UnicoBot: {self.unico_bot_mode}")
+        print(f"Data Dir: {self.data_dir}")
+        print(f"IA Ativada: {self.ai_enabled}")
+        print(f"AutoTuner: {self.autotuner_enabled}")
+        print(f"Config Global: {self.coordinator.config.get('global', {})}")
+        # Lista de moedas disponíveis (símbolos)
+        try:
+            symbols = [s['symbol'] for s in self.exchange.exchange.public_get_exchangeinfo()['symbols']]
+            print(f"Moedas disponíveis ({len(symbols)}): {', '.join(symbols[:20])}{' ...' if len(symbols) > 20 else ''}")
+            
+            # ===== VALIDAÇÃO DOS SÍMBOLOS CONFIGURADOS =====
+            print("\n🔍 VALIDANDO SÍMBOLOS CONFIGURADOS...")
+            invalid_symbols = []
+            all_config_symbols = set()
+            
+            # Coleta todos os símbolos dos portfolios dos bots
+            for bot_type, bot in self.coordinator.bots.items():
+                for crypto in bot.portfolio:
+                    symbol = crypto.get('symbol', '')
+                    if symbol:
+                        all_config_symbols.add(symbol)
+            
+            # Verifica se cada símbolo é uma combinação válida MOEDA + USDT
+            for symbol in all_config_symbols:
+                if symbol not in symbols:
+                    invalid_symbols.append(symbol)
+                    print(f"❌ Símbolo inválido: {symbol} - não existe na exchange")
+                elif not symbol.endswith('USDT'):
+                    print(f"⚠️ Símbolo não termina com USDT: {symbol}")
+                else:
+                    # Verifica se a base (sem USDT) é uma moeda conhecida
+                    base_currency = symbol[:-4]  # Remove 'USDT'
+                    if not any(s.startswith(base_currency) for s in symbols):
+                        print(f"⚠️ Moeda base suspeita: {base_currency} em {symbol}")
+                    else:
+                        print(f"✅ Símbolo válido: {symbol}")
+            
+            # ===== LIMPA POSIÇÕES INVÁLIDAS =====
+            print("\n🧹 LIMPANDO POSIÇÕES INVÁLIDAS...")
             try:
-                self.ai_monitor = get_ai_monitor()
-                self.ai_monitor.start()
-                print("🤖 AI Monitor inicializado!")
-                print("   → Monitorando TODOS os 5 bots (Estavel, Medio, Volatil, Meme, Unico)")
-                print("   → Ajustes adaptativos automáticos baseados em performance")
+                invalid_positions = []
+                for symbol in list(self.positions.keys()):
+                    if symbol not in self._valid_symbols_cache:
+                        invalid_positions.append(symbol)
+                        del self.positions[symbol]
+                        print(f"   ❌ Removida posição inválida: {symbol}")
+                
+                if invalid_positions:
+                    print(f"   🗑️ {len(invalid_positions)} posições inválidas removidas")
+                    self._save_positions()  # Salva após limpeza
+                else:
+                    print("   ✅ Nenhuma posição inválida encontrada")
+            except AttributeError as e:
+                print(f"   ⚠️ Erro ao limpar posições (ainda não inicializadas): {e}")
             except Exception as e:
-                print(f"⚠️ Erro ao inicializar AI Monitor: {e}")
-                self.ai_monitor_enabled = False
-        else:
-            self.ai_monitor_enabled = False
-            print("⚠️ AI Monitor não disponível")
+                print(f"   ⚠️ Erro inesperado na limpeza: {e}")
+                
+        except Exception as e:
+            print(f"Erro ao obter lista de moedas: {e}")
+        print("========================================\n")
+
+        # ===== RESGATE AUTOMÁTICO DO EARN FLEXÍVEL =====
+        self.redeem_earn_flexible(min_amount=10)
         
+        # Indicadores
+        self.indicators = TechnicalIndicators()
+        
+        # Cache para filtros de mercado (para otimizar performance)
+        self.market_filters_cache = {}
+        self.cache_timestamp = None
+        self.cache_duration = 300  # 5 minutos
+        
+        # ===== SEM IA - APENAS MONITORAMENTO TÉCNICO =====
+        # AI Monitor removido - apenas estratégias técnicas
+
         # Controle
         self.running = False
         self.iteration = 0
@@ -414,7 +490,7 @@ class MultiBotEngine:
         positions_file = self.data_dir / "multibot_positions.json"
         if positions_file.exists():
             try:
-                with open(positions_file, 'r') as f:
+                with open(positions_file, 'r', encoding='utf-8') as f:
                     self.positions = json.load(f)
                     
                     # Converte timestamps
@@ -757,19 +833,20 @@ class MultiBotEngine:
             for asset, data in balance.items():
                 if asset in ['USDT', 'info', 'free', 'used', 'total', 'debt', 'timestamp', 'datetime']:
                     continue
-                
+
+
                 # Pula assets que têm posições abertas para evitar duplicatas
                 if asset in position_assets:
                     continue
-                
+
                 total_amount = data.get('free', 0) + data.get('used', 0)
                 if total_amount > 0:
-                    symbol = f"{asset}USDT"
+                    # Corrige: se asset já termina com USDT, não adiciona novamente
+                    symbol = asset if asset.endswith('USDT') else f"{asset}USDT"
                     # ✅ Valida se o símbolo existe antes de buscar ticker
-                    if not self.is_valid_symbol(symbol):
+                    if not self.exchange.is_valid_symbol(symbol):
                         self.logger.warning(f"⚠️ Símbolo {symbol} não existe na exchange - pulando")
                         continue
-                    
                     try:
                         # Obtém preço atual
                         ticker = self.exchange.fetch_ticker(symbol)
@@ -1042,6 +1119,14 @@ class MultiBotEngine:
                 print("   ⚠️ Não foi possível obter saldo")
                 return
             
+            # Carrega lista de símbolos válidos da exchange se ainda não tem
+            if not hasattr(self, '_valid_symbols_cache'):
+                try:
+                    self._valid_symbols_cache = set(s['symbol'] for s in self.exchange.exchange.public_get_exchangeinfo()['symbols'])
+                except Exception as e:
+                    print(f"[ERRO] Falha ao carregar cache de símbolos: {e}")
+                    self._valid_symbols_cache = set()
+            
             synced = 0
             for asset, data in balance.items():
                 if asset in ['USDT', 'info', 'free', 'used', 'total', 'debt', 'timestamp', 'datetime']:
@@ -1050,6 +1135,11 @@ class MultiBotEngine:
                 total_amount = data.get('free', 0) + data.get('used', 0)
                 if total_amount > 0.0001:
                     symbol = f"{asset}USDT"
+                    
+                    # VERIFICA se o símbolo é válido antes de tentar sincronizar
+                    if symbol not in self._valid_symbols_cache:
+                        print(f"      ⚠️ Pulando {symbol} - ativo {asset} não tem par USDT válido na exchange")
+                        continue
                     
                     # Se não está nas nossas posições registradas, adiciona
                     if symbol not in self.positions:
@@ -1070,8 +1160,8 @@ class MultiBotEngine:
                                     }
                                     synced += 1
                                     print(f"      ✅ {symbol}: {total_amount:.6f} (${value_usd:.2f})")
-                        except:
-                            pass
+                        except Exception as e:
+                            print(f"      ❌ Erro ao buscar ticker {symbol}: {e}")
             
             if synced > 0:
                 print(f"   📊 {synced} posições sincronizadas")
@@ -1222,6 +1312,8 @@ class MultiBotEngine:
                             current_price = df.iloc[-1]['close']
                             trade_amount = min(amount_per_trade, usdt_balance)
                             crypto_amount = trade_amount / current_price
+                            
+                            print(f"🔍 DEBUG: Tentando comprar {symbol} | Preço: ${current_price:.6f} | Trade Amount: ${trade_amount:.2f} | Crypto Amount: {crypto_amount:.6f} | Saldo USDT: ${usdt_balance:.2f}")
                             
                             # Executa compra
                             order = self.exchange.create_market_order(
@@ -1487,8 +1579,29 @@ class MultiBotEngine:
             self.logger.error(f"Erro ao abrir super oportunidade {symbol}: {e}")
     
     def _open_position(self, symbol: str, price: float, reason: str, bot_type: str, bot):
-        """Abre uma posição"""
+        print(f"[LOG] Tentando abrir posição para o símbolo: {symbol}")
+        # Log de debug: de onde vem esse símbolo?
+        print(f"[DEBUG] Símbolo recebido: {symbol}, bot_type: {bot_type}, bot: {bot.name if bot else 'None'}")
+        if hasattr(bot, 'portfolio'):
+            portfolio_symbols = [crypto.get('symbol', '') for crypto in bot.portfolio]
+            print(f"[DEBUG] Portfolio do bot {bot_type}: {portfolio_symbols}")
+            if symbol not in portfolio_symbols:
+                print(f"[DEBUG] ALERTA: {symbol} NÃO está no portfolio do bot {bot_type}!")
+        
+        # Verifica se o símbolo existe na lista oficial da exchange (cacheada)
+        if not hasattr(self, '_valid_symbols_cache'):
+            try:
+                self._valid_symbols_cache = set(s['symbol'] for s in self.exchange.exchange.public_get_exchangeinfo()['symbols'])
+            except Exception as e:
+                print(f"[ERRO] Falha ao carregar cache de símbolos: {e}")
+                self._valid_symbols_cache = set()
+        
+        if symbol not in self._valid_symbols_cache:
+            print(f"[ERRO] Símbolo {symbol} não existe na lista oficial da exchange - pulando")
+            self.logger.warning(f"⚠️ Símbolo {symbol} não existe na exchange - pulando")
+            return
         amount_usd = bot.trading_config.get('amount_per_trade', 500)
+        print(f"[CONFIG] amount_per_trade do bot {bot_type}: ${amount_usd}")
         
         # ===== VERIFICAÇÃO DA IA =====
         if self.ai_enabled and self.ai_manager:
@@ -1506,9 +1619,11 @@ class MultiBotEngine:
                     self.logger.info(f"🤖 [AI] Bloqueou compra de {symbol}: {', '.join(reasons)}")
                     return
                 
-                # Log de warnings da AI
-                for warning in ai_decision.get('warnings', []):
-                    self.logger.info(f"🤖 [AI] {warning}")
+                # Log de warnings da AI (apenas se houver)
+                warnings = ai_decision.get('warnings', [])
+                if warnings:
+                    for warning in warnings:
+                        self.logger.info(f"🤖 [AI] {warning}")
                     
             except Exception as e:
                 self.logger.warning(f"⚠️ Erro na AI: {e} - prosseguindo com compra")
@@ -1517,26 +1632,145 @@ class MultiBotEngine:
         balance = self.get_balance()
         if balance < amount_usd:
             self.logger.warning(f"Saldo insuficiente: ${balance:.2f} < ${amount_usd}")
+            # Loga saldo USDT spot detalhado apenas se insuficiente
+            try:
+                spot_balance = self.exchange.fetch_balance()
+                usdt_total = spot_balance.get('total', {}).get('USDT', 0)
+                usdt_free = spot_balance.get('free', {}).get('USDT', 0)
+                usdt_used = spot_balance.get('used', {}).get('USDT', 0)
+                print(f"[SALDO USDT SPOT] total={usdt_total}, free={usdt_free}, used={usdt_used}")
+            except Exception as e:
+                print(f"[ERRO ao consultar saldo USDT spot]: {e}")
+            return
+
+        # Log permissões da API (removido para otimizar - descomente se precisar)
+        # try:
+        #     permissions = self.exchange.fetch_permissions() if hasattr(self.exchange, 'fetch_permissions') else None
+        #     print(f"[PERMISSOES API] {permissions}")
+        # except Exception as e:
+        #     print(f"[ERRO ao consultar permissoes da API]: {e}")
+
+        # Log valor exato da ordem e símbolo
+        print(f"[ORDEM] Tentando abrir ordem: symbol={symbol}, amount_usd={amount_usd}, price={price}")
+
+        # Log filtros de trading do par (minQty, minNotional, stepSize)
+        try:
+            # Usa cache se disponível e recente
+            now = time.time()
+            if symbol not in self.market_filters_cache or (self.cache_timestamp and now - self.cache_timestamp > self.cache_duration):
+                market = self.exchange.markets.get(symbol)
+                if market:
+                    filters = market.get('info', {}).get('filters', [])
+                    min_qty = min_notional = step_size = None
+                    for f in filters:
+                        if f.get('filterType') == 'LOT_SIZE':
+                            min_qty = float(f.get('minQty', 0))
+                            step_size = float(f.get('stepSize', 0))
+                        if f.get('filterType') == 'MIN_NOTIONAL':
+                            min_notional = float(f.get('minNotional', 0))
+                    self.market_filters_cache[symbol] = {
+                        'min_qty': min_qty,
+                        'step_size': step_size,
+                        'min_notional': min_notional
+                    }
+                    self.cache_timestamp = now
+                else:
+                    print(f"[FILTROS] Par {symbol} não encontrado em self.exchange.markets")
+                    return  # Não prossegue se não encontrar o mercado
+            
+            filters = self.market_filters_cache.get(symbol, {})
+            min_qty = filters.get('min_qty')
+            step_size = filters.get('step_size')
+            min_notional = filters.get('min_notional')
+            print(f"[FILTROS] minQty={min_qty}, stepSize={step_size}, minNotional={min_notional}")
+        except Exception as e:
+            print(f"[ERRO ao consultar filtros do par]: {e}")
+            return  # Não prossegue em caso de erro
+        
+        # Calcula e valida quantidade de crypto
+        amount_crypto = amount_usd / price
+        
+        # Log detalhado dos cálculos
+        print(f"[CÁLCULO] amount_usd={amount_usd}, price={price}")
+        print(f"[CÁLCULO] amount_crypto calculado = {amount_crypto}")
+        print(f"[CÁLCULO] Valor esperado da ordem = ${amount_crypto * price}")
+        
+        # Ajusta quantidade para respeitar minQty e stepSize
+        if min_qty and amount_crypto < min_qty:
+            print(f"[VALIDAÇÃO] amount_crypto {amount_crypto} < minQty {min_qty} - pulando")
+            return
+        if step_size:
+            # Arredonda para múltiplo do stepSize
+            amount_crypto = (amount_crypto // step_size) * step_size
+            print(f"[AJUSTE] amount_crypto arredondado para stepSize: {amount_crypto}")
+            if amount_crypto < min_qty:
+                amount_crypto = min_qty
+                print(f"[AJUSTE] Ajustado para minQty: {amount_crypto}")
+        
+        # Verifica minNotional
+        order_value = amount_crypto * price
+        if min_notional and order_value < min_notional:
+            print(f"[VALIDAÇÃO] Valor da ordem ${order_value:.2f} < minNotional ${min_notional} - pulando")
+            return
+        
+        print(f"[ORDEM FINAL] symbol={symbol}, amount_crypto={amount_crypto}, valor_total=${order_value:.2f}")
+        
+        # Verifica saldo novamente após ajustes
+        final_cost = order_value
+        if balance < final_cost:
+            print(f"[SALDO INSUFICIENTE] Saldo: ${balance:.2f}, Custo da ordem: ${final_cost:.2f}")
             return
         
         try:
-            # Calcula quantidade de crypto
-            amount_crypto = amount_usd / price
+            # Log final antes de enviar ordem
+            print(f"[ORDEM ENVIANDO] symbol={symbol}, side=buy, amount={amount_crypto}, price={price}")
+            print(f"[ORDEM ENVIANDO] Valor esperado: ${order_value:.2f}")
+            print(f"[SALDO DISPONÍVEL] ${balance:.2f}")
+            
+            # Verificação extra: saldo deve ser suficiente
+            if balance < order_value * 1.01:  # 1% margem de segurança
+                print(f"[BLOQUEADO] Saldo insuficiente com margem: ${balance:.2f} < ${order_value * 1.01:.2f}")
+                return
             
             # Executa ordem
+            print(f"[EXECUTANDO ORDEM] create_market_order: symbol={symbol}, side=buy, amount={amount_crypto}")
             order = self.exchange.create_market_order(
                 symbol=symbol,
                 side='buy',
                 amount=amount_crypto
             )
             
+            # Log detalhado do que realmente aconteceu na ordem
             if order:
+                print(f"[ORDEM EXECUTADA COM SUCESSO]")
+                print(f"  ID: {order.get('id')}")
+                print(f"  Status: {order.get('status')}")
+                print(f"  Symbol: {order.get('symbol')}")
+                print(f"  Side: {order.get('side')}")
+                print(f"  Type: {order.get('type')}")
+                print(f"  Amount solicitado: {order.get('amount')}")
+                print(f"  Amount preenchido: {order.get('filled', 0)}")
+                print(f"  Preço médio: {order.get('average', order.get('price', 0))}")
+                print(f"  Custo total: {order.get('cost', 0)}")
+                print(f"  Taxas: {order.get('fee', {})}")
+                print(f"  Timestamp: {order.get('timestamp')}")
+                if order.get('trades'):
+                    print(f"  Trades: {len(order.get('trades'))} execuções")
+                    for trade in order.get('trades', []):
+                        print(f"    - Preço: {trade.get('price')}, Qty: {trade.get('amount')}, Custo: {trade.get('cost')}")
+                
+                # Verifica se foi totalmente preenchida
+                filled = order.get('filled', 0)
+                if filled == 0:
+                    print(f"[AVISO] Ordem não foi preenchida! Verifique saldo ou liquidez.")
+                    return
+                
                 # Registra posição
                 self.positions[symbol] = {
                     'bot_type': bot_type,
-                    'entry_price': price,
-                    'amount': order.get('filled', amount_crypto),
-                    'amount_usd': amount_usd,
+                    'entry_price': order.get('average', price),  # Usa preço médio real
+                    'amount': filled,
+                    'amount_usd': order.get('cost', amount_usd),  # Usa custo real
                     'time': datetime.now(),
                     'reason': reason,
                     'order_id': order.get('id')
@@ -1545,10 +1779,48 @@ class MultiBotEngine:
                 bot.stats.open_positions += 1
                 self._save_positions()
                 
-                self.logger.info(f"[{bot.name}] COMPRA {symbol} @ {price:.4f}")
+                self.logger.info(f"[{bot.name}] COMPRA {symbol} @ {order.get('average', price):.4f} (real)")
                 self.logger.info(f"   Razao: {reason}")
+                self.logger.info(f"   Quantidade: {filled}, Custo: ${order.get('cost', 0):.2f}")
+            else:
+                print(f"[ERRO] Ordem retornou None - possível falha na API")
                 
         except Exception as e:
+            error_msg = str(e)
+            print(f"[ERRO DETALHADO] ao abrir posição {symbol}: {error_msg}")
+            print(f"  Tipo do erro: {type(e).__name__}")
+            
+            # Análise específica do erro de saldo insuficiente
+            if "insufficient balance" in error_msg.lower():
+                print(f"[ANÁLISE ERRO] Saldo insuficiente detectado para {symbol}!")
+                print(f"  Saldo disponível: ${balance:.2f}")
+                print(f"  Valor da ordem: ${order_value:.2f}")
+                print(f"  Diferença: ${balance - order_value:.2f}")
+                print(f"  Preço usado: ${price:.4f}")
+                print(f"  Amount crypto: {amount_crypto}")
+                
+                # Verifica se pode ser problema de subconta ou API
+                try:
+                    full_balance = self.exchange.fetch_balance()
+                    usdt_info = full_balance.get('USDT', {})
+                    print(f"  USDT total: {usdt_info.get('total', 0)}")
+                    print(f"  USDT free: {usdt_info.get('free', 0)}")
+                    print(f"  USDT used: {usdt_info.get('used', 0)}")
+                    
+                    # Verifica preço atual do símbolo
+                    ticker = self.exchange.fetch_ticker(symbol)
+                    current_price = ticker.get('last', 0)
+                    print(f"  Preço atual de {symbol}: ${current_price:.4f}")
+                    print(f"  Diferença de preço: ${abs(price - current_price):.4f}")
+                    
+                except Exception as balance_error:
+                    print(f"  Erro ao verificar detalhes: {balance_error}")
+            else:
+                print(f"[OUTRO ERRO] {error_msg}")
+            
+            import traceback
+            print(f"  Traceback completo:")
+            traceback.print_exc()
             self.logger.error(f"Erro ao abrir posicao {symbol}: {e}")
     
     def _close_position(self, symbol: str, price: float, reason: str, bot_type: str):
@@ -1564,17 +1836,46 @@ class MultiBotEngine:
         
         try:
             # Executa ordem de venda
+            print(f"[EXECUTANDO ORDEM] create_market_order: symbol={symbol}, side=sell, amount={pos['amount']}")
             order = self.exchange.create_market_order(
                 symbol=symbol,
                 side='sell',
                 amount=pos['amount']
             )
             
+            # Log detalhado do que realmente aconteceu na ordem de venda
             if order:
-                # Calcula PnL
+                print(f"[ORDEM DE VENDA EXECUTADA COM SUCESSO]")
+                print(f"  ID: {order.get('id')}")
+                print(f"  Status: {order.get('status')}")
+                print(f"  Symbol: {order.get('symbol')}")
+                print(f"  Side: {order.get('side')}")
+                print(f"  Type: {order.get('type')}")
+                print(f"  Amount solicitado: {order.get('amount')}")
+                print(f"  Amount preenchido: {order.get('filled', 0)}")
+                print(f"  Preço médio: {order.get('average', order.get('price', 0))}")
+                print(f"  Recebido: {order.get('cost', 0)}")
+                print(f"  Taxas: {order.get('fee', {})}")
+                print(f"  Timestamp: {order.get('timestamp')}")
+                if order.get('trades'):
+                    print(f"  Trades: {len(order.get('trades'))} execuções")
+                    for trade in order.get('trades', []):
+                        print(f"    - Preço: {trade.get('price')}, Qty: {trade.get('amount')}, Recebido: {trade.get('cost')}")
+                
+                # Verifica se foi totalmente preenchida
+                filled = order.get('filled', 0)
+                if filled == 0:
+                    print(f"[AVISO] Ordem de venda não foi preenchida! Verifique liquidez.")
+                    return
+                
+                # Usa preço médio real da venda
+                exit_price = order.get('average', price)
+                received_usd = order.get('cost', pos['amount_usd'])
+                
+                # Calcula PnL com valores reais
                 entry_price = pos['entry_price']
-                pnl_pct = ((price - entry_price) / entry_price) * 100
-                pnl_usd = pos['amount_usd'] * (pnl_pct / 100)
+                pnl_pct = ((exit_price - entry_price) / entry_price) * 100
+                pnl_usd = received_usd - pos['amount_usd']  # PnL real baseado no recebido vs investido
                 is_win = pnl_usd > 0
                 
                 # Atualiza estatísticas do bot
@@ -1597,10 +1898,11 @@ class MultiBotEngine:
                     'bot_type': pos['bot_type'],
                     'bot_name': bot.name,
                     'entry_price': entry_price,
-                    'exit_price': price,
+                    'exit_price': exit_price,
                     'pnl_pct': pnl_pct,
                     'pnl_usd': pnl_usd,
                     'invested': pos['amount_usd'],
+                    'received': received_usd,
                     'reason': reason,
                     'entry_time': pos['time'].isoformat(),
                     'exit_time': datetime.now().isoformat(),
@@ -1615,9 +1917,9 @@ class MultiBotEngine:
                 # Log
                 status = "WIN" if is_win else "LOSS"
                 super_tag = "[SUPER] " if pos.get('is_super_opportunity') else ""
-                self.logger.info(f"[{status}] [{bot.name}] {super_tag}VENDA {symbol} @ {price:.4f}")
-                self.logger.info(f"   Entrada: {entry_price:.4f} -> Saida: {price:.4f}")
-                self.logger.info(f"   PnL: {pnl_usd:+.2f} USDT ({pnl_pct:+.2f}%)")
+                self.logger.info(f"[{status}] [{bot.name}] {super_tag}VENDA {symbol} @ {exit_price:.4f} (real)")
+                self.logger.info(f"   Entrada: {entry_price:.4f} -> Saida: {exit_price:.4f}")
+                self.logger.info(f"   PnL: {pnl_usd:+.2f} USDT ({pnl_pct:+.2f}%) - Recebido: ${received_usd:.2f}")
                 self.logger.info(f"   Razao: {reason}")
                 
                 # ===== NOTIFICA AI PARA APRENDIZADO =====
@@ -1626,6 +1928,15 @@ class MultiBotEngine:
                         self.ai_manager.on_trade_completed(trade)
                     except Exception as e:
                         self.logger.warning(f"⚠️ Erro ao notificar AI: {e}")
+            else:
+                print(f"[ERRO] Ordem de venda retornou None - possível falha na API")
+                
+        except Exception as e:
+            print(f"[ERRO DETALHADO] ao fechar posição {symbol}: {str(e)}")
+            print(f"  Tipo do erro: {type(e).__name__}")
+            import traceback
+            print(f"  Traceback: {traceback.format_exc()}")
+            self.logger.error(f"Erro ao fechar posicao {symbol}: {e}")
                 
         except Exception as e:
             self.logger.error(f"Erro ao fechar posicao {symbol}: {e}")
@@ -1639,7 +1950,7 @@ class MultiBotEngine:
         
         if self.unico_bot_mode:
             # ===== MODO UNICO BOT =====
-            print(f"\n🤖 UNICO BOT:")
+            print(f"\nUNICO BOT:")
             print(f"   Posições abertas: {len(self.positions)}/{self.unico_bot.trading_config.get('max_positions', 15)}")
             
             # Calcula PnL total das posições
@@ -1686,7 +1997,7 @@ class MultiBotEngine:
             # Por bot
             print(f"\n{'─'*70}")
             for bot_type, bot_stats in stats['bots'].items():
-                emoji = bot_stats['name'].split()[0] if bot_stats['name'] else "🤖"
+                emoji = bot_stats['name'].split()[0] if bot_stats['name'] else "BOT"
                 status_emoji = "🟢" if bot_stats['status'] == 'idle' else "🔄"
                 
                 print(f"\n{emoji} {bot_stats['name']}:")
@@ -1710,7 +2021,7 @@ class MultiBotEngine:
         
         print("\n" + "="*70)
         if self.unico_bot_mode:
-            print("🤖 INICIANDO UNICO BOT - App Leonardo v3.0")
+            print("INICIANDO UNICO BOT - App Leonardo v3.0")
             print("="*70)
             print(f"   Modo: UNICO BOT (todas as cryptos)")
             print(f"   Cryptos: {len(self.unico_bot.portfolio)}")
@@ -1766,10 +2077,15 @@ class MultiBotEngine:
                 self.iteration += 1
                 print(f"\n🔄 ITERAÇÃO {self.iteration} - Iniciando...")
                 
+                # Resgate automático periódico (a cada 10 iterações)
+                if self.iteration % 10 == 0:
+                    print("🔄 Verificando resgate automático do Earn Flexível...")
+                    self.redeem_earn_flexible(min_amount=10)
+                
                 # ===== EXECUTA NO MODO APROPRIADO =====
                 if self.unico_bot_mode:
                     # Modo UnicoBot - processa todas as cryptos
-                    print("🤖 Executando ciclo UnicoBot...")
+                    print("Executando ciclo UnicoBot...")
                     self._run_unico_bot_cycle()
                     print("✅ Ciclo UnicoBot concluído")
                 else:
@@ -1791,7 +2107,6 @@ class MultiBotEngine:
                 self.coordinator.save_state()
                 
                 # Salva dados para o dashboard (saldos, meta diária)
-                self._save_dashboard_data()
                 self._save_dashboard_data()
                 
                 # Imprime resumo
@@ -1816,13 +2131,7 @@ class MultiBotEngine:
         """Para a execução"""
         self.running = False
         
-        # Para AI Monitor
-        if self.ai_monitor_enabled and self.ai_monitor:
-            try:
-                self.ai_monitor.stop()
-                print("🛑 AI Monitor parado")
-            except Exception as e:
-                print(f"⚠️ Erro ao parar AI Monitor: {e}")
+        # Sistema parado com sucesso
 
 
 def main():

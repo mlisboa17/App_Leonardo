@@ -27,7 +27,7 @@ class ExchangeClient:
             'enableRateLimit': True,
             'timeout': 60000,  # 60 segundos de timeout (aumentado)
             'options': {
-                'defaultType': 'spot',  # spot, future, swap
+                'defaultType': 'spot',  # ✅ CORRIGIDO: spot para usar conta de SPOT
                 'adjustForTimeDifference': True,  # ✅ Ajusta diferença de tempo automaticamente
                 'recvWindow': 60000,  # ✅ Janela de tempo maior (60 segundos)
             }
@@ -158,11 +158,13 @@ class ExchangeClient:
         
         try:
             # Primeira tentativa com valor original
+            logger.info(f"🔄 Tentando criar ordem MARKET {side.upper()}: {amount} {symbol}")
             order = self.exchange.create_market_order(ccxt_symbol, side, amount)
             logger.info(f"📝 Ordem MARKET {side.upper()}: {amount} {symbol} - ID: {order['id']}")
             return order
         except Exception as e:
             error_msg = str(e).lower()
+            logger.warning(f"❌ Falhou primeira tentativa: {e}")
             
             # Se erro de saldo insuficiente, tentar com valor menor
             if 'insufficient balance' in error_msg or 'insufficient funds' in error_msg:
@@ -172,6 +174,8 @@ class ExchangeClient:
                     if not balance:
                         logger.error(f"❌ Não foi possível obter saldo para ajustar ordem")
                         return None
+                    
+                    logger.info(f"🔄 Saldo atual para ajuste: USDT free = ${balance.get('USDT', {}).get('free', 0):.2f}")
                     
                     if side.lower() == 'buy':
                         # Para compra, usar 90% do USDT disponível

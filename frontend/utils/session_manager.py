@@ -33,7 +33,11 @@ def get_balances():
     path = Path('data/dashboard_balances.json')
     if path.exists():
         with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            balances = json.load(f)
+            # Garantir que a chave 'poupanca' exista
+            if 'poupanca' not in balances:
+                balances['poupanca'] = 0.0
+            return balances
     return {'usdt_balance': 0, 'crypto_balance': 0, 'poupanca': 0, 'total_balance': 0}
 
 def get_watchlist():
@@ -50,6 +54,14 @@ def get_unico_config():
         with open(path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
     return {}
+
+def get_capital_inicial():
+    """Retorna o capital inicial em USD"""
+    # Capital inicial: R$ 10.610,00 (5550 + 5060)
+    brl_capital = 5550 + 5060
+    # Converter para USD usando taxa aproximada
+    usd_rate = 5.4  # taxa aproximada BRL/USD
+    return brl_capital / usd_rate
 
 def force_reload_all():
     st.session_state['force_reload'] = True

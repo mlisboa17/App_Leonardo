@@ -83,7 +83,7 @@ class AIPersistence:
         
         if os.path.exists(self.metadata_file):
             try:
-                with open(self.metadata_file, 'r') as f:
+                with open(self.metadata_file, 'r', encoding='utf-8') as f:
                     return {**default, **json.load(f)}
             except:
                 pass
@@ -235,7 +235,7 @@ class AIPersistence:
                 
                 if os.path.exists(info_file):
                     try:
-                        with open(info_file, 'r') as f:
+                        with open(info_file, 'r', encoding='utf-8') as f:
                             info.update(json.load(f))
                     except:
                         pass
@@ -282,19 +282,19 @@ class AIPersistence:
         # Carregar insights
         insights_file = os.path.join(self.models_dir, "insights.json")
         if os.path.exists(insights_file):
-            with open(insights_file, 'r') as f:
+            with open(insights_file, 'r', encoding='utf-8') as f:
                 export_data['insights'] = json.load(f)
         
         # Carregar trades
         trades_file = os.path.join(self.ai_dir, "completed_trades.json")
         if os.path.exists(trades_file):
-            with open(trades_file, 'r') as f:
+            with open(trades_file, 'r', encoding='utf-8') as f:
                 export_data['completed_trades'] = json.load(f)
         
         # Carregar histórico de config
         config_file = os.path.join(self.data_dir, "config_history", "changes_history.json")
         if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
+            with open(config_file, 'r', encoding='utf-8') as f:
                 export_data['config_changes'] = json.load(f)
         
         # Salvar
@@ -346,7 +346,7 @@ class AIPersistence:
                 trades_file = os.path.join(self.ai_dir, "completed_trades.json")
                 existing = []
                 if os.path.exists(trades_file):
-                    with open(trades_file, 'r') as f:
+                    with open(trades_file, 'r', encoding='utf-8') as f:
                         existing = json.load(f)
                 
                 # Merge
@@ -390,7 +390,7 @@ class AIPersistence:
         trades_file = os.path.join(self.ai_dir, "completed_trades.json")
         if os.path.exists(trades_file):
             try:
-                with open(trades_file, 'r') as f:
+                with open(trades_file, 'r', encoding='utf-8') as f:
                     trades = json.load(f)
                     stats['total_trades_learned'] = len(trades)
             except:
@@ -410,7 +410,7 @@ class AIPersistence:
         insights_file = os.path.join(self.models_dir, "insights.json")
         if os.path.exists(insights_file):
             try:
-                with open(insights_file, 'r') as f:
+                with open(insights_file, 'r', encoding='utf-8') as f:
                     insights = json.load(f)
                     stats['insights_count'] = sum([
                         len(insights.get('best_rsi_range', {})),
@@ -464,7 +464,7 @@ class AIPersistence:
         if os.path.exists(insights_file):
             status['insights']['exists'] = True
             try:
-                with open(insights_file, 'r') as f:
+                with open(insights_file, 'r', encoding='utf-8') as f:
                     json.load(f)
                 status['insights']['valid'] = True
             except:
