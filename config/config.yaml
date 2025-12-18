@@ -26,9 +26,11 @@ logging:
   file: logs/trading_bot.log
   level: INFO
 safety:
-  max_daily_loss: 100.0
+  max_daily_loss: 2.0
   max_drawdown: 5
-  price_deviation_limit: 20.0
+  price_deviation_limit: 5.0
+  require_safety_manager: true
+  enforce_kill_switch: true
 strategy:
   type: smart
 trading:

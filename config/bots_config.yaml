@@ -103,12 +103,12 @@ bot_estavel:
     symbol: AAVEUSDT
     weight: 12.5
   risk:
-    max_hold_minutes: 240
+    max_hold_minutes: 150
     min_interval_minutes: 60
     min_profit: 0.3
     stop_loss: -0.5
-    take_profit: 0.3
-    trailing_stop: 0.2
+    take_profit: 0.7
+    trailing_stop: 0.4
   rsi:
     neutral_zone:
     - 45
@@ -119,7 +119,7 @@ bot_estavel:
   speed_profile: slow
   strategy_type: holder
   trading:
-    amount_per_trade: 10
+    amount_per_trade: 30
     max_positions: 24
     timeframe: 15m
 bot_medio:
@@ -129,7 +129,7 @@ bot_medio:
     buy_conditions: majority
     buy_macd_cross: true
     buy_price_above_sma20: false
-    buy_rsi_below: 32
+    buy_rsi_below: 36
     buy_trend: any
     sell_conditions: majority
     sell_macd_cross_down: true
@@ -154,10 +154,10 @@ bot_medio:
     weight: 15
   risk:
     max_hold_minutes: 120
-    min_interval_minutes: 15
+    min_interval_minutes: 30
     min_profit: 0.5
-    stop_loss: -0.8
-    take_profit: 0.3
+    stop_loss: -0.9
+    take_profit: 1.1
     trailing_stop: 0.4
   rsi:
     neutral_zone:
@@ -169,7 +169,7 @@ bot_medio:
   speed_profile: medium
   strategy_type: swing
   trading:
-    amount_per_trade: 10
+    amount_per_trade: 30
     max_positions: 30
     timeframe: 5m
 bot_meme:
@@ -199,12 +199,12 @@ bot_meme:
     symbol: PEPEUSDT
     weight: 30
   risk:
-    max_hold_minutes: 30
-    min_interval_minutes: 2
+    max_hold_minutes: 35
+    min_interval_minutes: 60
     min_profit: 0.3
-    stop_loss: -0.6
-    take_profit: 0.3
-    trailing_stop: 0.3
+    stop_loss: -1.3
+    take_profit: 2.0
+    trailing_stop: 0.4
   rsi:
     neutral_zone:
     - 40
@@ -215,7 +215,7 @@ bot_meme:
   speed_profile: ultra_fast
   strategy_type: scalper
   trading:
-    amount_per_trade: 10
+    amount_per_trade: 20
     max_positions: 40
     timeframe: 1m
 bot_unico:
