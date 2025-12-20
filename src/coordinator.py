@@ -583,7 +583,7 @@ class BotCoordinator:
                 'balance': self.stats.total_capital,
                 'daily_pnl': self.stats.daily_pnl,
                 'loss_to_recover': getattr(self.capital_manager, 'loss_to_recover_usd', 0.0),
-                'daily_target_usd': float(daily_target_usd),
+                'daily_target_usd': round(float(daily_target_usd), 2),
                 'progress_to_goal': f"{progress_pct:.1f}%"
             }
 
