@@ -39,7 +39,7 @@ strategy:
   # Parâmetros adicionais para o SmartStrategy (ajustados para operação mais agressiva)
   # Allow buying below SMA200 only for specified symbols (per-symbol override list).
   allow_below_sma_global: false  # não permitir bypass global
-  allow_below_sma_symbols: [BTCUSDT, ETHUSDT]
+  allow_below_sma_symbols: []  # Nenhuma exceção — Trava Total ativa
   require_approval_for_below_sma: true
   trailing_activation_pct: 0.6  # % para ativar trailing (mais cedo)
   trailing_retrace_pct: 1.8   # % de retrace para trailing (mais apertado)
@@ -56,14 +56,14 @@ strategy:
       require_ema9_above_ema21: true
       per_symbol:
         BTCUSDT:
-          allow_below_sma: true
+          allow_below_sma: false
           stop_loss: -0.45
           take_profit: 1.3
           trailing:
             activate_at_profit_pct: 0.6
             retrace_pct: 2.0
         ETHUSDT:
-          allow_below_sma: true
+          allow_below_sma: false
           stop_loss: -0.45
           take_profit: 1.3
           trailing:
@@ -130,5 +130,5 @@ trading:
   timeframe: 1m
 
 global:
-  initial_capital: 12120
+  initial_capital: 2000
 

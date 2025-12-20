@@ -293,8 +293,36 @@ class BotCoordinator:
             if total <= 0:
                 total = 1933.11
                 self.logger.warning(f"Balance não informado pela exchange. Definindo fallback total_capital=${total}")
+
+            # Override to ensure operational capital >= configured initial capital (user override)
+            global_initial = float(self.config.get('global', {}).get('initial_capital', total))
+            if total < global_initial:
+                self.logger.warning(f"Saldo na exchange (${total:.2f}) < initial_capital configurado (${global_initial:.2f}) — aplicando override operacional para ${global_initial:.2f}")
+                # Audit log
+                try:
+                    from src.audit import get_audit_logger, AuditEvent
+                    audit = get_audit_logger()
+                    ev = AuditEvent(timestamp=datetime.utcnow().isoformat(),
+                                    event_type='capital_override',
+                                    severity='warning',
+                                    source='coordinator',
+                                    target='global.initial_capital',
+                                    action='override_set',
+                                    details={'exchange_balance': total, 'applied_capital': global_initial})
+                    audit.log_event(ev)
+                except Exception:
+                    pass
+                total = global_initial
+
             self.stats.total_capital = total
             self.stats.available_capital = total
+            # If capital_manager exists, sync current balance
+            try:
+                if hasattr(self, 'capital_manager') and self.capital_manager:
+                    self.capital_manager.current_balance = float(total)
+                    self.capital_manager.available_balance = float(total)
+            except Exception:
+                pass
         except Exception as e:
             self.stats.total_capital = 1933.11
             self.stats.available_capital = 1933.11
@@ -527,11 +555,36 @@ class BotCoordinator:
             from src.communication.telegram_client import send_dashboard
 
             # Aba 1 - Resumo
+            # Calcula meta diária de forma consistente (tenta usar data/dashboard_balances.json, senão usa config.global.initial_capital * 1%)
+            daily_target_usd = None
+            try:
+                from pathlib import Path
+                bpath = Path('data/dashboard_balances.json')
+                if bpath.exists():
+                    import json
+                    with open(bpath, 'r') as f:
+                        b = json.load(f)
+                    # prefer explicit daily_target_usd if set, else use daily_target_pct or default 1%
+                    if b.get('daily_target_usd'):
+                        daily_target_usd = float(b.get('daily_target_usd'))
+                    else:
+                        pct = float(b.get('daily_target_pct', 1.0)) / 100.0
+                        initial_cap = float(b.get('initial_capital') or self.config.get('global', {}).get('initial_capital', self.stats.total_capital))
+                        daily_target_usd = initial_cap * pct
+            except Exception:
+                daily_target_usd = None
+            if not daily_target_usd:
+                initial_cap = float(self.config.get('global', {}).get('initial_capital', self.stats.total_capital))
+                daily_target_usd = initial_cap * 0.01
+
+            progress_pct = (self.stats.daily_pnl / daily_target_usd * 100) if daily_target_usd and daily_target_usd > 0 else 0.0
+
             summary = {
                 'balance': self.stats.total_capital,
                 'daily_pnl': self.stats.daily_pnl,
                 'loss_to_recover': getattr(self.capital_manager, 'loss_to_recover_usd', 0.0),
-                'progress_to_goal': f"{(self.stats.total_capital/2125.0*100):.1f}%"
+                'daily_target_usd': float(daily_target_usd),
+                'progress_to_goal': f"{progress_pct:.1f}%"
             }
 
             # Aba 2 - Performance por bot
@@ -544,12 +597,28 @@ class BotCoordinator:
                 }
 
             # Aba 3 - Risco
+            try:
+                from src.metrics.sma_block_counter import get_today_count
+                sma_blocks_today, by_symbol = get_today_count()
+            except Exception:
+                sma_blocks_today, by_symbol = 0, {}
+
             risk = {
                 'stops_triggered': 0,  # Placeholder - incrementar quando stops ocorrerem numa implementação futura
-                'ema_savings': 0.0
+                'ema_savings': 0.0,
+                'sma_blocks_today': sma_blocks_today,
+                'sma_blocks_by_symbol': by_symbol
             }
 
             send_dashboard(summary, performance, risk)
+
+            # Send short SMA blocks summary via Telegram (daily)
+            try:
+                from src.communication import telegram_client as tg
+                short = f"Relatório diário - SMA Blocks: {risk.get('sma_blocks_today', 0)}\nDetalhe por símbolo: {risk.get('sma_blocks_by_symbol', {})}"
+                tg.send_markdown_v2(tg.escape_markdown_v2(short))
+            except Exception:
+                self.logger.exception("Falha ao enviar resumo diário de SMA blocks via Telegram")
             self.logger.info("[DAILY_CLOSE] Dashboard enviado por Telegram")
         except Exception as e:
             self.logger.error(f"[DAILY_CLOSE] Falha ao enviar dashboard: {e}")

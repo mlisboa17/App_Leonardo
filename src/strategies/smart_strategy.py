@@ -89,7 +89,7 @@ class SmartStrategy:
                 'rsi_urgency_factor': 0.8,
                 'min_profit': 0.10,
                 'category': 'stable',
-                'allow_below_sma': True,
+                'allow_below_sma': False,
                 'trailing': {
                     'activate_at_profit_pct': 0.5,
                     'retrace_pct': 0.15
@@ -105,7 +105,7 @@ class SmartStrategy:
                 'rsi_urgency_factor': 0.8,
                 'min_profit': 0.10,
                 'category': 'stable',
-                'allow_below_sma': True,
+                'allow_below_sma': False,
                 'trailing': {
                     'activate_at_profit_pct': 0.5,
                     'retrace_pct': 0.15
@@ -1223,6 +1223,27 @@ class SmartStrategy:
 
         # Bloqueia compra se preço atual estiver abaixo da EMA_200 (tendência de baixa)
         if current_price < ema_200:
+            # Log audit event and increment daily counter
+            try:
+                from src.audit import get_audit_logger, AuditEvent
+                audit = get_audit_logger()
+                event = AuditEvent(
+                    timestamp=datetime.now().isoformat(),
+                    event_type='sma_block',
+                    severity='info',
+                    source='strategy',
+                    target=symbol,
+                    action='blocked_by_ema200',
+                    details={'price': current_price, 'ema_200': ema_200}
+                )
+                audit.log_event(event)
+            except Exception:
+                self.logger.exception("Falha ao registrar evento de auditoria SMA block")
+            try:
+                from src.metrics.sma_block_counter import increment
+                increment(symbol.replace('/', '').upper())
+            except Exception:
+                self.logger.exception("Falha ao incrementar contador de SMA blocks")
             return False, f"Bloqueado pela tendência (price {current_price:.8f} < EMA_200 {ema_200:.8f})"
 
         # Checa volume: precisa ser maior que média das últimas 20 barras
@@ -1474,6 +1495,37 @@ class SmartStrategy:
         strategy_global_flag = bool(getattr(self, 'allow_below_sma_global', False)) or bool(strategy_cfg.get('allow_below_sma_global', False))
         cfg_allow = bool(cfg.get('allow_below_sma', False)) or strategy_global_flag or (key in allowed_below_sma_list)
 
+        # --- Opportunity notifier (price > SMA200) with rate limit ---
+        try:
+            from src.communication import telegram_client as tg
+            from datetime import datetime, timedelta
+
+            now = datetime.utcnow()
+            last = getattr(self, '_opportunity_last_notified', {})
+            notify_interval = timedelta(minutes=60)
+            if last.get(key) is None:
+                self._opportunity_last_notified = self._opportunity_last_notified if hasattr(self, '_opportunity_last_notified') else {}
+            if last.get(key) is None:
+                last_time = None
+            else:
+                last_time = last.get(key)
+
+            if last_time is None or (now - last_time) >= notify_interval:
+                # If price above SMA200, send a short notification that opportunity detected
+                if last_close > sma200:
+                    msg = f"Oportunidade detectada: {symbol} \nPreço: {last_close:.4f} > SMA200: {sma200:.4f} (monitorando para sinal de compra)"
+                    try:
+                        tg.send_markdown_v2(tg.escape_markdown_v2(msg))
+                    except Exception:
+                        try:
+                            tg.send_message(msg)
+                        except Exception:
+                            pass
+                    self._opportunity_last_notified[key] = now
+        except Exception:
+            # If telegram not available, skip silently
+            pass
+
         # Sanity: required safety flags
         safety_cfg = self.config.get('safety', {})
         if not safety_cfg.get('require_safety_manager', True):
@@ -1513,6 +1565,28 @@ class SmartStrategy:
             else:
                 # allow_below_sma param still supported (manual override via call) but needs overrides/approvals
                 if not allow_below_sma:
+                    # Log audit event and increment daily counter
+                    try:
+                        from src.audit import get_audit_logger, AuditEvent
+                        audit = get_audit_logger()
+                        event = AuditEvent(
+                            timestamp=datetime.now().isoformat(),
+                            event_type='sma_block',
+                            severity='info',
+                            source='strategy',
+                            target=symbol,
+                            action='blocked_by_sma200',
+                            details={'last_close': last_close, 'sma200': sma200}
+                        )
+                        audit.log_event(event)
+                    except Exception:
+                        self.logger.exception("Falha ao registrar evento de auditoria SMA block")
+                    try:
+                        from src.metrics.sma_block_counter import increment
+                        increment(key)
+                    except Exception:
+                        self.logger.exception("Falha ao incrementar contador de SMA blocks")
+
                     self.logger.info(f"[-] Mercado perigoso para {symbol}: preço abaixo da SMA200 ({last_close:.4f} <= {sma200:.4f})")
                     return {**result, 'status': 'aborted_market_bias', 'reason': 'below_sma200'}
                 # If allow_below_sma requested, require override_limits and at least one approval
