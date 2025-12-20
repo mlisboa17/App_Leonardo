@@ -127,7 +127,7 @@ trading:
   - MEME/USDT
   - GALA/USDT
   - SAND/USDT
-  timeframe: 1m
+  timeframe: 5m
 
 global:
   initial_capital: 2000

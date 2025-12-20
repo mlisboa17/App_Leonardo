@@ -1759,7 +1759,7 @@ class MultiBotEngine:
                 # Obtém candles
                 ohlcv = self.exchange.fetch_ohlcv(
                     symbol=symbol,
-                    timeframe=bot.trading_config.get('timeframe', '1m'),
+                    timeframe=bot.trading_config.get('timeframe', '5m'),
                     limit=200
                 )
                 

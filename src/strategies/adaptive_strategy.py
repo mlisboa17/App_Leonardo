@@ -122,7 +122,7 @@ class AdaptiveStrategy:
                         # Método síncrono
                         candles = self.exchange.fetch_ohlcv(
                             symbol=symbol,
-                            timeframe='1m',
+                            timeframe='5m',
                             since=chunk_since,
                             limit=1000
                         )
