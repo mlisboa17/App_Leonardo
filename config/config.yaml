@@ -4,10 +4,12 @@ data:
   csv_reports: data/reports
 exchange:
   name: binance
-  testnet: false  # PRODUÇÃO - DINHEIRO REAL
+  testnet: false  # PRODUÇÃO - DINHEIRO REAL  # PRODUÇÃO - DINHEIRO REAL  # PRODUÇÃO - DINHEIRO REAL
 execution:
-  dry_run: false  # PRODUÇÃO - TRADES REAIS
+  dry_run: false  # PRODUÇÃO - TRADES REAIS  # PRODUÇÃO - TRADES REAIS  # PRODUÇÃO - TRADES REAIS
   interval_seconds: 3
+  prefer_limit: true        # Prefer LIMIT (maker) orders, fallback to market if not filled
+  limit_order_timeout_sec: 5
 indicators:
   macd:
     fast: 12
@@ -24,19 +26,78 @@ indicators:
     - 200
 logging:
   file: logs/trading_bot.log
-  level: INFO
+  level: DEBUG
 safety:
-  max_daily_loss: 2.0
+  # Daily loss limit em porcentagem (ex: 1.5 => 1.5%)
+  max_daily_loss: 1.5
   max_drawdown: 5
   price_deviation_limit: 5.0
   require_safety_manager: true
   enforce_kill_switch: true
 strategy:
   type: smart
+  # Parâmetros adicionais para o SmartStrategy (ajustados para operação mais agressiva)
+  # Allow buying below SMA200 only for specified symbols (per-symbol override list).
+  allow_below_sma_global: false  # não permitir bypass global
+  allow_below_sma_symbols: [BTCUSDT, ETHUSDT]
+  require_approval_for_below_sma: true
+  trailing_activation_pct: 0.6  # % para ativar trailing (mais cedo)
+  trailing_retrace_pct: 1.8   # % de retrace para trailing (mais apertado)
+
+  # Perfil por bot com thresholds solicitados (RSI/MACD/SMA20)
+  # Default conservative sell RSI (less sensitive): 55-60
+  default_sell_rsi: 60
+  bot_profiles:
+    bot_estavel:
+      rsi_buy: 46
+      rsi_sell: 60
+      min_hold_minutes: 15
+      macd_threshold: -0.01
+      require_ema9_above_ema21: true
+      per_symbol:
+        BTCUSDT:
+          allow_below_sma: true
+          stop_loss: -0.45
+          take_profit: 1.3
+          trailing:
+            activate_at_profit_pct: 0.6
+            retrace_pct: 2.0
+        ETHUSDT:
+          allow_below_sma: true
+          stop_loss: -0.45
+          take_profit: 1.3
+          trailing:
+            activate_at_profit_pct: 0.6
+            retrace_pct: 2.0
+    bot_medio:
+      rsi_buy: 43
+      rsi_sell: 60
+      min_hold_minutes: 15
+      macd_threshold: -0.01
+      require_ema9_above_ema21: true
+      per_symbol:
+        ETHUSDT:
+          take_profit: 2.2
+          stop_loss: -0.6
+          trailing:
+            activate_at_profit_pct: 0.6
+            retrace_pct: 1.8
+    bot_volatil:
+      rsi_buy: 39
+      rsi_sell: 60
+      min_hold_minutes: 15
+      macd_threshold: 0.01
+      allow_macd_neutral: true
+    bot_meme:
+      rsi_buy: 32
+      rsi_sell: 60
+      min_hold_minutes: 15
+      macd_threshold: 0.01
+      require_volume_high: true
 trading:
-  amount_per_trade: 100.0
-  daily_profit_target: 25.0  # Meta diária equilibrada
-  max_positions: 25  # Mais posições simultâneas
+  amount_per_trade: 38.23
+  daily_profit_target: 10.0  # META REALISTA  # Meta diária equilibrada
+  max_positions: 40  # Mais posições simultâneas (aumentado) 
   max_total_investment: 200.0  # APENAS 10% do capital inicial
   symbols:
   - BTC/USDT
@@ -67,3 +128,7 @@ trading:
   - GALA/USDT
   - SAND/USDT
   timeframe: 1m
+
+global:
+  initial_capital: 12120
+

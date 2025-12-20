@@ -28,18 +28,17 @@ class ScalpingStrategy:
         self.rsi_oversold = 35
         self.rsi_overbought = 65
         self.stop_loss_pct = 1.5  # 1.5% stop
-        self.take_profit_pct = 0.8  # 0.8% take
-        
+        # Ajuste para preservar capital: take profit aumentado para cobrir taxas/slippage
+        self.take_profit_pct = 1.2  # 1.2% take (anteriormente 0.8%)
+
         # Meta diária
         self.daily_target = 100.0  # $100/dia
         self.min_trades_per_day = 50
-        
+
         # Controle de trades
         self.last_trade_time = {}
-        self.cooldown_seconds = 10
-        
-        # Estatísticas
-        self.trades_today = 0
+        # Aumenta cooldown para 15 minutos para reduzir operações excessivas
+        self.cooldown_seconds = 15 * 60  # 900 segundos (15 minutos)
         self.profit_today = 0.0
         self.last_reset = datetime.now().date()
         # DynamicFairFactor
@@ -70,16 +69,17 @@ class ScalpingStrategy:
         time_since_last = (datetime.now() - self.last_trade_time[symbol]).total_seconds()
         return time_since_last >= self.cooldown_seconds
     
-    def should_buy(self, df: pd.DataFrame, symbol: str) -> Tuple[bool, str]:
+    def should_buy(self, df: pd.DataFrame, symbol: str, spread_pct: float = None) -> Tuple[bool, str]:
         """
         Sinal de COMPRA - Scalping
-        
+
         Condições:
         1. RSI < 35 (oversold agressivo)
         2. MACD cruzando pra cima
         3. Volume acima da média
         4. Preço tocou SMA 20 (suporte)
         5. Sem cooldown
+        6. Spread abaixo de 0.05% (se informado)
         """
         if df.empty or len(df) < 20:
             return False, "Dados insuficientes"
@@ -90,6 +90,15 @@ class ScalpingStrategy:
         # Verifica cooldown
         if not self.can_trade(symbol):
             return False, f"Cooldown ({self.cooldown_seconds}s)"
+
+        # 6. Verifica spread (se informado em %)
+        if spread_pct is not None:
+            try:
+                # spread_pct is given as percentage (e.g., 0.02 => 0.02%)
+                if float(spread_pct) > 0.05:
+                    return False, f"Spread alto: {spread_pct:.3f}% > 0.05%"
+            except Exception:
+                pass
         
         # Verifica se já atingiu meta
         if self.profit_today >= self.daily_target:

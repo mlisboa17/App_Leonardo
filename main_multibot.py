@@ -22,9 +22,9 @@ Uso:
 try:
     from dotenv import load_dotenv
     load_dotenv('config/.env')
-    print("✅ Variáveis de ambiente carregadas do .env")
+    print("Variáveis de ambiente carregadas do .env")
 except ImportError:
-    print("⚠️ python-dotenv não instalado. Usando variáveis do sistema.")
+    print("Aviso: python-dotenv não instalado. Usando variáveis do sistema.")
 
 import os
 import sys
@@ -43,6 +43,8 @@ from src.coordinator import BotCoordinator, get_coordinator
 from src.core.exchange_client import ExchangeClient
 from src.strategies.smart_strategy import SmartStrategy
 from src.indicators.technical_indicators import TechnicalIndicators
+from src.metrics.metrics_manager import MetricsManager
+from src.ai.ai_poller import AIPoller
 
 # ===== IMPORTAÇÃO DO UNICO BOT =====
 try:
@@ -90,6 +92,74 @@ AI_MONITOR_AVAILABLE = False
 
 
 class MultiBotEngine:
+    """
+    Engine principal que executa todos os bots em paralelo.
+    Agora com IA adaptativa e AUTO-TUNER integrados!
+
+    MODOS DE OPERAÇÃO:
+    1. UNICO BOT: Um único bot gerencia TODAS as cryptos e TODO o saldo
+    2. MULTI BOT: 4 bots especializados (estável, médio, volátil, meme)
+    """
+
+    def liquidate_profitable_positions(self, min_profit_pct: float = 0.1) -> dict:
+        """
+        💸 VENDE APENAS POSIÇÕES COM LUCRO
+        min_profit_pct: lucro mínimo em % para considerar venda (default: 0.1%)
+        """
+        print("\n" + "="*70)
+        print(f"💸 LIQUIDANDO POSIÇÕES COM LUCRO (>{min_profit_pct:.2f}%):")
+        print("="*70)
+
+        results = {
+            'sold': 0,
+            'failed': 0,
+            'total_pnl': 0,
+            'positions': []
+        }
+
+        for symbol, pos in list(self.positions.items()):
+            try:
+                ticker = self.exchange.fetch_ticker(symbol)
+                if not ticker:
+                    continue
+                current_price = ticker.get('last', ticker.get('close', 0))
+                entry_price = pos.get('entry_price')
+                if not entry_price:
+                    continue
+                pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                if pnl_pct >= min_profit_pct:
+                    amount = pos.get('amount')
+                    if not amount:
+                        continue
+                    order = self.exchange.create_market_order(
+                        symbol=symbol,
+                        side='sell',
+                        amount=amount
+                    )
+                    if order:
+                        results['sold'] += 1
+                        pnl_usd = pos.get('amount_usd', 0) * (pnl_pct / 100)
+                        results['total_pnl'] += pnl_usd
+                        print(f"   ✅ {symbol}: {amount:.6f} @ ${current_price:.4f} | PnL: {pnl_pct:+.2f}% (${pnl_usd:+.2f})")
+                        del self.positions[symbol]
+                        results['positions'].append({
+                            'symbol': symbol,
+                            'amount': amount,
+                            'price': current_price,
+                            'pnl_pct': pnl_pct,
+                            'pnl_usd': pnl_usd
+                        })
+                    else:
+                        results['failed'] += 1
+                        print(f"   ❌ {symbol}: Falha na venda")
+            except Exception as e:
+                results['failed'] += 1
+                print(f"   ❌ {symbol}: Erro - {e}")
+
+        self._save_positions()
+        print(f"\nResumo: {results['sold']} vendidas com lucro, {results['failed']} falharam.")
+        return results
+
     def redeem_earn_flexible(self, min_amount=10):
         """Resgata automaticamente saldo de TODOS os ativos do Earn Flexível para Spot se disponível e acima do mínimo."""
         try:
@@ -111,15 +181,7 @@ class MultiBotEngine:
                         print(f"[Earn] Nada a resgatar ou valor insuficiente para {asset} (disponível: {amount})")
         except Exception as e:
             print(f"[Earn] Erro ao tentar resgatar do Earn Flexível: {e}")
-    """
-    Engine principal que executa todos os bots em paralelo.
-    Agora com IA adaptativa e AUTO-TUNER integrados!
-    
-    MODOS DE OPERAÇÃO:
-    1. UNICO BOT: Um único bot gerencia TODAS as cryptos e TODO o saldo
-    2. MULTI BOT: 4 bots especializados (estável, médio, volátil, meme)
-    """
-    
+
     def __init__(self):
         # ===== DEFINE DIRETÓRIO DE DADOS =====
         # Permite subconta usar seu próprio diretório
@@ -330,6 +392,45 @@ class MultiBotEngine:
         
         # Arquivo de histórico global
         self.history_file = self.data_dir / "multibot_history.json"
+
+        # Métricas (daily/monthly progress)
+        try:
+            init_cap = 0.0
+            try:
+                init_cap = float(self.coordinator.config.get('global', {}).get('initial_capital', 0.0))
+            except Exception:
+                init_cap = 0.0
+            self.metrics = MetricsManager(self.data_dir, initial_cap=init_cap)
+            # aplica target mensal se disponível
+            mt = self.coordinator.config.get('global', {}).get('monthly_target')
+            if mt:
+                try:
+                    self.metrics.set_monthly_target(float(mt))
+                except Exception:
+                    pass
+            # reseta diário se necessário (timezone Brasil)
+            try:
+                self.metrics.reset_daily_if_needed()
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"⚠️ Não foi possível inicializar MetricsManager: {e}")
+            self.metrics = None
+        # ===== INICIAR POLLER DE IA (6h) =====
+        try:
+            self.ai_poller = AIPoller(self.coordinator, interval_seconds=6*3600)
+            # start poller only if AI subsystem present
+            try:
+                from src.ai import get_ai_manager
+                # start poller in background
+                self.ai_poller.start()
+                print("🔄 AI Poller iniciado (a cada 6 horas)")
+            except Exception:
+                # still start poller; it will gracefully skip unavailable clients
+                self.ai_poller.start()
+        except Exception as e:
+            print(f"⚠️ Não foi possível iniciar AI Poller: {e}")
+            self.ai_poller = None
         
         # ===== HISTÓRICO POR BOT =====
         self.bot_history_files = {
@@ -537,12 +638,39 @@ class MultiBotEngine:
         if positions_file.exists():
             try:
                 with open(positions_file, 'r', encoding='utf-8') as f:
-                    self.positions = json.load(f)
-                    
+                    raw = json.load(f)
+                    # Normaliza formatos legados (lista) para o formato atual (dict)
+                    if isinstance(raw, dict):
+                        loaded = raw
+                    elif isinstance(raw, list):
+                        # Converte lista de posições para dict keyed by symbol quando possível
+                        loaded = {}
+                        for i, item in enumerate(raw):
+                            if not isinstance(item, dict):
+                                continue
+                            key = item.get('symbol') or item.get('pair') or item.get('s') or item.get('asset') or item.get('symbol_name')
+                            if key:
+                                loaded[key] = item
+                            else:
+                                # fallback com índice para evitar perda de dados
+                                loaded[f'pos_{i}'] = item
+                        if not loaded:
+                            loaded = {}
+                        if isinstance(raw, list):
+                            self.logger.warning("⚠️ Arquivo de posições estava em formato antigo (lista); convertido para dict para compatibilidade")
+                    else:
+                        loaded = {}
+
+                    self.positions = loaded
+
                     # Converte timestamps
                     for symbol, pos in self.positions.items():
-                        if 'time' in pos and isinstance(pos['time'], str):
-                            pos['time'] = datetime.fromisoformat(pos['time'])
+                        if isinstance(pos, dict) and 'time' in pos and isinstance(pos['time'], str):
+                            try:
+                                pos['time'] = datetime.fromisoformat(pos['time'])
+                            except Exception:
+                                # ignora formatos inesperados de tempo
+                                pass
                     
                 self.logger.info(f"📂 {len(self.positions)} posições restauradas")
             except Exception as e:
@@ -554,11 +682,28 @@ class MultiBotEngine:
         
         # Prepara para JSON (converte datetime)
         positions_to_save = {}
-        for symbol, pos in self.positions.items():
-            positions_to_save[symbol] = pos.copy()
-            if 'time' in positions_to_save[symbol]:
-                positions_to_save[symbol]['time'] = pos['time'].isoformat()
-        
+        if isinstance(self.positions, dict):
+            for symbol, pos in self.positions.items():
+                positions_to_save[symbol] = pos.copy()
+                if 'time' in positions_to_save[symbol] and hasattr(positions_to_save[symbol]['time'], 'isoformat'):
+                    positions_to_save[symbol]['time'] = pos['time'].isoformat()
+        elif isinstance(self.positions, list):
+            # Compatibilidade: converte lista de posições para dict
+            for i, item in enumerate(self.positions):
+                if not isinstance(item, dict):
+                    continue
+                key = item.get('symbol') or item.get('pair') or item.get('s') or item.get('asset') or item.get('symbol_name') or f'pos_{i}'
+                positions_to_save[key] = item.copy()
+                if 'time' in positions_to_save[key] and isinstance(positions_to_save[key]['time'], str):
+                    try:
+                        # assume already isoformat string
+                        pass
+                    except Exception:
+                        pass
+        else:
+            # Unexpected format - salva vazio para não quebrar dashboard
+            positions_to_save = {}
+
         with open(self.data_dir / "multibot_positions.json", 'w') as f:
             json.dump(positions_to_save, f, indent=2)
     
@@ -572,6 +717,26 @@ class MultiBotEngine:
             except:
                 pass
         
+        # Normalize and ensure exit reason fields for compatibility
+        if trade.get('reason'):
+            trade['exit_reason'] = trade.get('reason')
+            trade['close_reason'] = trade.get('reason')
+        else:
+            # Fallback mapping from status if available
+            status = str(trade.get('status', '')).lower()
+            if 'stop' in status or 'stopped' in status:
+                trade['exit_reason'] = 'STOP_LOSS'
+                trade['close_reason'] = 'STOP_LOSS'
+            elif 'profit' in status or 'take' in status or 'tp' in status:
+                trade['exit_reason'] = 'TAKE_PROFIT'
+                trade['close_reason'] = 'TAKE_PROFIT'
+            elif 'timeout' in status:
+                trade['exit_reason'] = 'TIMEOUT_CLOSED'
+                trade['close_reason'] = 'TIMEOUT_CLOSED'
+            else:
+                trade['exit_reason'] = trade.get('exit_reason', '')
+                trade['close_reason'] = trade.get('close_reason', '')
+
         history.append(trade)
         
         # Mantém últimos 1000 trades
@@ -607,6 +772,10 @@ class MultiBotEngine:
             'timestamp': datetime.now().isoformat(),
             'bot_type': bot_type,
         }
+        # Ensure exit_reason/close_reason normalized for new trades
+        if trade_record.get('reason'):
+            trade_record['exit_reason'] = trade_record.get('reason')
+            trade_record['close_reason'] = trade_record.get('reason')
         history.append(trade_record)
         
         # Mantém últimos 500 trades por bot
@@ -619,6 +788,13 @@ class MultiBotEngine:
         
         # Atualiza estatísticas do bot
         self._update_bot_stats(bot_type, trade)
+
+        # Atualiza métricas globais (daily/monthly)
+        try:
+            if getattr(self, 'metrics', None):
+                self.metrics.record_trade(trade.get('pnl', 0))
+        except Exception:
+            pass
         
         # Também salva no histórico global
         self._save_trade_history(trade_record)
@@ -1304,8 +1480,29 @@ class MultiBotEngine:
         for close_info in positions_to_close:
             symbol = close_info['symbol']
             try:
+                # Verifica se a posição ainda existe (pode ter sido removida por outro processo)
+                if symbol not in self.positions:
+                    print(f"⚠️ Posição {symbol} já foi fechada - pulando")
+                    continue
+                    
                 pos = self.positions[symbol]
                 amount = pos.get('amount', 0)
+                
+                # Verifica se ainda tem saldo da crypto
+                try:
+                    balance = self.exchange.fetch_balance()
+                    crypto_balance = balance.get(symbol.replace('USDT', ''), {}).get('free', 0)
+                    
+                    if crypto_balance < amount * 0.99:  # 1% margem de erro
+                        print(f"⚠️ Saldo insuficiente para vender {symbol}: {crypto_balance:.6f} < {amount:.6f}")
+                        # Remove posição do registro local
+                        del self.positions[symbol]
+                        open_positions -= 1
+                        continue
+                        
+                except Exception as balance_error:
+                    print(f"⚠️ Erro ao verificar saldo para {symbol}: {balance_error}")
+                    # Continua tentando vender mesmo com erro de verificação
                 
                 # Executa venda
                 order = self.exchange.create_market_order(
@@ -1335,8 +1532,26 @@ class MultiBotEngine:
                     del self.positions[symbol]
                     open_positions -= 1
                     
+                else:
+                    print(f"⚠️ Ordem de venda {symbol} não executada")
+                    
             except Exception as e:
-                print(f"❌ Erro ao vender {symbol}: {e}")
+                error_msg = str(e).lower()
+                if "insufficient balance" in error_msg:
+                    print(f"⚠️ Saldo insuficiente detectado ao vender {symbol} - removendo posição do registro")
+                    # Remove posição do registro local se não há saldo
+                    if symbol in self.positions:
+                        del self.positions[symbol]
+                        open_positions -= 1
+                elif "network" in error_msg or "timeout" in error_msg:
+                    print(f"⚠️ Erro de rede ao vender {symbol}: {e} - tentando novamente em próximo ciclo")
+                    # Não remove posição, tenta novamente depois
+                else:
+                    print(f"❌ Erro ao vender {symbol}: {e}")
+                    # Para outros erros, remove posição para evitar loops
+                    if symbol in self.positions:
+                        del self.positions[symbol]
+                        open_positions -= 1
         
         # ===== 2. PROCURA NOVAS OPORTUNIDADES (COMPRAR?) =====
         if open_positions < max_positions:
@@ -1703,6 +1918,32 @@ class MultiBotEngine:
             self.logger.warning(f"⚠️ Símbolo {symbol} não existe na exchange - pulando")
             return
         amount_usd = bot.trading_config.get('amount_per_trade', 500)
+        # Regra: primeiras N trades mínimo definido (se configurado globalmente ou por bot)
+        try:
+            first_min = bot.trading_config.get('first_n_trades_min_amount', None)
+            first_count = bot.trading_config.get('first_n_trades_count', None)
+            # fallback to ABSOLUTE_LIMITS if bot not configured
+            if not first_min or not first_count:
+                from src.safety.safety_manager import ABSOLUTE_LIMITS
+                first_min = float(first_min or ABSOLUTE_LIMITS.get('FIRST_N_TRADES_MIN_AMOUNT', 0))
+                first_count = int(first_count or ABSOLUTE_LIMITS.get('FIRST_N_TRADES_COUNT', 0))
+
+            if first_count > 0 and first_min > 0:
+                import json
+                history_path = os.path.join(os.getcwd(), 'data', 'multibot_history.json')
+                buys = 0
+                try:
+                    with open(history_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        buys = sum(1 for t in data if t.get('side') == 'buy')
+                except Exception:
+                    buys = 0
+
+                if buys < first_count and amount_usd < float(first_min):
+                    print(f"[PRIMEIRAS_TRADES] Ajustando amount_usd ${amount_usd:.2f} -> ${first_min:.2f} (primeiras {first_count} trades)")
+                    amount_usd = float(first_min)
+        except Exception:
+            pass
         print(f"[CONFIG] amount_per_trade do bot {bot_type}: ${amount_usd}")
         
         # ===== VERIFICAÇÃO DA IA =====
@@ -1855,13 +2096,45 @@ class MultiBotEngine:
                     print("   → Trade cancelado para proteção de capital")
                     return
             
-            # Executa ordem
-            print(f"[EXECUTANDO ORDEM] create_market_order: symbol={symbol}, side=buy, amount={amount_crypto}")
-            order = self.exchange.create_market_order(
-                symbol=symbol,
-                side='buy',
-                amount=amount_crypto
-            )
+            # Executa ordem (prefere LIMIT/maker se configurado)
+            from src.core.utils import load_config
+            cfg = load_config()
+            exec_cfg = cfg.get('execution', {})
+            prefer_limit = bool(exec_cfg.get('prefer_limit', False))
+            limit_timeout = int(exec_cfg.get('limit_order_timeout_sec', 5))
+
+            order = None
+            if prefer_limit:
+                try:
+                    limit_price = price * (1.0 - 0.001)  # 0.1% melhor para ser maker (compra)
+                    print(f"[EXECUTANDO ORDEM LIMIT] symbol={symbol}, side=buy, amount={amount_crypto}, price={limit_price:.6f}")
+                    order = self.exchange.create_limit_order(symbol=symbol, side='buy', amount=amount_crypto, price=limit_price)
+                    if order and order.get('filled', 0) == 0:
+                        time_waited = 0
+                        while time_waited < limit_timeout:
+                            time.sleep(1)
+                            time_waited += 1
+                            status = self.exchange.fetch_order_status(order.get('id'), symbol)
+                            if status and status.get('filled', 0) > 0:
+                                order = status
+                                break
+                        if order and order.get('filled', 0) == 0:
+                            try:
+                                self.exchange.cancel_order(order.get('id'), symbol)
+                                print(f"[LIMIT TIMEOUT] Ordem LIMIT não preenchida em {limit_timeout}s - cancelando e fallback para MARKET")
+                            except Exception as e:
+                                print(f"[LIMIT CANCEL ERROR] {e}")
+                            order = None
+                except Exception as e:
+                    print(f"[LIMIT ERROR] {e} - fallback para MARKET")
+
+            if not order:
+                print(f"[EXECUTANDO ORDEM] create_market_order: symbol={symbol}, side=buy, amount={amount_crypto}")
+                order = self.exchange.create_market_order(
+                    symbol=symbol,
+                    side='buy',
+                    amount=amount_crypto
+                )
             
             # Log detalhado do que realmente aconteceu na ordem
             if order:
@@ -1889,11 +2162,22 @@ class MultiBotEngine:
                     return
                 
                 # Registra posição
+                invested = order.get('cost', amount_usd)
+                fee_info = order.get('fee')
+                try:
+                    if fee_info and isinstance(fee_info, dict):
+                        entry_fee = float(fee_info.get('cost', invested * 0.001))
+                    else:
+                        entry_fee = invested * 0.001
+                except Exception:
+                    entry_fee = invested * 0.001
+
                 self.positions[symbol] = {
                     'bot_type': bot_type,
                     'entry_price': order.get('average', price),  # Usa preço médio real
                     'amount': filled,
-                    'amount_usd': order.get('cost', amount_usd),  # Usa custo real
+                    'amount_usd': invested,  # Usa custo real
+                    'entry_fee': entry_fee,
                     'time': datetime.now(),
                     'reason': reason,
                     'order_id': order.get('id')
@@ -1958,13 +2242,45 @@ class MultiBotEngine:
             return
         
         try:
-            # Executa ordem de venda
-            print(f"[EXECUTANDO ORDEM] create_market_order: symbol={symbol}, side=sell, amount={pos['amount']}")
-            order = self.exchange.create_market_order(
-                symbol=symbol,
-                side='sell',
-                amount=pos['amount']
-            )
+            # Executa ordem de venda (prefere LIMIT/maker se configurado)
+            from src.core.utils import load_config
+            cfg = load_config()
+            exec_cfg = cfg.get('execution', {})
+            prefer_limit = bool(exec_cfg.get('prefer_limit', False))
+            limit_timeout = int(exec_cfg.get('limit_order_timeout_sec', 5))
+
+            order = None
+            if prefer_limit:
+                try:
+                    limit_price = price * (1.0 + 0.001)  # 0.1% better to be maker for sells
+                    print(f"[EXECUTANDO ORDEM LIMIT] symbol={symbol}, side=sell, amount={pos['amount']}, price={limit_price:.6f}")
+                    order = self.exchange.create_limit_order(symbol=symbol, side='sell', amount=pos['amount'], price=limit_price)
+                    if order and order.get('filled', 0) == 0:
+                        time_waited = 0
+                        while time_waited < limit_timeout:
+                            time.sleep(1)
+                            time_waited += 1
+                            status = self.exchange.fetch_order_status(order.get('id'), symbol)
+                            if status and status.get('filled', 0) > 0:
+                                order = status
+                                break
+                        if order and order.get('filled', 0) == 0:
+                            try:
+                                self.exchange.cancel_order(order.get('id'), symbol)
+                                print(f"[LIMIT TIMEOUT] Ordem LIMIT não preenchida em {limit_timeout}s - cancelando e fallback para MARKET")
+                            except Exception as e:
+                                print(f"[LIMIT CANCEL ERROR] {e}")
+                            order = None
+                except Exception as e:
+                    print(f"[LIMIT ERROR] {e} - fallback para MARKET")
+
+            if not order:
+                print(f"[EXECUTANDO ORDEM] create_market_order: symbol={symbol}, side=sell, amount={pos['amount']}")
+                order = self.exchange.create_market_order(
+                    symbol=symbol,
+                    side='sell',
+                    amount=pos['amount']
+                )
             
             # Log detalhado do que realmente aconteceu na ordem de venda
             if order:
@@ -1994,11 +2310,25 @@ class MultiBotEngine:
                 # Usa preço médio real da venda
                 exit_price = order.get('average', price)
                 received_usd = order.get('cost', pos['amount_usd'])
-                
-                # Calcula PnL com valores reais
+
+                # Exit fee: try exchange-provided, else assume 0.1% of received
+                exit_fee = 0.0
+                fee_info = order.get('fee')
+                try:
+                    if fee_info and isinstance(fee_info, dict):
+                        exit_fee = float(fee_info.get('cost', 0.0))
+                    else:
+                        exit_fee = received_usd * 0.001
+                except Exception:
+                    exit_fee = received_usd * 0.001
+
+                # Calcula PnL líquido subtraindo taxas de entrada/saida (0.1% cada execução)
                 entry_price = pos['entry_price']
+                gross_pnl_usd = received_usd - pos['amount_usd']
+                entry_fee = pos.get('entry_fee', pos['amount_usd'] * 0.001)
+                net_pnl_usd = gross_pnl_usd - entry_fee - exit_fee
                 pnl_pct = ((exit_price - entry_price) / entry_price) * 100
-                pnl_usd = received_usd - pos['amount_usd']  # PnL real baseado no recebido vs investido
+                pnl_usd = net_pnl_usd
                 is_win = pnl_usd > 0
                 
                 # Atualiza estatísticas do bot
@@ -2026,6 +2356,9 @@ class MultiBotEngine:
                     'pnl_usd': pnl_usd,
                     'invested': pos['amount_usd'],
                     'received': received_usd,
+                    'entry_fee': pos.get('entry_fee', 0.0),
+                    'exit_fee': exit_fee,
+                    'net_pnl_usd': pnl_usd,
                     'reason': reason,
                     'entry_time': pos['time'].isoformat(),
                     'exit_time': datetime.now().isoformat(),
@@ -2177,8 +2510,45 @@ class MultiBotEngine:
         
         # Obtém saldo atual
         total_balance = self.get_balance()
+
+        # Se houver um INITIAL_BALANCE configurado no .env, use-o como override seguro
+        try:
+            env_initial = os.getenv('INITIAL_BALANCE')
+            if env_initial:
+                env_val = float(env_initial)
+                if env_val > 0:
+                    self.logger.info(f"🔁 Usando INITIAL_BALANCE do ambiente (override): ${env_val:.2f}")
+                    total_balance = env_val
+        except Exception:
+            # Falha ao interpretar env INITIAL_BALANCE -> ignora
+            pass
+
         print(f"   Saldo USDT disponível: ${total_balance:.2f}")
         print(f"   Poupança: DESABILITADA")
+        # Inicializa KillSwitch com saldo inicial para checagens diárias
+        if self.safety_manager and hasattr(self.safety_manager, 'kill_switch'):
+            try:
+                # Inicializa saldo e respeita valor configurado em config/config.yaml (ex: 5.0%)
+                self.safety_manager.kill_switch.set_initial_balance(total_balance)
+                print(f"🛡️ KillSwitch inicializado com saldo: ${total_balance:.2f} (max_daily_loss={self.safety_manager.kill_switch.max_daily_loss}%)")
+            except Exception as e:
+                print(f"⚠️ Falha ao setar kill switch initial balance: {e}")
+        else:
+            print("⚠️ SafetyManager ausente: RECOMENDADO habilitar SafetyManager antes de operar em real")
+
+        # Se o TELEGRAM estiver configurado, envie um alerta de sistema online
+        try:
+            if os.getenv('USE_TELEGRAM', 'False').lower() in ('1', 'true', 'yes'):
+                try:
+                    from src.communication.telegram_client import send_message
+                    msg = f"SISTEMA ONLINE - MONITORAMENTO ATIVADO\nSaldo configurado: ${total_balance:.2f}\nProtocolo: EMA200 + DailyStop 1.5% + MaxExposure 2%"
+                    sent = send_message(msg)
+                    if sent:
+                        self.logger.info("✅ Mensagem de inicialização enviada ao Telegram")
+                except Exception as tele_ex:
+                    self.logger.warning(f"⚠️ Falha ao enviar mensagem Telegram: {tele_ex}")
+        except Exception:
+            pass
         
         capital_para_bots = total_balance
         print(f"\n📊 CAPITAL TOTAL DISPONÍVEL: ${capital_para_bots:.2f}")
@@ -2196,7 +2566,27 @@ class MultiBotEngine:
         print("="*70)
         
         try:
+            # If running in REAL mode (not dry_run) ensure SafetyManager is present
+            if not self.exchange.dry_run and not self.safety_manager:
+                print("⛔ EXECUÇÃO REAL BLOQUEADA: SafetyManager não está ativo. Habilite SafetyManager e tente novamente.")
+                self.running = False
+                return
+
             while self.running:
+                # Verifica Kill-Switch diário antes de cada iteração
+                try:
+                    if self.safety_manager and self.safety_manager.kill_switch.is_active:
+                        print(f"⛔ KillSwitch ativo: {self.safety_manager.kill_switch.activation_reason} - Parando execução até amanhã")
+                        self.running = False
+                        break
+                    # Avalia perda diária atual (usa coordinator.stats.daily_pnl em USD)
+                    if self.safety_manager and self.safety_manager.kill_switch.check_daily_loss(self.coordinator.stats.daily_pnl):
+                        print(f"⛔ KillSwitch acionado por perda diária. Motivo: {self.safety_manager.kill_switch.activation_reason}")
+                        self.running = False
+                        break
+                except Exception as e:
+                    print(f"⚠️ Erro ao avaliar KillSwitch: {e}")
+
                 self.iteration += 1
                 print(f"\n🔄 ITERAÇÃO {self.iteration} - Iniciando...")
                 
@@ -2206,34 +2596,52 @@ class MultiBotEngine:
                     self.redeem_earn_flexible(min_amount=10)
                 
                 # ===== EXECUTA NO MODO APROPRIADO =====
-                if self.unico_bot_mode:
-                    # Modo UnicoBot - processa todas as cryptos
-                    print("Executando ciclo UnicoBot...")
-                    self._run_unico_bot_cycle()
-                    print("✅ Ciclo UnicoBot concluído")
-                else:
-                    # Modo MultiBots - processa cada bot separadamente
-                    for bot_type in self.coordinator.bots.keys():
-                        if not self.running:
-                            break
-                        self.run_bot_cycle(bot_type)
-                    
-                    # Atualiza posições abertas nos stats
-                    for bot in self.coordinator.bots.values():
-                        bot.stats.open_positions = sum(
-                            1 for pos in self.positions.values() 
-                            if pos['bot_type'] == bot.bot_type
-                        )
+                try:
+                    if self.unico_bot_mode:
+                        # Modo UnicoBot - processa todas as cryptos
+                        print("Executando ciclo UnicoBot...")
+                        self._run_unico_bot_cycle()
+                        print("✅ Ciclo UnicoBot concluído")
+                    else:
+                        # Modo MultiBots - processa cada bot separadamente
+                        for bot_type in self.coordinator.bots.keys():
+                            if not self.running:
+                                break
+                            try:
+                                self.run_bot_cycle(bot_type)
+                            except Exception as bot_error:
+                                print(f"⚠️ Erro no bot {bot_type}: {bot_error}")
+                                # Continua com outros bots mesmo se um falhar
+                                continue
+                        
+                        # Atualiza posições abertas nos stats
+                        for bot in self.coordinator.bots.values():
+                            bot.stats.open_positions = sum(
+                                1 for pos in self.positions.values() 
+                                if pos['bot_type'] == bot.bot_type
+                            )
+                except Exception as cycle_error:
+                    print(f"⚠️ Erro no ciclo de trading: {cycle_error}")
+                    # Não para o bot, apenas loga o erro e continua
                 
                 print(f"💾 Salvando estado...")
                 # Salva estado
-                self.coordinator.save_state()
+                try:
+                    self.coordinator.save_state()
+                except Exception as save_error:
+                    print(f"⚠️ Erro ao salvar estado: {save_error}")
                 
                 # Salva dados para o dashboard (saldos, meta diária)
-                self._save_dashboard_data()
+                try:
+                    self._save_dashboard_data()
+                except Exception as dashboard_error:
+                    print(f"⚠️ Erro ao salvar dados do dashboard: {dashboard_error}")
                 
                 # Imprime resumo
-                self.print_summary()
+                try:
+                    self.print_summary()
+                except Exception as summary_error:
+                    print(f"⚠️ Erro ao imprimir resumo: {summary_error}")
                 
                 # Aguarda
                 print(f"\n⏳ Aguardando {interval} segundos...\n")
@@ -2241,14 +2649,41 @@ class MultiBotEngine:
                 
         except KeyboardInterrupt:
             print("\n\n⚠️ Parando bots... (KeyboardInterrupt)")
+            # Salva estado final antes de parar
+            try:
+                self.coordinator.save_state()
+                self._save_positions()
+            except:
+                pass
         except Exception as e:
-            print(f"\n❌ ERRO no loop principal: {e}")
-            print("⚠️ Parando bots devido a erro...")
+            print(f"\n❌ ERRO CRÍTICO no loop principal: {e}")
+            print("🔄 Tentando recuperação automática...")
+            
+            # Tenta salvar estado antes de possível crash
+            try:
+                self.coordinator.save_state()
+                self._save_positions()
+            except:
+                pass
+            
+            # Aguarda um pouco antes de tentar continuar
+            print("⏳ Aguardando 30 segundos para recuperação...")
+            time.sleep(30)
+            
+            # Reinicia o loop se não foi parado manualmente
+            if self.running:
+                print("🔄 Reiniciando loop principal...")
+                # Não para o bot - deixa o loop continuar
+                return self.run(interval)
         finally:
-            self.running = False
-            self.coordinator.stats.status = "stopped"
-            self.coordinator.save_state()
-            print("✅ Sistema Multi-Bot finalizado")
+            if not self.running:  # Só executa se foi parado intencionalmente
+                self.running = False
+                self.coordinator.stats.status = "stopped"
+                try:
+                    self.coordinator.save_state()
+                except:
+                    pass
+                print("✅ Sistema Multi-Bot finalizado")
     
     def stop(self):
         """Para a execução"""

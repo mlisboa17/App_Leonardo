@@ -2,6 +2,7 @@
 MÓDULO DE AUDITORIA - Registro detalhado de todas as ações do sistema
 Todos os eventos críticos são registrados para rastreabilidade e debugging
 """
+import sys
 import json
 import logging
 from datetime import datetime
@@ -55,11 +56,16 @@ class AuditLogger:
         self.logger.addHandler(self.file_handler)
         
         # Handler de console
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter(
+        self.console_handler = logging.StreamHandler(sys.stdout)
+        # Força encoding UTF-8 para evitar UnicodeEncodeError
+        try:
+            self.console_handler.stream.reconfigure(encoding='utf-8')
+        except Exception:
+            pass  # Para compatibilidade com versões antigas do Python
+        self.console_handler.setFormatter(logging.Formatter(
             '%(asctime)s - [%(levelname)s] %(message)s'
         ))
-        self.logger.addHandler(console_handler)
+        self.logger.addHandler(self.console_handler)
         
         # Lock para thread-safety
         self.lock = threading.RLock()

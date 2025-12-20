@@ -26,7 +26,12 @@ def load_config(config_path: str = "config/config.yaml") -> Dict:
 
 
 def load_env_credentials() -> Dict[str, str]:
-    """Carrega credenciais do arquivo .env"""
+    """Carrega credenciais do arquivo .env
+
+    Procura por um `.env` no diretório raiz primeiro, depois em `config/.env`.
+    """
+    # Tenta carregar .env padrão do projeto (raiz) e, em seguida, o de `config/` como fallback
+    load_dotenv()
     load_dotenv('config/.env')
     
     credentials = {
@@ -38,19 +43,29 @@ def load_env_credentials() -> Dict[str, str]:
         'TELEGRAM_CHAT_ID': os.getenv('TELEGRAM_CHAT_ID', ''),
     }
     
-    logger.info("✅ Credenciais carregadas do .env")
+    logger.info("✅ Credenciais carregadas do .env (se presentes)")
     return credentials
 
 
 def setup_logging(log_level: str = "INFO", log_file: str = "logs/trading_bot.log"):
-    """Configura sistema de logs"""
+    """Configura sistema de logs
+
+    Pode ser forçado para DEBUG por variável de ambiente:
+      - LOG_LEVEL=DEBUG    (define o nível global)
+      - DEBUG_NETWORK=1    (força DEBUG em bibliotecas de rede: ccxt, urllib3, requests)
+    """
     # Cria diretório de logs se não existir
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    
+
+    # Permite override via variáveis de ambiente (útil para debugging sem alterar código)
+    env_level = os.getenv('LOG_LEVEL')
+    if env_level:
+        log_level = env_level
+
     # Formato dos logs
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     date_format = '%Y-%m-%d %H:%M:%S'
-    
+
     # Configuração
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
@@ -61,7 +76,16 @@ def setup_logging(log_level: str = "INFO", log_file: str = "logs/trading_bot.log
             logging.StreamHandler()  # Console
         ]
     )
-    
+
+    # Se solicitado, forçar DEBUG em bibliotecas de rede para capturar erros TLS/SSL
+    if os.getenv('DEBUG_NETWORK') in ('1', 'true', 'True'):
+        logging.getLogger('ccxt').setLevel(logging.DEBUG)
+        logging.getLogger('urllib3').setLevel(logging.DEBUG)
+        logging.getLogger('requests').setLevel(logging.DEBUG)
+        logging.getLogger('websockets').setLevel(logging.DEBUG)
+        logging.getLogger('asyncio').setLevel(logging.DEBUG)
+        logger.debug('DEBUG_NETWORK ativado: ccxt/urllib3/requests/websockets/asyncio em DEBUG')
+
     logger.info("="*50)
     logger.info("🤖 Bot de Trading Leonardo Iniciado")
     logger.info("="*50)

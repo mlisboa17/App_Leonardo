@@ -35,13 +35,18 @@ ABSOLUTE_LIMITS = {
     
     # Limites de frequencia
     'MIN_TIME_BETWEEN_TRADES_SEC': 10,   # Min 10s entre trades
-    'MAX_TRADES_PER_MINUTE': 3,          # Max 3 trades por minuto
-    'MAX_TRADES_PER_HOUR': 30,           # Max 30 trades por hora
+    # Ajustado para reduzir agressividade (mais conservador)
+    'MIN_TIME_BETWEEN_TRADES_SEC': 60,   # Min 60s entre trades
+    'MAX_TRADES_PER_MINUTE': 1,          # Max 1 trade por minuto
+    'MAX_TRADES_PER_HOUR': 6,            # Max 6 trades por hora
     
     # Limites da IA
     'AI_MIN_CONFIDENCE': 0.6,            # IA precisa ter 60%+ confianca
     'AI_MAX_ADJUSTMENT_PCT': 20.0,       # IA so pode ajustar 20% dos params
     'AI_REQUIRE_CONFIRMATION': True,     # IA precisa de confirmacao humana para grandes mudancas
+    # Primeiras N trades - Tamanho minimo para as primeiras trades do bot
+    'FIRST_N_TRADES_MIN_AMOUNT': 11.0,    # Minimo $11 nas primeiras trades
+    'FIRST_N_TRADES_COUNT': 10,           # Numero de trades a aplicar a regra
 }
 
 
@@ -178,6 +183,30 @@ class OrderValidator:
             amount = ABSOLUTE_LIMITS['MAX_ORDER_SIZE']
             logger.warning(f"[LIMITE] Ordem reduzida para ${amount:.2f} (max absoluto)")
         
+        # Se aplicavel, impõe regra "primeiras N trades" para valor minimo
+        try:
+            first_min = ABSOLUTE_LIMITS.get('FIRST_N_TRADES_MIN_AMOUNT', 0.0)
+            first_count = ABSOLUTE_LIMITS.get('FIRST_N_TRADES_COUNT', 0)
+            if first_count > 0 and first_min > 0:
+                # Conta compras históricas (side == 'buy')
+                import json
+                history_path = os.path.join(os.getcwd(), 'data', 'multibot_history.json')
+                buys = 0
+                try:
+                    with open(history_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        buys = sum(1 for t in data if t.get('side') == 'buy')
+                except Exception:
+                    buys = 0
+
+                if buys < first_count and amount < first_min:
+                    # Ajusta para o minimo desejado (se possível)
+                    logger.info(f"[PRIMEIRAS_TRADES] Ajustando amount ${amount:.2f} -> ${first_min:.2f} para primeiras {first_count} trades")
+                    amount = float(first_min)
+        except Exception:
+            # Não falha a validação por erro na regra opcional
+            pass
+
         # Verifica % do saldo
         max_by_balance = balance * (ABSOLUTE_LIMITS['MAX_ORDER_PCT_BALANCE'] / 100)
         if amount > max_by_balance:
@@ -208,6 +237,13 @@ class OrderValidator:
             t for t in self.recent_trades 
             if (now - t[0]).total_seconds() < 60
         ])
+
+        # Enforce minimum time between trades
+        if self.recent_trades:
+            last_trade_ts = self.recent_trades[-1][0]
+            secs_since_last = (now - last_trade_ts).total_seconds()
+            if secs_since_last < ABSOLUTE_LIMITS['MIN_TIME_BETWEEN_TRADES_SEC']:
+                return False, f"Aguarde {int(ABSOLUTE_LIMITS['MIN_TIME_BETWEEN_TRADES_SEC'] - secs_since_last)}s antes de novo trade"
         
         if trades_last_minute >= ABSOLUTE_LIMITS['MAX_TRADES_PER_MINUTE']:
             return False, f"Limite de {ABSOLUTE_LIMITS['MAX_TRADES_PER_MINUTE']} trades/minuto atingido"

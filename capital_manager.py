@@ -97,9 +97,19 @@ class CapitalManager:
         (self.data_dir / "ai").mkdir(exist_ok=True)
         
         # Parâmetros
-        self.initial_capital = 1000.0  # $1000 USDT
-        self.max_risk_per_trade = 0.02  # Máx 2% por trade
+        # Atualização: novo capital base protegido
+        self.initial_capital = 1933.11  # $1,933.11 USDT (saldo alvo para preservação)
+        self.current_balance = self.initial_capital
+        self.max_risk_per_trade = 0.02  # Máx 2% por trade (exposição)
         self.min_reward_ratio = 2.0  # Mínimo R:R 2:1
+
+        # Proteções globais do capital
+        self.daily_pnl_limit_pct = -1.5  # Daily stop-loss em percentual (-1.5%)
+        self.daily_pnl_usd = 0.0  # PnL realizado no dia (USD)
+        self.emergency_triggered = False  # Flag para indicar parada de emergência
+        # Valor máximo de exposição por trade (USD) — calculado como 2% do saldo atual
+        self.max_exposure_usd = lambda: round(self.current_balance * self.max_risk_per_trade, 2)
+
         
         # Limites por bot
         self.bot_limits = {
@@ -116,6 +126,11 @@ class CapitalManager:
         self.available_balance = self.initial_capital
         self.open_positions = []
         self.trade_history = []
+
+        # Proteções/limites avançados
+        self.max_open_positions = 10  # Limite global de posições abertas
+        self.loss_to_recover_usd = 0.0  # Valor em USD a recuperar após drawdown
+
     
     def load_state(self):
         """Carrega estado atual do capital"""
@@ -160,6 +175,10 @@ class CapitalManager:
         # Verificação 3: Saldo disponível suficiente
         if signal.position_size > self.available_balance:
             return False, f"Saldo insuficiente: ${signal.position_size:.2f} > ${self.available_balance:.2f}"
+
+        # Verificação 4.5: Limite global de posições abertas
+        if len(self.open_positions) >= self.max_open_positions:
+            return False, f"Máximo global de posições atingido: {len(self.open_positions)}/{self.max_open_positions}"
         
         # Verificação 4: Limites do bot
         if signal.bot in self.bot_limits:
@@ -263,10 +282,20 @@ class CapitalManager:
         if bot in self.bot_limits:
             limits = self.bot_limits[bot]
             position_size = min(position_size, limits['max_per_trade'])
-        
-        # Nunca exceeder saldo disponível
-        position_size = min(position_size, self.available_balance)
-        
+
+        # Não exceder saldo disponível (valor em USD)
+        position_value = position_size * entry_price
+        max_exposure_usd = self.max_exposure_usd()
+
+        if position_value > max_exposure_usd:
+            # Ajusta position_size para não exceder a exposição máxima por trade
+            position_size = max_exposure_usd / entry_price
+
+        # Também garante que não exceda disponivel em conta (em USD)
+        position_value = position_size * entry_price
+        if position_value > self.available_balance:
+            position_size = self.available_balance / entry_price
+
         # Arredondar para 2 casas decimais
         return round(position_size, 2)
     
@@ -373,24 +402,60 @@ class CapitalManager:
                      position_size: float,
                      entry_price: float,
                      side: str,  # 'buy' ou 'sell'
-                     bot: str = 'bot_estavel'):
-        """Executa um trade e atualiza o estado do capital"""
+                     bot: str = 'bot_estavel',
+                     realized_pnl: Optional[float] = None):
+        """Executa um trade e atualiza o estado do capital
+
+        Parâmetros:
+            realized_pnl: lucro/prejuízo realizado em USD (opcional). Se fornecido,
+                         atualiza o PnL diário e verifica gatilho de emergência.
+        """
         try:
             trade_value = position_size * entry_price
-            
+
             if side == 'buy':
                 self.available_balance -= trade_value
                 self.invested_balance += trade_value
+                # Registrar posição aberta (mínimo de dados)
+                self.open_positions.append({
+                    'symbol': symbol,
+                    'entry_price': entry_price,
+                    'position_size': position_size,
+                    'stop_loss_price': None,
+                    'take_profit_price': None,
+                    'bot': bot,
+                    'opened_at': datetime.now().isoformat()
+                })
                 logger.info(f"✅ COMPRA executada: {symbol} ${position_size:.2f} @ ${entry_price:.2f}")
-            
+                # Salva posições
+                self._save_positions()
+
             elif side == 'sell':
                 self.available_balance += trade_value
                 self.invested_balance -= trade_value
                 logger.info(f"✅ VENDA executada: {symbol} ${position_size:.2f} @ ${entry_price:.2f}")
-            
+
+                # Se for fornecido realized_pnl, atualiza PnL diário
+                if realized_pnl is not None:
+                    try:
+                        self.update_daily_pnl(realized_pnl)
+                    except Exception as e:
+                        logger.error(f"Erro ao atualizar PnL diário: {e}")
+
+                # Remove posições correspondentes (simplificado)
+                # Busca e remove posição com mesmo símbolo e tamanho aproximado
+                removed = False
+                for p in list(self.open_positions):
+                    if p.get('symbol') == symbol and abs(p.get('position_size', 0) - position_size) < 1e-6:
+                        self.open_positions.remove(p)
+                        removed = True
+                        break
+                if removed:
+                    self._save_positions()
+
             # Atualizar arquivo de balanço
             self._save_balances()
-        
+
         except Exception as e:
             logger.error(f"Erro ao executar trade: {e}")
     
@@ -405,7 +470,118 @@ class CapitalManager:
         
         with open(self.balances_file, 'w') as f:
             json.dump(balances, f, indent=2)
-    
+
+    # ----- NOVAS FUNÇÕES DE SEGURANÇA E EMERGÊNCIA -----
+    def _save_positions(self):
+        """Salva as posições abertas em arquivo"""
+        try:
+            with open(self.positions_file, 'w', encoding='utf-8') as f:
+                json.dump(self.open_positions, f, indent=2)
+        except Exception as e:
+            logger.error(f"Erro ao salvar posições: {e}")
+
+    def update_daily_pnl(self, pnl_usd: float):
+        """Atualiza PnL diário realizado e verifica gatilho de daily stop-loss"""
+        try:
+            self.daily_pnl_usd += pnl_usd
+            pct = (self.daily_pnl_usd / self.initial_capital) * 100
+            logger.info(f"📉 PnL diário atualizado: ${self.daily_pnl_usd:+.2f} ({pct:+.2f}%)")
+
+            # Se atingiu o limite negativo, dispara emergência
+            if pct <= self.daily_pnl_limit_pct and not self.emergency_triggered:
+                logger.warning(f"⚠️ Daily PnL limit atingido: {pct:.2f}% <= {self.daily_pnl_limit_pct}%")
+                self.trigger_emergency_stop()
+        except Exception as e:
+            logger.error(f"Erro ao atualizar daily PnL: {e}")
+
+    def end_of_day_procedure(self):
+        """Encerramento diário: processa drawdown recovery e reseta contadores"""
+        try:
+            # Se dia terminou em prejuízo, acumular valor para recovery
+            if self.daily_pnl_usd < 0:
+                self.loss_to_recover_usd += abs(self.daily_pnl_usd)
+                logger.warning(f"🔁 Dia em PREJUÍZO. Adicionado ${abs(self.daily_pnl_usd):.2f} a loss_to_recover (total: ${self.loss_to_recover_usd:.2f})")
+            else:
+                # Se positivo e existe perda pendente, reduzir recovery
+                if self.loss_to_recover_usd > 0:
+                    covered = min(self.daily_pnl_usd, self.loss_to_recover_usd)
+                    self.loss_to_recover_usd = max(0.0, self.loss_to_recover_usd - covered)
+                    logger.info(f"✅ Coberto ${covered:.2f} do loss_to_recover. Restante: ${self.loss_to_recover_usd:.2f}")
+
+            # Reset diário
+            logger.info(f"⏱️ Final do dia - Resetando daily PnL (antes: ${self.daily_pnl_usd:+.2f})")
+            self.daily_pnl_usd = 0.0
+
+            # Salvar estado
+            self._save_balances()
+            self._save_positions()
+        except Exception as e:
+            logger.error(f"Erro no end_of_day_procedure: {e}")
+
+    def get_effective_daily_target(self, base_target: float) -> float:
+        """Retorna meta diária ajustada para recuperação de drawdown"""
+        return base_target + self.loss_to_recover_usd
+
+    def trigger_emergency_stop(self):
+        """Executa o script de parada de emergência e tenta fechar todas as ordens"""
+        if self.emergency_triggered:
+            logger.info("Emergência já foi acionada anteriormente.")
+            return
+
+        logger.critical("🚨 TRIGGER DE EMERGÊNCIA: Executando emergency_stop.py e fechando posições!")
+        self.emergency_triggered = True
+
+        # Tenta executar o script de emergência (assume que ele exista e feche ordens)
+        try:
+            import subprocess, sys
+            subprocess.run([sys.executable, os.path.join(os.getcwd(), 'emergency_stop.py')], check=False)
+        except Exception as e:
+            logger.error(f"Erro ao executar emergency_stop.py: {e}")
+
+        # Marca posições como fechadas localmente e zera investimento (fallback)
+        try:
+            self._close_all_open_orders()
+        except Exception as e:
+            logger.error(f"Erro ao fechar posições localmente: {e}")
+
+    def _close_all_open_orders(self):
+        """Marca localmente todas as posições como fechadas e salva estado"""
+        if not self.open_positions:
+            logger.info("Nenhuma posição aberta para fechar.")
+            return
+
+        logger.info(f"Fechando {len(self.open_positions)} posições localmente (fallback)")
+        self.open_positions = []
+        self.invested_balance = 0.0
+        self._save_positions()
+        self._save_balances()
+
+    def check_and_apply_breakeven(self, position: dict, current_price: float) -> bool:
+        """Move o stop_loss para o preço de entrada quando o lucro atingir +0.5%.
+        Retorna True se aplicou o break-even.
+        """
+        try:
+            entry_price = position.get('entry_price')
+            if entry_price is None:
+                return False
+
+            pnl_pct = ((current_price - entry_price) / entry_price) * 100
+            if pnl_pct >= 0.5:
+                # Aplica break-even (stop para preço de entrada)
+                if position.get('stop_loss_price') != entry_price:
+                    position['stop_loss_price'] = entry_price
+                    position['break_even_applied_at'] = datetime.now().isoformat()
+                    logger.info(f"🔒 Break-even aplicado em {position.get('symbol')}: stop={entry_price:.8f} (pnl {pnl_pct:.2f}%)")
+                    # Salva posições atualizadas
+                    self._save_positions()
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Erro ao aplicar break-even: {e}")
+            return False
+
+    # ----- FIM DAS FUNÇÕES DE SEGURANÇA -----
+
     def print_summary(self):
         """Imprime resumo do capital"""
         print("\n" + "=" * 70)
@@ -431,6 +607,8 @@ class CapitalManager:
         print("📊 LIMITES DE RISCO:")
         print(f"  • Máx risco por trade: {self.max_risk_per_trade*100:.1f}% (~${self.current_balance * self.max_risk_per_trade:.2f})")
         print(f"  • Mínimo R:R:          {self.min_reward_ratio:.1f}:1")
+        print(f"  • Daily PnL limit:     {self.daily_pnl_limit_pct:.2f}% ({self.initial_capital * (self.daily_pnl_limit_pct/100):+.2f}$) - acionará emergency_stop se atingido")
+        print(f"  • PnL realizado hoje:  ${self.daily_pnl_usd:+.2f}")
         print()
         
         print("🤖 LIMITES POR BOT:")

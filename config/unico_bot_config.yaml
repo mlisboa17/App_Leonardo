@@ -400,7 +400,7 @@ unico_bot:
         oversold: 36
     stop_loss_pct: -0.8
     stop_loss_tight: -0.4
-    trailing_stop_pct: 0.15
+    trailing_stop_pct: 2.0
     urgency_system:
       enabled: true
       idle_10min_adjustment: 2

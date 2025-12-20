@@ -39,10 +39,18 @@ class ExchangeClient:
         
         self.exchange = exchange_class(exchange_config)
         
+        # Expor markets no wrapper para compatibilidade com código que acessa `client.markets`
+        self.markets = {}
+
         # ✅ Carrega mercados com timeout maior e retry
         try:
             logger.info("🔄 Carregando mercados da exchange...")
             self.exchange.load_markets()
+            # Atualiza cache local de markets no wrapper
+            try:
+                self.markets = getattr(self.exchange, 'markets', {}) or {}
+            except Exception:
+                self.markets = {}
             logger.info(f"✅ Mercados carregados com sucesso")
         except KeyboardInterrupt:
             logger.warning("⚠️ Interrupção detectada durante carregamento de mercados - pode ser timeout de rede")
@@ -52,6 +60,8 @@ class ExchangeClient:
             logger.warning(f"⚠️ Erro ao carregar mercados: {e}")
             logger.info("🔄 Continuando sem carregar mercados - algumas funcionalidades podem ser limitadas")
             # Não falha - continua sem mercados carregados
+            # garante que `self.markets` exista
+            self.markets = getattr(self.exchange, 'markets', {}) or {}
                 
         logger.info(f"✅ Conectado à {exchange_name}")
         
@@ -166,7 +176,7 @@ class ExchangeClient:
             error_msg = str(e).lower()
             logger.warning(f"❌ Falhou primeira tentativa: {e}")
             
-            # Se erro de saldo insuficiente, tentar com valor menor
+            # Se erro de saldo insuficiente, tentar com valor menor (venda: usar saldo livre do ativo base)
             if 'insufficient balance' in error_msg or 'insufficient funds' in error_msg:
                 try:
                     # Buscar saldo atual
@@ -174,38 +184,55 @@ class ExchangeClient:
                     if not balance:
                         logger.error(f"❌ Não foi possível obter saldo para ajustar ordem")
                         return None
-                    
+
                     logger.info(f"🔄 Saldo atual para ajuste: USDT free = ${balance.get('USDT', {}).get('free', 0):.2f}")
-                    
+
                     if side.lower() == 'buy':
                         # Para compra, usar 90% do USDT disponível
                         available_usdt = balance.get('USDT', {}).get('free', 0)
                         if available_usdt > 1.0:  # Mínimo $1
                             # Obter preço atual para calcular quantidade
-                            ticker = self.exchange.fetch_ticker(symbol)
-                            current_price = ticker['last']
+                            ticker = self.exchange.fetch_ticker(ccxt_symbol)
+                            current_price = ticker.get('last') if ticker else None
+                            if not current_price or current_price == 0:
+                                logger.error("❌ Não foi possível obter preço para ajuste de compra")
+                                return None
                             max_amount_usdt = available_usdt * 0.9  # 90% do saldo
                             adjusted_amount = max_amount_usdt / current_price
-                            
                             logger.warning(f"⚠️ Ajustando compra: {amount} -> {adjusted_amount:.6f} ({max_amount_usdt:.2f} USDT)")
-                            
-                            order = self.exchange.create_market_order(symbol, side, adjusted_amount)
-                            logger.info(f"📝 Ordem AJUSTADA MARKET {side.upper()}: {adjusted_amount:.6f} {symbol} - ID: {order['id']}")
+                            order = self.exchange.create_market_order(ccxt_symbol, side, adjusted_amount)
+                            logger.info(f"📝 Ordem AJUSTADA MARKET {side.upper()}: {adjusted_amount:.6f} {ccxt_symbol} - ID: {order.get('id')}")
                             return order
-                    
+
                     else:  # sell
-                        # Para venda, usar 90% da crypto disponível
-                        base_currency = symbol.split('/')[0]
+                        # Para venda, usar o saldo livre do ativo base (usar símbolo normalizado)
+                        base_currency = ccxt_symbol.split('/')[0]
                         available_crypto = balance.get(base_currency, {}).get('free', 0)
-                        if available_crypto > 0:
-                            adjusted_amount = available_crypto * 0.9  # 90% da crypto
-                            
-                            logger.warning(f"⚠️ Ajustando venda: {amount} -> {adjusted_amount:.6f}")
-                            
-                            order = self.exchange.create_market_order(symbol, side, adjusted_amount)
-                            logger.info(f"📝 Ordem AJUSTADA MARKET {side.upper()}: {adjusted_amount:.6f} {symbol} - ID: {order['id']}")
+                        logger.info(f"🔄 Saldo livre {base_currency}: {available_crypto}")
+                        if available_crypto and available_crypto > 0:
+                            # Use quase todo o saldo livre, deixando pequena margem para taxas/dust
+                            adjusted_amount = max(0, available_crypto * 0.995)
+
+                            # Ajustar para stepSize/minQty se possível (usar market info)
+                            try:
+                                market = self.exchange.markets.get(ccxt_symbol)
+                                if market:
+                                    step_size = float(market.get('info', {}).get('filters', [{}])[-1].get('stepSize', 0) or 0)
+                                    if step_size and step_size > 0:
+                                        # Arredondar para múltiplo do step_size
+                                        adjusted_amount = (int(adjusted_amount / step_size)) * step_size
+                            except Exception:
+                                pass
+
+                            if adjusted_amount <= 0:
+                                logger.warning(f"⚠️ Ajuste resultou em amount inválido: {adjusted_amount}")
+                                return None
+
+                            logger.warning(f"⚠️ Ajustando venda para saldo livre: {amount} -> {adjusted_amount:.6f} {ccxt_symbol}")
+                            order = self.exchange.create_market_order(ccxt_symbol, side, adjusted_amount)
+                            logger.info(f"📝 Ordem AJUSTADA MARKET {side.upper()}: {adjusted_amount:.6f} {ccxt_symbol} - ID: {order.get('id')}")
                             return order
-                
+
                 except Exception as adjust_error:
                     logger.error(f"❌ Erro ao ajustar ordem: {adjust_error}")
             

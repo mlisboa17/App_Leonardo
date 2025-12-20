@@ -167,9 +167,14 @@ class MultiBot:
         # Parâmetros de risco
         self.strategy.stop_loss_pct = self.risk_config.get('stop_loss', -1.0)
         self.strategy.max_take_pct = self.risk_config.get('take_profit', 0.5)
-        self.strategy.trailing_stop_pct = self.risk_config.get('trailing_stop', 0.15)
+        # Default trailing stop wider (2.0%) to avoid early cuts unless configured
+        self.strategy.trailing_stop_pct = float(self.risk_config.get('trailing_stop', 2.0))
+        # Default minimum hold before selling to avoid quick sells
+        self.strategy.min_hold_minutes = int(self.risk_config.get('min_hold_minutes', 15))
         self.strategy.max_hold_minutes = self.risk_config.get('max_hold_minutes', 5)
         self.strategy.min_profit_to_hold = self.risk_config.get('min_profit', 0.15)
+        # Min hold minutes for optimized selling (default 3)
+        self.strategy.min_hold_minutes = int(self.risk_config.get('min_hold_minutes', 3))
         
     def get_symbols(self) -> List[str]:
         """Retorna lista de símbolos que este bot opera"""
@@ -224,6 +229,29 @@ class BotCoordinator:
         
         # Exchange client (compartilhado)
         self.exchange = self._setup_exchange()
+
+        # Inicializa SafetyManager automaticamente se configurado
+        try:
+            safety_cfg = self.config.get('safety', {})
+            if safety_cfg.get('require_safety_manager', True):
+                self.logger.info("[safety] require_safety_manager ativo — inicializando SafetyManager")
+                from src.safety.safety_manager import SafetyManager
+                sm = SafetyManager({
+                    'max_daily_loss': safety_cfg.get('max_daily_loss', 2.0),
+                    'max_drawdown': safety_cfg.get('max_drawdown', 5),
+                    'max_positions': safety_cfg.get('max_positions', 10),
+                })
+                # Tenta definir saldo inicial para o kill switch
+                try:
+                    bal = self.exchange.fetch_balance()
+                    free = bal.get('USDT', {}).get('free', 0)
+                    sm.kill_switch.set_initial_balance(free)
+                    self.logger.info(f"[safety] SafetyManager inicializada, balance inicial={free}")
+                except Exception as e:
+                    self.logger.warning(f"[safety] SafetyManager inicializada, mas falha ao setar balance: {e}")
+                self.safety_manager = sm
+        except Exception as e:
+            self.logger.exception(f"[safety] falha ao inicializar SafetyManager: {e}")
         
         # Bots
         self.bots: Dict[str, MultiBot] = {}
@@ -257,12 +285,45 @@ class BotCoordinator:
         # Carrega estado anterior
         self._load_state()
 
+        # Garantir total capital inicial (fallback para $1,933.11 se fetch falha)
+        try:
+            bal = self.exchange.fetch_balance()
+            free = bal.get('USDT', {}).get('free', 0) if bal else 0
+            total = float(free)
+            if total <= 0:
+                total = 1933.11
+                self.logger.warning(f"Balance não informado pela exchange. Definindo fallback total_capital=${total}")
+            self.stats.total_capital = total
+            self.stats.available_capital = total
+        except Exception as e:
+            self.stats.total_capital = 1933.11
+            self.stats.available_capital = 1933.11
+            self.logger.warning(f"Falha ao obter balance da exchange, usando fallback ${self.stats.total_capital}: {e}")
+
         # Inicia watcher de bot_status.json para reinicios/stop automáticos
         try:
             self._watcher_thread.start()
             self.logger.info("[WATCHER] Bot status watcher iniciado")
         except Exception:
             self.logger.exception("[WATCHER] Falha ao inicializar watcher")
+
+        # Inicia verificação periódica de Fear & Greed (market panic) e slippage
+        self.scalping_paused = False
+        self._panic_stop_event = Event()
+        self._panic_thread = threading.Thread(target=self._panic_monitor_loop, daemon=True)
+        try:
+            self._panic_thread.start()
+            self.logger.info("[PANIC_MONITOR] Monitor de Fear&Greed iniciado")
+        except Exception:
+            self.logger.exception("[PANIC_MONITOR] Falha ao iniciar monitor de Fear&Greed")
+
+        # Scheduler diário para fechamento às 23:59 (Horário local - Brasília assumido)
+        self._daily_close_thread = threading.Thread(target=self._daily_close_loop, daemon=True)
+        try:
+            self._daily_close_thread.start()
+            self.logger.info("[DAILY_CLOSE] Scheduler diário de fechamento iniciado")
+        except Exception:
+            self.logger.exception("[DAILY_CLOSE] Falha ao iniciar scheduler diário")
         
     def _load_config(self) -> dict:
         """Carrega configuração do arquivo YAML"""
@@ -286,6 +347,11 @@ class BotCoordinator:
         console_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         ))
+        # Ajusta nível do handler de console conforme configuração (ou DEBUG_NETWORK)
+        if os.getenv('DEBUG_NETWORK') in ('1', 'true', 'True'):
+            console_handler.setLevel(logging.DEBUG)
+        else:
+            console_handler.setLevel(log_level)
         self.logger.addHandler(console_handler)
         
         # File handler
@@ -296,6 +362,17 @@ class BotCoordinator:
             file_handler.setFormatter(logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             ))
+            # Sempre salvar DEBUG em arquivo se DEBUG_NETWORK estiver ativo
+            if os.getenv('DEBUG_NETWORK') in ('1', 'true', 'True'):
+                file_handler.setLevel(logging.DEBUG)
+                # Forçar também bibliotecas de rede para DEBUG para diagnosticar handshake
+                logging.getLogger('ccxt').setLevel(logging.DEBUG)
+                logging.getLogger('urllib3').setLevel(logging.DEBUG)
+                logging.getLogger('requests').setLevel(logging.DEBUG)
+                logging.getLogger('websockets').setLevel(logging.DEBUG)
+                self.logger.info('[DEBUG_NETWORK] ativo — bibliotecas de rede em DEBUG')
+            else:
+                file_handler.setLevel(log_level)
             self.logger.addHandler(file_handler)
     
     def _setup_exchange(self) -> ExchangeClient:
@@ -381,6 +458,152 @@ class BotCoordinator:
         
         data = self.stats.to_dict()
         # Adiciona posições dos bots
+        data['total_capital'] = self.stats.total_capital
+        # Salva
+        with open(self.stats_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+
+    # ----- PANIC & SLIPPAGE MONITOR -----
+    def _panic_monitor_loop(self):
+        """Loop rodando em background para checar Fear & Greed Index e slippage"""
+        import requests
+        while not self._panic_stop_event.is_set():
+            try:
+                fng = self._fetch_fear_greed_index()
+                if fng is not None:
+                    self.logger.debug(f"[FNG] Fear&Greed index: {fng}")
+                    if fng < 20:
+                        # Suspende bots voláteis/memes
+                        for bt in ['bot_volatil', 'bot_meme']:
+                            bot = self.bots.get(bt)
+                            if bot and bot.enabled:
+                                bot.enabled = False
+                                self.logger.warning(f"[PANIC] Fear&Greed {fng} < 20 — desabilitando {bt}")
+                    else:
+                        # Reativa bots se anteriormente desativados por pânico
+                        for bt in ['bot_volatil', 'bot_meme']:
+                            bot = self.bots.get(bt)
+                            if bot and not bot.enabled:
+                                bot.enabled = True
+                                self.logger.info(f"[PANIC] Fear&Greed {fng} >= 20 — reativando {bt}")
+                # Espera 5 minutos
+                self._panic_stop_event.wait(timeout=300)
+            except Exception as e:
+                self.logger.error(f"[PANIC_MONITOR] Erro no loop: {e}")
+                self._panic_stop_event.wait(timeout=300)
+
+    def _daily_close_loop(self):
+        """Loop que aguarda o horário de fechamento do dia (23:59) e executa procedimentos"""
+        import time
+        import pytz
+        from datetime import datetime, timedelta
+
+        tz = pytz.timezone('America/Sao_Paulo')
+        while True:
+            now = datetime.now(tz)
+            # calcula próximo 23:59 do mesmo dia
+            target = now.replace(hour=23, minute=59, second=0, microsecond=0)
+            if now >= target:
+                # já passou -> pega amanhã
+                target = target + timedelta(days=1)
+            wait_seconds = (target - now).total_seconds()
+            self.logger.info(f"[DAILY_CLOSE] Aguardando fechamento diário em {wait_seconds/60:.1f} minutos")
+            time.sleep(wait_seconds + 2)  # espera até o alvo + 2s
+            try:
+                self.logger.info("[DAILY_CLOSE] Executando procedimentos de final de dia")
+                # 1) End of day in capital manager
+                if self.capital_manager:
+                    self.capital_manager.end_of_day_procedure()
+                # 2) Gerar dashboard e enviar para Telegram
+                self._send_daily_dashboard()
+                # 3) Salvar estado
+                self.save_state()
+            except Exception as e:
+                self.logger.exception(f"[DAILY_CLOSE] Erro durante procedimentos de fechamento: {e}")
+
+    def _send_daily_dashboard(self):
+        """Compila dados e envia para Telegram (3 abas)"""
+        try:
+            from src.communication.telegram_client import send_dashboard
+
+            # Aba 1 - Resumo
+            summary = {
+                'balance': self.stats.total_capital,
+                'daily_pnl': self.stats.daily_pnl,
+                'loss_to_recover': getattr(self.capital_manager, 'loss_to_recover_usd', 0.0),
+                'progress_to_goal': f"{(self.stats.total_capital/2125.0*100):.1f}%"
+            }
+
+            # Aba 2 - Performance por bot
+            performance = {}
+            for bt, bot in self.bots.items():
+                performance[bt] = {
+                    'trades': bot.stats.total_trades,
+                    'pnl': bot.stats.total_pnl,
+                    'win_rate': bot.stats.win_rate
+                }
+
+            # Aba 3 - Risco
+            risk = {
+                'stops_triggered': 0,  # Placeholder - incrementar quando stops ocorrerem numa implementação futura
+                'ema_savings': 0.0
+            }
+
+            send_dashboard(summary, performance, risk)
+            self.logger.info("[DAILY_CLOSE] Dashboard enviado por Telegram")
+        except Exception as e:
+            self.logger.error(f"[DAILY_CLOSE] Falha ao enviar dashboard: {e}")
+    def _fetch_fear_greed_index(self) -> Optional[int]:
+        """Busca Fear&Greed Index via API pública (alternative.me)"""
+        try:
+            import requests
+            r = requests.get('https://api.alternative.me/fng/')
+            if r.status_code == 200:
+                data = r.json()
+                if 'data' in data and len(data['data']) > 0:
+                    value = int(data['data'][0].get('value', 0))
+                    return value
+        except Exception as e:
+            self.logger.debug(f"Falha ao buscar FNG: {e}")
+        return None
+
+    def check_slippage_and_pause_scalping(self, signal_price: float, executed_price: float, symbol: str = None):
+        """Analisa slippage e pausa scalping se ultrapassar 0.1%"""
+        try:
+            if signal_price <= 0:
+                return False
+            slippage_pct = abs(executed_price - signal_price) / signal_price * 100.0
+            if slippage_pct > 0.1:
+                self.pause_scalping(f"Slippage alto {slippage_pct:.2f}% em {symbol} (signal {signal_price} / exec {executed_price})")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Erro ao checar slippage: {e}")
+            return False
+
+    def pause_scalping(self, reason: str = ''):
+        """Pause scalping operations and log reason"""
+        if not self.scalping_paused:
+            self.scalping_paused = True
+            # Optionally disable specific bots that perform scalping if identifiable
+            for bt, bot in self.bots.items():
+                # heurística: if bot name or config mentions 'scalp' or 'scalping'
+                name = bot.config.get('name', '').lower() if bot and bot.config else ''
+                if 'scalp' in name or 'scalping' in name:
+                    bot.enabled = False
+            self.logger.warning(f"[SLIPPAGE] Scalping pausado — {reason}")
+
+    def resume_scalping(self):
+        """Resume scalping operations"""
+        if self.scalping_paused:
+            self.scalping_paused = False
+            for bt, bot in self.bots.items():
+                name = bot.config.get('name', '').lower() if bot and bot.config else ''
+                if 'scalp' in name or 'scalping' in name:
+                    bot.enabled = True
+            self.logger.info("[SLIPPAGE] Scalping reativado manualmente")
+    # ----- FIM PANIC & SLIPPAGE -----
+
         for bot_type, bot in self.bots.items():
             if 'bots' not in data:
                 data['bots'] = {}

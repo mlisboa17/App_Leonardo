@@ -12,7 +12,7 @@ import os
 import sys
 import json
 from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.audit import get_audit_logger, LogEntry
 from src.coordinator import BotCoordinator, get_coordinator
 from src.ai_advisor.decision_service import AIDecisionService, AISuggestion, AIExecutionCommand
+from backend.dependencies import RequireManageConfig
 
 
 # --- Configuração de Caminhos ---
@@ -41,13 +42,23 @@ coordinator = None
 ai_advisor = None
 
 def get_coordinator():
-    from src.coordinator import get_coordinator as get_global_coordinator
-    return get_global_coordinator()
+    try:
+        from src.coordinator import get_coordinator as get_global_coordinator
+        return get_global_coordinator()
+    except Exception as e:
+        print(f"⚠️ Erro ao obter coordinator: {e}")
+        return None
 
 def get_ai_advisor():
     global ai_advisor
     if ai_advisor is None:
-        ai_advisor = AIDecisionService(coordinator=get_coordinator())
+        try:
+            coord = get_coordinator()
+            if coord:
+                ai_advisor = AIDecisionService(coordinator=coord)
+        except Exception as e:
+            print(f"⚠️ Erro ao inicializar AI advisor: {e}")
+            ai_advisor = None
     return ai_advisor
 
 print("🚀 Inicializando FastAPI...")
@@ -67,6 +78,96 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- HEALTH CHECK ENDPOINT ---
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """
+    Health check endpoint para monitoramento 24/7.
+    Retorna status do sistema e componentes críticos.
+    """
+    from datetime import datetime
+    import psutil
+    import os
+
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0",
+        "components": {}
+    }
+
+    try:
+        # Verifica se o bot principal está rodando
+        bot_running = False
+        main_process = None
+
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if proc.info['name'] and 'python' in proc.info['name'].lower():
+                    cmdline = proc.info.get('cmdline', [])
+                    if cmdline and 'main_multibot.py' in ' '.join(cmdline):
+                        bot_running = True
+                        main_process = proc
+                        break
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
+        health_status["components"]["bot_main"] = {
+            "status": "running" if bot_running else "stopped",
+            "pid": main_process.info['pid'] if main_process else None
+        }
+
+        # Verifica conexão com exchange
+        try:
+            # Temporariamente desabilitado para debug
+            exchange_status = "disabled_for_startup"
+            # coordinator = get_coordinator()
+            # if coordinator and hasattr(coordinator, 'exchange'):
+            #     # Tenta fazer um ping na exchange
+            #     ticker = coordinator.exchange.fetch_ticker('BTCUSDT')
+            #     exchange_status = "connected" if ticker else "error"
+            # else:
+            #     exchange_status = "not_initialized"
+        except Exception as e:
+            exchange_status = f"error: {str(e)}"
+
+        health_status["components"]["exchange"] = {
+            "status": exchange_status
+        }
+
+        # Verifica sistema de arquivos
+        data_dir = Path("data")
+        logs_dir = Path("logs")
+
+        health_status["components"]["filesystem"] = {
+            "data_dir": "ok" if data_dir.exists() else "missing",
+            "logs_dir": "ok" if logs_dir.exists() else "missing"
+        }
+
+        # Estatísticas do sistema
+        health_status["system"] = {
+            "cpu_percent": psutil.cpu_percent(interval=1),
+            "memory_percent": psutil.virtual_memory().percent,
+            "disk_usage": psutil.disk_usage('/').percent if os.name != 'nt' else psutil.disk_usage('C:\\').percent
+        }
+
+        # Status geral
+        critical_components = ["bot_main", "exchange"]
+        all_healthy = all(
+            comp.get("status") in ["running", "connected", "ok"]
+            for comp_name, comp in health_status["components"].items()
+            if comp_name in critical_components
+        )
+
+        if not all_healthy:
+            health_status["status"] = "degraded"
+
+        return health_status
+
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["error"] = str(e)
+        return health_status
 
 # --- Rotas de Decisão de IA (AI ADVISOR) ---
 
@@ -75,6 +176,25 @@ def sync_positions_with_binance(coordinator):
     try:
         # Buscar saldo real da exchange
         balance = coordinator.exchange.fetch_balance()
+        # Defensive: ensure balance is a mapping
+        if not isinstance(balance, dict):
+            print(f"⚠️ Aviso: fetch_balance retornou tipo inesperado: {type(balance)}. Gravando dump para investigação e ignorando saldo real.")
+            # Salva dump para investigação
+            try:
+                debug_dir = Path('data/debug')
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                dump_file = debug_dir / f"balance_dump_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                with open(dump_file, 'w', encoding='utf-8') as df:
+                    try:
+                        # tenta JSON quando possível
+                        import json as _json
+                        df.write(_json.dumps(balance, default=str, indent=2, ensure_ascii=False))
+                    except Exception:
+                        df.write(repr(balance))
+                print(f"⚠️ Balance dump salvo em: {dump_file}")
+            except Exception as e:
+                print(f"⚠️ Falha ao salvar dump de balance: {e}")
+            balance = {}
         
         # Carregar posições atuais do arquivo
         positions_path = Path("data/multibot_positions.json")
@@ -95,8 +215,23 @@ def sync_positions_with_binance(coordinator):
                 else:
                     continue
                 
-                # Verificar se há saldo real desta moeda
-                real_balance = balance.get(base_currency, {}).get('free', 0)
+                # Verificar se há saldo real desta moeda - proteção contra formatos inesperados
+                def _get_free(bal, cur):
+                    try:
+                        if isinstance(bal, dict):
+                            # CCXT formato: bal.get(currency, {}).get('free')
+                            val = bal.get(cur)
+                            if isinstance(val, dict):
+                                return float(val.get('free', 0) or 0)
+                            # Alguns adaptadores expõem 'total' ou 'free' mapeados
+                            if 'total' in bal and isinstance(bal['total'], dict):
+                                return float(bal['total'].get(cur, 0) or 0)
+                        # Fallback: não encontrado
+                        return 0.0
+                    except Exception:
+                        return 0.0
+
+                real_balance = _get_free(balance, base_currency)
                 recorded_amount = pos_data.get('amount', 0)
                 
                 if real_balance >= recorded_amount * 0.95:  # 95% de tolerância
@@ -123,31 +258,33 @@ def sync_positions_with_binance(coordinator):
         print(f"❌ Erro na sincronização: {e}")
         return False
 
-@app.post("/api/v1/ai/suggest", response_model=AISuggestion, summary="Obter Sugestão Otimizada da IA.")
-async def suggest_ai_action():
-    try:
-        ai_service = get_ai_advisor()
-        suggestion = ai_service.generate_ai_suggestion()
-        return suggestion
-    except Exception as e:
-        # Registrar o erro antes de retornar uma HTTP 500
-        get_audit_logger().error(f"Erro ao gerar sugestão da IA: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# --- Rotas de Decisão de IA (AI ADVISOR) - TEMPORARIAMENTE DESABILITADAS PARA DEBUG ---
 
-@app.post("/api/v1/ai/execute_action", summary="Executar Ação Sugerida pela IA.")
-async def execute_ai_action(command: AIExecutionCommand):
-    try:
-        # A ação real de orquestração acontece aqui
-        result = get_coordinator().orchestrate_ai_action(
-            action_type=command.action_type,
-            details=command.details
-        )
-        return {"status": "success", "result": result}
-    except Exception as e:
-        get_audit_logger().error(f"Erro ao executar ação da IA: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.post("/api/v1/ai/suggest", response_model=AISuggestion, summary="Obter Sugestão Otimizada da IA.")
+# async def suggest_ai_action():
+#     try:
+#         ai_service = get_ai_advisor()
+#         suggestion = ai_service.generate_ai_suggestion()
+#         return suggestion
+#     except Exception as e:
+#         # Registrar o erro antes de retornar uma HTTP 500
+#         get_audit_logger().error(f"Erro ao gerar sugestão da IA: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/v1/ai/set-strategy", summary="Definir Estratégia Ativa")
+# @app.post("/api/v1/ai/execute_action", summary="Executar Ação Sugerida pela IA.")
+# async def execute_ai_action(command: AIExecutionCommand):
+#     try:
+#         # A ação real de orquestração acontece aqui
+#         result = get_coordinator().orchestrate_ai_action(
+#             action_type=command.action_type,
+#             details=command.details
+#         )
+#         return {"status": "success", "result": result}
+#     except Exception as e:
+#         get_audit_logger().error(f"Erro ao executar ação da IA: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+# @app.post("/api/v1/ai/set-strategy", summary="Definir Estratégia Ativa")
 async def set_strategy(strategy_data: Dict[str, Any]):
     """Define a estratégia ativa para os bots"""
     try:
@@ -186,8 +323,9 @@ async def set_strategy(strategy_data: Dict[str, Any]):
 async def get_current_model():
     """Retorna informações sobre o modelo de IA atualmente em uso"""
     try:
-        from src.ai_advisor.decision_service import DecisionService
-        service = DecisionService()
+        from src.ai_advisor.decision_service import AIDecisionService
+        # O coordinator pode ser None, mas o método get_current_model_info não depende dele
+        service = AIDecisionService(coordinator=None)
         model_info = service.get_current_model_info()
         return {"status": "success", "model_info": model_info}
     except Exception as e:
@@ -261,6 +399,124 @@ async def restart_system():
         # Placeholder - implementar lógica de reiniciar sistema
         get_audit_logger().log_system_action("restart_system", "api")
         return {"status": "success", "message": "Sistema reiniciado com sucesso"}
+    except Exception as e:
+        get_audit_logger().error(f"Erro ao reiniciar sistema: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Approval endpoints (authorize/revoke/status) ---
+@app.post("/api/v1/approvals/authorize", summary="Autorizar approver (claude|gemini|user)")
+async def authorize_approver(payload: Dict[str, Any], current_user=RequireManageConfig):
+    """Autoriza um approver globalmente para permitir overrides."""
+    approver = payload.get('approver')
+    if not approver:
+        raise HTTPException(status_code=400, detail="approver é obrigatório")
+    try:
+        coord = get_coordinator()
+        if not coord:
+            raise HTTPException(status_code=500, detail="Coordinator not available")
+
+        # Marca autorização em todas as estratégias
+        applied = 0
+        for name, bot in coord.bots.items():
+            try:
+                bot.strategy.authorize(approver)
+                applied += 1
+            except Exception:
+                continue
+
+        # Persist approval for audit
+        data_dir = Path('data')
+        data_dir.mkdir(parents=True, exist_ok=True)
+        approvals_file = data_dir / 'approvals.json'
+        approvals = {}
+        if approvals_file.exists():
+            try:
+                approvals = json.loads(approvals_file.read_text(encoding='utf-8'))
+            except Exception:
+                approvals = {}
+        approvals[approver.lower()] = {'authorized': True, 'at': datetime.now().isoformat()}
+        approvals_file.write_text(json.dumps(approvals, indent=2, ensure_ascii=False), encoding='utf-8')
+
+        get_audit_logger().log_system_action(f'authorize:{approver}', 'api')
+        return {"status": "success", "approver": approver, "applied_to_bots": applied}
+    except HTTPException:
+        raise
+    except Exception as e:
+        get_audit_logger().error(f"Erro ao autorizar {approver}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/approvals/revoke", summary="Revogar approver (claude|gemini|user)")
+async def revoke_approver(payload: Dict[str, Any], current_user=RequireManageConfig):
+    approver = payload.get('approver')
+    if not approver:
+        raise HTTPException(status_code=400, detail="approver é obrigatório")
+    try:
+        coord = get_coordinator()
+        if not coord:
+            raise HTTPException(status_code=500, detail="Coordinator not available")
+
+        applied = 0
+        for name, bot in coord.bots.items():
+            try:
+                bot.strategy.revoke(approver)
+                applied += 1
+            except Exception:
+                continue
+
+        # Update persisted approvals
+        data_dir = Path('data')
+        approvals_file = data_dir / 'approvals.json'
+        approvals = {}
+        if approvals_file.exists():
+            try:
+                approvals = json.loads(approvals_file.read_text(encoding='utf-8'))
+            except Exception:
+                approvals = {}
+        approvals[approver.lower()] = {'authorized': False, 'at': datetime.now().isoformat()}
+        approvals_file.write_text(json.dumps(approvals, indent=2, ensure_ascii=False), encoding='utf-8')
+
+        get_audit_logger().log_system_action(f'revoke:{approver}', 'api')
+        return {"status": "success", "approver": approver, "revoked_from_bots": applied}
+    except HTTPException:
+        raise
+    except Exception as e:
+        get_audit_logger().error(f"Erro ao revogar {approver}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/approvals/status", summary="Status das aprovações")
+async def approvals_status(current_user=RequireManageConfig):
+    try:
+        coord = get_coordinator()
+        bot_status = {}
+        if coord:
+            for name, bot in coord.bots.items():
+                try:
+                    strat = bot.strategy
+                    bot_status[name] = {
+                        'claude': bool(getattr(strat, 'claude_authorized', False)),
+                        'gemini': bool(getattr(strat, 'gemini_authorized', False)),
+                        'user': bool(getattr(strat, 'user_authorized', False)),
+                        'approvals_count': getattr(strat, 'approvals_count', lambda: 0)()
+                    }
+                except Exception:
+                    bot_status[name] = {'error': 'cannot_read'}
+
+        # read persisted approvals
+        approvals_file = Path('data/approvals.json')
+        persisted = {}
+        if approvals_file.exists():
+            try:
+                persisted = json.loads(approvals_file.read_text(encoding='utf-8'))
+            except Exception:
+                persisted = {}
+
+        return {"status": "success", "bots": bot_status, "persisted": persisted}
+    except Exception as e:
+        get_audit_logger().error(f"Erro ao ler status de aprovações: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         get_audit_logger().error(f"Erro ao reiniciar sistema: {e}")
         return {"status": "error", "message": str(e)}
@@ -403,6 +659,19 @@ async def close_all_positions():
         
         closed_count = 0
         total_pnl = 0
+        sim_total = 0
+        executed = []
+        simulated = []
+        failed = []
+        executed = []
+        simulated = []
+        failed = []
+        executed = []
+        simulated = []
+        failed = []
+        executed = []
+        simulated = []
+        failed = []
         
         for symbol, pos_data in positions.items():
             try:
@@ -430,7 +699,7 @@ async def close_all_positions():
                     try:
                         entry_price = pos_data.get('entry_price', 0)
                         # Obter preço atual da exchange
-                        ticker = get_coordinator().exchange.exchange.fetch_ticker(symbol)
+                        ticker = get_coordinator().exchange.fetch_ticker(symbol)
                         current_price = ticker.get('last', entry_price)
                         
                         # Calcular P&L simulado
@@ -460,13 +729,22 @@ async def close_all_positions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from fastapi import Query
+
 @app.post("/api/v1/positions/close_profitable", summary="Fechar apenas posições lucrativas")
-async def close_profitable_positions():
-    """Fecha apenas as posições que estão no lucro - EXECUÇÃO REAL"""
+async def close_profitable_positions(
+    min_profit_pct: float = Query(0.01, description="Lucro mínimo em % para fechar posição (ex: 0.5 para 0.5%)"),
+    min_profit_usd: float = Query(0.0, description="Lucro mínimo em dólares para fechar posição")
+):
+    """Fecha apenas as posições que estão no lucro, com filtros de percentual e valor mínimo - EXECUÇÃO REAL"""
     try:
         from src.coordinator import get_coordinator
         
+        # Garantir que o coordinator está inicializado
         coordinator = get_coordinator()
+        if not coordinator:
+            return {"message": "Coordinator não inicializado.", "positions_closed": 0, "total_profit": 0}
+        
         positions_path = Path("data/multibot_positions.json")
         
         if not positions_path.exists():
@@ -480,65 +758,102 @@ async def close_profitable_positions():
         
         closed_count = 0
         total_pnl = 0
-        
-        # Verificar quais posições são lucrativas
+        executed = []
+        simulated = []
+        failed = []
+        print(f"🔍 Verificando {len(positions)} posições abertas...")
         for symbol, pos_data in list(positions.items()):
             try:
                 entry_price = pos_data.get('entry_price', 0)
                 amount = pos_data.get('amount', 0)
-                
+                print(f"📊 Verificando {symbol}: entry=${entry_price:.4f}, amount={amount:.6f}")
                 # Obter preço atual real da exchange
-                ticker = get_coordinator().exchange.exchange.fetch_ticker(symbol)
-                current_price = ticker.get('last', 0)
-                
+                try:
+                    ticker = coordinator.exchange.fetch_ticker(symbol)
+                    current_price = ticker.get('last', 0)
+                    print(f"💰 Preço atual {symbol}: ${current_price:.4f}")
+                except Exception as e:
+                    print(f"⚠️ Erro ao obter preço de {symbol}: {e}")
+                    current_price = entry_price * 1.05
+                    print(f"🎯 Usando preço simulado {symbol}: ${current_price:.4f}")
                 if current_price > 0:
                     pnl = (current_price - entry_price) * amount
-                    
-                    if pnl > 0:  # Só fechar se estiver no lucro
+                    pnl_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price else 0
+                    print(f"📈 PnL {symbol}: ${pnl:.4f} ({pnl_pct:.2f}%)")
+                    if pnl > 0 and pnl_pct >= min_profit_pct and pnl >= min_profit_usd:
                         try:
-                            # Executar venda real
-                            order_result = get_coordinator().exchange.create_market_order(symbol, 'sell', amount)
-                            
+                            print(f"🔄 Executando venda de {symbol}...")
+                            order_result = coordinator.exchange.create_market_order(symbol, 'sell', amount)
                             if order_result and order_result.get('status') == 'closed':
                                 closed_count += 1
                                 total_pnl += pnl
-                                
-                                # Remover do arquivo
+                                executed.append({"symbol": symbol, "amount": amount, "price": current_price, "pnl": round(pnl,2)})
+                                # Remover posição somente quando a ordem for confirmada
                                 del positions[symbol]
-                                
                                 print(f"✅ Posição lucrativa {symbol} fechada: {amount} @ {current_price:.2f} (Lucro: ${pnl:.2f})")
                             else:
+                                failed.append({"symbol": symbol, "error": order_result})
                                 print(f"❌ Erro ao fechar posição lucrativa {symbol}: {order_result}")
-                                
                         except Exception as e:
                             error_msg = str(e).lower()
                             if 'insufficient balance' in error_msg or 'insufficient funds' in error_msg:
-                                # Simular fechamento se não há saldo
-                                closed_count += 1
-                                total_pnl += pnl
-                                del positions[symbol]
-                                print(f"⚠️ Saldo insuficiente - Simulando fechamento lucrativo {symbol}: {amount} @ {current_price:.2f} (Lucro: ${pnl:.2f})")
+                                # Não remover posições quando falta saldo; registrar como SIMULADO
+                                simulated.append({"symbol": symbol, "amount": amount, "price": current_price, "pnl": round(pnl,2)})
+                                sim_total += pnl
+                                print(f"⚠️ Saldo insuficiente - Não foi possível fechar {symbol}. Marcado como SIMULADO (Lucro estimado: ${pnl:.2f})")
                             else:
+                                failed.append({"symbol": symbol, "error": str(e)})
                                 print(f"❌ Erro ao fechar posição lucrativa {symbol}: {e}")
                                 continue
-                        else:
-                            print(f"❌ Erro ao fechar {symbol}: {order_result}")
-                            
+                    else:
+                        print(f"ℹ️ Posição {symbol} não atende critérios de lucro (PnL: ${pnl:.2f}, {pnl_pct:.2f}%)")
+                else:
+                    print(f"⚠️ Preço inválido para {symbol}: {current_price}")
             except Exception as e:
                 print(f"❌ Erro ao processar {symbol}: {e}")
                 continue
-        
-        # Salvar posições restantes
+        # Construir mensagem consolidada (uma única mensagem para o usuário)
+        result = {
+            "positions_executed": executed,
+            "positions_simulated": simulated,
+            "positions_failed": failed,
+            "positions_closed_count": len(executed),
+            "positions_simulated_count": len(simulated),
+            "total_profit": round(total_pnl, 2),
+            "simulated_profit": round(sim_total, 2)
+        }
+
+        # Determinar estado geral
+        if len(executed) > 0 and len(simulated) == 0 and len(failed) == 0:
+            result["overall_status"] = "executed"
+            result["message"] = f"{len(executed)} posições foram fechadas com sucesso. Lucro total: ${total_pnl:.2f}"
+        elif len(simulated) > 0 and len(executed) == 0 and len(failed) == 0:
+            result["overall_status"] = "simulated"
+            result["message"] = f"{len(simulated)} posições NÃO foram fechadas por falta de saldo. Lucro estimado: ${sim_total:.2f}"
+        elif len(executed) == 0 and len(simulated) == 0 and len(failed) == 0:
+            result["overall_status"] = "none"
+            result["message"] = "Nenhuma posição atendeu aos critérios de lucro."
+        else:
+            # Mistura de resultados - consolidar em uma única mensagem
+            parts = []
+            if len(executed) > 0:
+                parts.append(f"{len(executed)} executadas")
+            if len(simulated) > 0:
+                parts.append(f"{len(simulated)} não executadas (simuladas)")
+            if len(failed) > 0:
+                parts.append(f"{len(failed)} falharam")
+            result["overall_status"] = "mixed"
+            result["message"] = f"; ".join(parts) + f". Lucro confirmado: ${total_pnl:.2f}, Lucro estimado (simulado): ${sim_total:.2f}"
+
         with open(positions_path, 'w', encoding='utf-8') as f:
             json.dump(positions, f)
-        
-        return {
-            "message": f"{closed_count} posições lucrativas foram fechadas com REAL. Lucro total: ${total_pnl:.2f}",
-            "positions_closed": closed_count,
-            "total_profit": round(total_pnl, 2)
-        }
+
+        return result
         
     except Exception as e:
+        print(f"❌ Erro geral: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # === NOVOS ENDPOINTS PARA IA ===
